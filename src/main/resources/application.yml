@@ -40,6 +40,23 @@ server:
     whitelabel:
       enabled: false
 
+# Only the health endpoint is exposed, without details (it is public).
+management:
+  endpoints:
+    access:
+      default: none
+    web:
+      base-path: /actuator
+      exposure:
+        include: health
+  endpoint:
+    health:
+      access: read-only
+      show-details: never
+      show-components: never
+      probes:
+        enabled: true
+
 # JSON logs (ECS) with request_id from the MDC and credentials redacted.
 logging:
   structured:
