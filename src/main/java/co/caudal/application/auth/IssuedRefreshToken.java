@@ -1,5 +1,6 @@
 package co.caudal.application.auth;
 
+import java.time.Duration;
 import java.time.Instant;
 
 /**
@@ -8,8 +9,9 @@ import java.time.Instant;
  *
  * @param rawValue the secret for the cookie
  * @param expiresAt when the session ends
+ * @param timeToLive length of the session, for the cookie lifetime
  */
-public record IssuedRefreshToken(String rawValue, Instant expiresAt) {
+public record IssuedRefreshToken(String rawValue, Instant expiresAt, Duration timeToLive) {
 
   @Override
   public String toString() {

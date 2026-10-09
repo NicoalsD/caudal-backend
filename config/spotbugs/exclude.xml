@@ -83,4 +83,11 @@
   <Match>
     <Bug pattern="SPRING_ENDPOINT"/>
   </Match>
+
+  <!-- The user agent is only stored (trimmed to 200 characters) as informational data of a session;
+       no decision depends on it. -->
+  <Match>
+    <Class name="co.caudal.api.controller.AuthController"/>
+    <Bug pattern="SERVLET_HEADER_USER_AGENT"/>
+  </Match>
 </FindBugsFilter>

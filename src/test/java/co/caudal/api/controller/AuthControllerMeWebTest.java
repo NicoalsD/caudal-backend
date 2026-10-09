@@ -43,6 +43,7 @@ class AuthControllerMeWebTest {
 
   @Autowired private MockMvc mvc;
   @MockitoBean private GetCurrentUserUseCase currentUser;
+  @MockitoBean private co.caudal.application.auth.LoginUseCase login;
 
   @Test
   void withoutTokenAnswers401InTheCanonicalFormat() throws Exception {

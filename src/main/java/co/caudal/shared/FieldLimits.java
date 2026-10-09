@@ -55,6 +55,12 @@ public final class FieldLimits {
   /** Length of a SHA-256 digest in lower case hexadecimal ({@code char(64)} in the DB). */
   public static final int SHA256_HEX_LENGTH = 64;
 
+  /** Maximum length of the username typed at login, before any format check. */
+  public static final int LOGIN_USERNAME_INPUT_MAX = 128;
+
+  /** Minimum length of the HMAC key that hides IP addresses and usernames, in bytes. */
+  public static final int HMAC_KEY_MIN_BYTES = 32;
+
   /** Minimum length of a person name. */
   public static final int PERSON_NAME_MIN = 2;
 

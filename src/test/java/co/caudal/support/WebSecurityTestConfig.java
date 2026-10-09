@@ -1,8 +1,11 @@
 package co.caudal.support;
 
 import co.caudal.api.security.AuthWebConfig;
+import co.caudal.api.security.RefreshCookieFactory;
+import co.caudal.api.security.RefreshRequestGuard;
 import co.caudal.application.port.out.PermissionPort;
 import co.caudal.application.port.out.SecurityEventPort;
+import co.caudal.infrastructure.config.JsonStrictnessConfig;
 import co.caudal.infrastructure.security.ApiAccessDeniedHandler;
 import co.caudal.infrastructure.security.ApiAuthenticationEntryPoint;
 import co.caudal.infrastructure.security.PermissionCatalog;
@@ -31,7 +34,10 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
   ApiAccessDeniedHandler.class,
   PermissionCatalog.class,
   AuthWebConfig.class,
-  ClockConfig.class
+  RefreshCookieFactory.class,
+  RefreshRequestGuard.class,
+  ClockConfig.class,
+  JsonStrictnessConfig.class
 })
 public class WebSecurityTestConfig {
 

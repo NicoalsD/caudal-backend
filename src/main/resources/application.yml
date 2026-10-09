@@ -21,6 +21,9 @@ spring:
   # JSON contract in snake_case (docs/API.md, section 1.1).
   jackson:
     property-naming-strategy: SNAKE_CASE
+    # Unknown fields are rejected. Coercion of types is off (see JsonStrictnessConfig).
+    deserialization:
+      fail-on-unknown-properties: true
   mvc:
     problemdetails:
       enabled: false
@@ -70,6 +73,15 @@ caudal:
     # Permissions come from iam.role_permissions; they are cached for this many seconds.
     permissions:
       cache-ttl-seconds: ${PERMISSION_CACHE_TTL_SECONDS:60}
+    # Lock after consecutive failures (window = first lock) and limit per IP.
+    login:
+      max-failures: ${LOGIN_MAX_FAILURES:5}
+      lock-minutes: ${LOGIN_LOCK_MINUTES:15}
+      ip-max-attempts: ${LOGIN_IP_MAX_ATTEMPTS:20}
+      ip-window-minutes: ${LOGIN_IP_WINDOW_MINUTES:15}
+    # Key that hides IP addresses and typed usernames in the database. No default value.
+    privacy:
+      ip-hmac-key: ${IP_HMAC_KEY}
     # Argon2id (docs/Seguridad.md, section 2.1). The defaults are the canonical values.
     argon2:
       memory-kib: ${ARGON2_MEMORY_KIB:19456}

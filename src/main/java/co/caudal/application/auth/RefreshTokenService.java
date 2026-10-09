@@ -135,7 +135,7 @@ public class RefreshTokenService {
   private record Stored(OpaqueToken secret, RefreshToken saved) {
 
     IssuedRefreshToken toIssued() {
-      return new IssuedRefreshToken(secret.raw(), saved.expiresAt());
+      return new IssuedRefreshToken(secret.raw(), saved.expiresAt(), saved.lifetime());
     }
   }
 

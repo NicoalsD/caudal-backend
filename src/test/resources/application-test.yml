@@ -27,6 +27,13 @@ caudal:
       allowed-origins: http://localhost:5173,https://app.example.test
     permissions:
       cache-ttl-seconds: 60
+    login:
+      max-failures: 5
+      lock-minutes: 15
+      ip-max-attempts: 20
+      ip-window-minutes: 15
+    privacy:
+      ip-hmac-key: test-only-ip-hmac-key-with-at-least-32-bytes
     refresh:
       ttl-days: 7
       operator-ttl-days: 30
