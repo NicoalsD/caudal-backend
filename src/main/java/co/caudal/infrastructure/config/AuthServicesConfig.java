@@ -4,6 +4,7 @@ import co.caudal.application.auth.GetCurrentUserUseCase;
 import co.caudal.application.auth.LoginPorts;
 import co.caudal.application.auth.LoginSettings;
 import co.caudal.application.auth.LoginUseCase;
+import co.caudal.application.auth.RefreshSessionUseCase;
 import co.caudal.application.auth.RefreshTokenService;
 import co.caudal.application.port.out.AccessTokenIssuerPort;
 import co.caudal.application.port.out.LoginAccountPort;
@@ -14,6 +15,7 @@ import co.caudal.application.port.out.PermissionPort;
 import co.caudal.application.port.out.PrivacyHasherPort;
 import co.caudal.application.port.out.RefreshTokenPort;
 import co.caudal.application.port.out.SecurityEventPort;
+import co.caudal.application.port.out.TokenVersionPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.port.out.UserProfilePort;
 import co.caudal.domain.user.LockoutPolicy;
@@ -87,5 +89,18 @@ class AuthServicesConfig {
         policy,
         settings,
         clock);
+  }
+
+  @Bean
+  RefreshSessionUseCase refreshSessionUseCase(
+      RefreshTokenService refreshTokens,
+      TokenVersionPort versions,
+      MembershipPort memberships,
+      AccessTokenIssuerPort accessTokens,
+      PrivacyHasherPort hasher,
+      UnitOfWorkPort unitOfWork,
+      Clock clock) {
+    return new RefreshSessionUseCase(
+        refreshTokens, versions, memberships, accessTokens, hasher, unitOfWork, clock);
   }
 }

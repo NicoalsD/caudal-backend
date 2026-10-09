@@ -2,8 +2,10 @@ package co.caudal.api.mapper;
 
 import co.caudal.api.dto.response.CurrentUserResponse;
 import co.caudal.api.dto.response.LoginResponse;
+import co.caudal.api.dto.response.RefreshResponse;
 import co.caudal.application.auth.CurrentUser;
 import co.caudal.application.auth.LoginResult;
+import co.caudal.application.auth.RefreshResult;
 
 /** Maps results of the authentication use cases to response DTOs. */
 public final class AuthMapper {
@@ -32,6 +34,17 @@ public final class AuthMapper {
             user.role(),
             user.aqueductId(),
             user.mustChangePassword()));
+  }
+
+  /**
+   * Maps a refresh.
+   *
+   * @param result result of the use case
+   * @return the response, without the refresh token
+   */
+  public static RefreshResponse toResponse(RefreshResult result) {
+    return new RefreshResponse(
+        result.accessToken().value(), TOKEN_TYPE, result.accessToken().timeToLive().toSeconds());
   }
 
   /**

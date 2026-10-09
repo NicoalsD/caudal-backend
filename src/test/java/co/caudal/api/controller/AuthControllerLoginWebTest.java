@@ -51,6 +51,7 @@ class AuthControllerLoginWebTest {
   @Autowired private MockMvc mvc;
   @MockitoBean private LoginUseCase login;
   @MockitoBean private GetCurrentUserUseCase currentUser;
+  @MockitoBean private co.caudal.application.auth.RefreshSessionUseCase refresh;
 
   private static LoginResult result() {
     return new LoginResult(

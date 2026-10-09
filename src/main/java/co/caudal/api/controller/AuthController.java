@@ -3,12 +3,17 @@ package co.caudal.api.controller;
 import co.caudal.api.dto.request.LoginRequest;
 import co.caudal.api.dto.response.CurrentUserResponse;
 import co.caudal.api.dto.response.LoginResponse;
+import co.caudal.api.dto.response.RefreshResponse;
 import co.caudal.api.mapper.AuthMapper;
 import co.caudal.api.security.RefreshCookieFactory;
+import co.caudal.api.security.RefreshRequestGuard;
 import co.caudal.application.auth.GetCurrentUserUseCase;
 import co.caudal.application.auth.LoginInput;
 import co.caudal.application.auth.LoginResult;
 import co.caudal.application.auth.LoginUseCase;
+import co.caudal.application.auth.RefreshInput;
+import co.caudal.application.auth.RefreshResult;
+import co.caudal.application.auth.RefreshSessionUseCase;
 import co.caudal.shared.error.DomainException;
 import co.caudal.shared.error.ErrorCode;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,6 +31,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -40,13 +46,58 @@ public class AuthController {
 
   private final GetCurrentUserUseCase currentUser;
   private final LoginUseCase login;
+  private final RefreshSessionUseCase refresh;
   private final RefreshCookieFactory cookies;
+  private final RefreshRequestGuard refreshGuard;
 
   AuthController(
-      GetCurrentUserUseCase currentUser, LoginUseCase login, RefreshCookieFactory cookies) {
+      GetCurrentUserUseCase currentUser,
+      LoginUseCase login,
+      RefreshSessionUseCase refresh,
+      RefreshCookieFactory cookies,
+      RefreshRequestGuard refreshGuard) {
     this.currentUser = currentUser;
     this.login = login;
+    this.refresh = refresh;
     this.cookies = cookies;
+    this.refreshGuard = refreshGuard;
+  }
+
+  @Operation(
+      summary = "Renovar la sesión",
+      description =
+          "Cambia el refresh token de la cookie HttpOnly caudal_rt por un access token nuevo y"
+              + " rota la cookie: el token anterior deja de servir. Exige la cabecera"
+              + " X-Requested-With: caudal-web y un Origin permitido. Si se presenta un refresh"
+              + " token que ya fue rotado, se revoca toda la sesión (SESSION_REVOKED) y se registra"
+              + " TOKEN_REUSE_DETECTED. No usa Authorization: la cookie es la credencial.")
+  @SecurityRequirements
+  @ApiResponse(
+      responseCode = "200",
+      description = "Sesión renovada",
+      content = @Content(schema = @Schema(implementation = RefreshResponse.class)))
+  @ApiResponse(
+      responseCode = "401",
+      description = "UNAUTHORIZED (sin cookie o vencida) o SESSION_REVOKED (reutilización)")
+  @ApiResponse(
+      responseCode = "403",
+      description = "FORBIDDEN: falta X-Requested-With u Origin no permitido")
+  @PostMapping("/refresh")
+  public ResponseEntity<RefreshResponse> refresh(
+      @CookieValue(name = RefreshCookieFactory.COOKIE_NAME, required = false) String secret,
+      HttpServletRequest http) {
+    refreshGuard.verify(http);
+    RefreshResult result =
+        refresh.execute(
+            new RefreshInput(secret, http.getRemoteAddr(), http.getHeader(HttpHeaders.USER_AGENT)));
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.noStore())
+        .header(
+            HttpHeaders.SET_COOKIE,
+            cookies
+                .create(result.refreshToken().rawValue(), result.refreshToken().timeToLive())
+                .toString())
+        .body(AuthMapper.toResponse(result));
   }
 
   @Operation(
