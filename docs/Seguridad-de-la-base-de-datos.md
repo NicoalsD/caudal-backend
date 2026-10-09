@@ -12,7 +12,7 @@ La especificación de columnas es la fuente `schema.yaml` del equipo de document
 |---|---|
 | Esquemas | 7: `iam`, `org`, `ops`, `reporting`, `devices`, `audit`, `sim` |
 | Tablas | 57 (iam 16, org 10, ops 18, reporting 2, devices 6, audit 4, sim 1) |
-| Columnas | 467 (I 372, P 71, C 16, S 8) |
+| Columnas | 469 (clasificadas en el diccionario; 8 secretas) |
 | Tablas con RLS (`FORCE`) | 37 |
 | Tablas append-only | 23 |
 | Columnas secretas (S) | 8 |
@@ -26,7 +26,7 @@ La especificación de columnas es la fuente `schema.yaml` del equipo de document
 | `caudal_app` | Lo usa la API en tiempo de ejecución | DML mínimo, según la tabla de privilegios de la sección 3. Ejecutar las funciones `SECURITY DEFINER` de purga | DDL. `DELETE` directo. Modificar tablas append-only. Leer columnas `S` que no necesita. Saltarse RLS |
 | `caudal_readonly` | Reportes y consultas de solo lectura | `SELECT` sobre las vistas de reportes (lista por definir) | Leer tablas base. Leer `password_hash` o cualquier columna `S` o `C` |
 
-Atributos (propuesta): los roles de privilegios son `NOLOGIN`, y cada servicio entra con un usuario que es miembro del rol correspondiente. `caudal_app` y `caudal_readonly` no tienen `BYPASSRLS`, no son `SUPERUSER` y no son dueños de ningún objeto. No tienen `CREATE` sobre el esquema `public`. Se revoca `CREATE ON SCHEMA public FROM PUBLIC`.
+Atributos (implementado en `V1`): `caudal_app` y `caudal_readonly` son roles `LOGIN` sin contraseña. Así los tiempos límite de la sección 2.1 se aplican a la sesión, porque `ALTER ROLE ... SET` solo afecta al rol con el que se inicia sesión. La contraseña se fija fuera de git (consola de Neon o `ALTER ROLE ... PASSWORD` por la persona que opera) y nunca viaja en una migración ni en un placeholder. `V1` falla si alguno de los dos tiene `SUPERUSER`, `BYPASSRLS`, `CREATEROLE`, `CREATEDB` o `REPLICATION`. `caudal_app` y `caudal_readonly` no tienen `BYPASSRLS`, no son `SUPERUSER` y no son dueños de ningún objeto. No tienen `CREATE` sobre el esquema `public`. Se revoca `CREATE ON SCHEMA public FROM PUBLIC`.
 
 ### 2.1 Tiempos límite por rol
 
@@ -224,7 +224,7 @@ CREATE POLICY readings_tenant ON ops.readings
 ```
 
 - `USING` filtra lo que se lee o modifica. `WITH CHECK` impide insertar o mover filas a otro acueducto.
-- `FORCE ROW LEVEL SECURITY` aplica las políticas también al dueño de la tabla (`caudal_migrator`). Sin `FORCE`, el dueño las saltaría.
+- `FORCE ROW LEVEL SECURITY` aplica las políticas también al dueño de la tabla. Sin `FORCE`, el dueño las saltaría. **En Neon el dueño es `neondb_owner`, que tiene `BYPASSRLS` por diseño de la plataforma**: para ese login el `FORCE` no aplica. Por eso ese login solo lo usa Flyway, y la aplicación entra siempre como `caudal_app`, que no tiene `BYPASSRLS` (verificado en Neon el 2026-10-09).
 - Las tablas hijas sin `aqueduct_id` (por ejemplo `rule_sector_settings`, que tiene `rule_set_id` y `sector_id`) usan una política que consulta la tabla padre con `EXISTS`. Es más lenta; se revisa con `EXPLAIN` en la prueba de rendimiento.
 
 Tablas con RLS según el esquema (37):
@@ -285,7 +285,7 @@ LANGUAGE plpgsql
 SET search_path = pg_catalog, audit
 AS $$
 BEGIN
-  IF TG_OP = 'DELETE' AND current_user = 'caudal_migrator' THEN
+  IF TG_OP = 'DELETE' AND audit.is_object_owner() THEN
     RETURN OLD;  -- purga autorizada: solo se ejecuta dentro de una función SECURITY DEFINER
   END IF;
   RAISE EXCEPTION 'append_only_violation'
@@ -307,8 +307,8 @@ Cada tabla AO tiene su propio trigger. Se generan con una migración que recorre
 
 Cuatro tablas AO tienen plazo de retención (`login_attempts`, `security_events`, `data_access_log` y `telemetry_points`). Dos tablas que no son AO también se purgan (`device_nonces` y `refresh_tokens`). Como `caudal_app` no puede borrar, la purga pasa por funciones `SECURITY DEFINER`, que son el único camino de borrado además de la migración:
 
-- La función es propiedad de `caudal_migrator` y se define con `SECURITY DEFINER` y `SET search_path`.
-- El trigger de inmutabilidad deja pasar el `DELETE` solo si `current_user` es `caudal_migrator`. `caudal_app` nunca tiene esa identidad, aunque llame a la función. Dentro de la función, `current_user` sí es el dueño.
+- La función es propiedad del dueño de los objetos (el usuario de Flyway) y se define con `SECURITY DEFINER` y `SET search_path`.
+- El trigger de inmutabilidad deja pasar el `DELETE` solo si `current_user` es el dueño de los objetos (`audit.is_object_owner()`, que lee el dueño del esquema `audit` del catálogo). `caudal_app` nunca tiene esa identidad, aunque llame a la función. Dentro de la función, `current_user` sí es el dueño.
 - La función lee el plazo de `audit.retention_policies`, escribe primero en `audit.audit_log` un registro `PURGE` con la clase de dato, la fecha de corte y el número de filas, y después borra.
 
 ```sql
@@ -336,9 +336,9 @@ REVOKE ALL ON FUNCTION audit.purge_login_attempts() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION audit.purge_login_attempts() TO caudal_app;
 ```
 
-La versión final de `audit.forbid_mutation()` (la de la sección 6) deja pasar el `DELETE` solo cuando `current_user` es `caudal_migrator`. Dos advertencias:
+La versión final de `audit.forbid_mutation()` (la de la sección 6) deja pasar el `DELETE` solo cuando `current_user` es el dueño de los objetos. Dos advertencias:
 
-- El nombre `caudal_migrator` queda escrito en el trigger. Si cambia el nombre del rol, hay que cambiar el trigger. La prueba `AppendOnlyTablesIT` lo cubre.
+- El nombre del dueño no se escribe en el trigger: se lee del catálogo con `audit.is_object_owner()`. Así funciona igual con `caudal_migrator` en local y con `neondb_owner` en Neon. La prueba `AppendOnlyAndTriggersIT` lo cubre.
 - El propio login del migrador puede borrar filas AO. Por eso el login del migrador solo lo usa Flyway en el despliegue y nunca la aplicación. Restringir más ese login (por ejemplo, con un rol de migración sin `DELETE` sobre AO y una función dueña separada) queda por definir.
 
 Purga por clase (`retention_policies.data_class`):
@@ -596,7 +596,25 @@ Reglas que dependen de la clase:
 - En local (Docker Compose) no hay PITR. Se usa un volcado `pg_dump` por definir.
 - Los respaldos contienen datos `S` y `C`. Su acceso se trata como el de la base de datos en producción.
 
-## 13. Pruebas que verifican este documento
+## 13. Implementación (migraciones V1 a V47)
+
+Las migraciones viven en `src/main/resources/db/migration`. Las tablas (V2 a V38) se generan de la especificación del esquema, la misma que genera el diccionario y la ERD; los triggers, la cadena, RLS, privilegios y semillas (V39 a V47) se escriben a mano.
+
+| Decisión | Por qué |
+|---|---|
+| Llaves foráneas compuestas `(x_id, aqueduct_id)` → `(id, aqueduct_id)` cuando las dos tablas tienen `aqueduct_id NOT NULL` | Una llave foránea no pasa por RLS. Sin la llave compuesta, una lectura del acueducto A podría apuntar al tanque del acueducto B. Cada tabla con `aqueduct_id` tiene `UNIQUE (id, aqueduct_id)` para eso. |
+| Índice en cada columna de llave foránea, más índices de consulta (lecturas por tanque y hora, cadena de auditoría, propuestas por día) | PostgreSQL no indexa las llaves foráneas por sí solo; sin índice, `ON DELETE RESTRICT` y los `JOIN` recorren la tabla. |
+| `audit.current_aqueduct_id()` y `audit.current_user_id()` en las políticas | Convierten un `app.aqueduct_id` vacío en `NULL` (fallo cerrado) en vez de un error de conversión a `uuid`. |
+| Política `global_maintenance` en `audit.audit_log` | Las purgas de tablas sin acueducto escriben su `PURGE` con `aqueduct_id` nulo. Solo el dueño, dentro de las funciones `SECURITY DEFINER`, ve o escribe esas filas. |
+| Purgas de tablas con RLS acueducto por acueducto | La función fija `app.aqueduct_id` para cada acueducto y restaura al final el valor de quien la llamó. |
+| Patrones ASCII entre comillas simples (`'${username_pattern}'`) | Flyway no separa bien las sentencias con comillas de dólar que terminan en `$`. Los patrones que llegan a la BD no tienen comillas ni barras invertidas. |
+| `TRUNCATE` bloqueado por trigger en las 23 tablas AO | El trigger por fila no cubre `TRUNCATE`. |
+| Vista `ops.effective_readings` con `security_invoker` | La vista respeta el RLS de `readings` y `reading_corrections`. |
+| Semilla del acueducto demo con una cuenta de sistema `DISABLED` cuyo `password_hash` no es PHC | Ninguna contraseña verifica contra ese valor; la cuenta solo firma la semilla. |
+
+Despliegue en Neon (proyecto `CAUDAL`, rama `production`, base `caudal`, 2026-10-09): Flyway aplicó las 47 migraciones por la conexión directa (sin `-pooler`) con `sslmode=verify-full`. La huella del catálogo coincide con la base local migrada. Para verificar RLS desde la consola sin conocer la contraseña de `caudal_app`, `neondb_owner` es miembro de `caudal_app` con `SET TRUE` e `INHERIT FALSE` (puede hacer `SET ROLE caudal_app`, pero no hereda sus privilegios).
+
+## 14. Pruebas que verifican este documento
 
 Todas las pruebas usan Testcontainers con PostgreSQL 18 y se ejecutan en CI. Los nombres van en inglés.
 
@@ -604,7 +622,7 @@ Todas las pruebas usan Testcontainers con PostgreSQL 18 y se ejecutan en CI. Los
 |---|---|
 | `RowLevelSecurityIsolationIT` | Un acueducto no ve ni modifica filas de otro. `WITH CHECK` impide mover filas. Sin `app.aqueduct_id`, no hay filas |
 | `RowLevelSecurityForcedIT` | `FORCE ROW LEVEL SECURITY` activo en las 37 tablas |
-| `AppendOnlyTablesIT` | Las 23 tablas AO rechazan `UPDATE` y `DELETE` de `caudal_app` y del dueño, salvo la purga autorizada |
+| `AppendOnlyAndTriggersIT` | Las 23 tablas AO rechazan `UPDATE` y `DELETE` de `caudal_app` y del dueño, salvo la purga autorizada |
 | `PurgeFunctionsIT` | Cada función de purga borra solo lo vencido, escribe `PURGE` antes, y no borra filas referenciadas |
 | `DatabasePrivilegesIT` | La tabla de la sección 3 coincide con `information_schema.role_table_grants` y `role_column_grants` |
 | `ColumnPrivilegesIT` | `caudal_readonly` no lee ninguna columna `S` ni `C`. `caudal_app` no escribe `password_hash` fuera del cambio de contraseña |
