@@ -33,6 +33,21 @@ spring:
         jdbc:
           time_zone: UTC
 
+# Swagger UI and OpenAPI document; API_DOCS_ENABLED=false turns both into 404.
+springdoc:
+  api-docs:
+    enabled: ${API_DOCS_ENABLED:true}
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: ${API_DOCS_ENABLED:true}
+    path: /swagger-ui.html
+  paths-to-match: /api/v1/**
+  default-produces-media-type: application/json
+
+caudal:
+  api-docs:
+    server-url: ${API_PUBLIC_URL:http://localhost:8080}
+
 server:
   error:
     include-stacktrace: never
