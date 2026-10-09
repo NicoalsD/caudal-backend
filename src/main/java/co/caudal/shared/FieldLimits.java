@@ -49,6 +49,9 @@ public final class FieldLimits {
   /** Minimum length of the JWT signing secret, in bytes (256 bits for HS256). */
   public static final int JWT_SECRET_MIN_BYTES = 32;
 
+  /** Clock difference tolerated when checking {@code exp} and {@code nbf}, in seconds. */
+  public static final int JWT_CLOCK_SKEW_SECONDS = 30;
+
   /** Minimum length of a person name. */
   public static final int PERSON_NAME_MIN = 2;
 

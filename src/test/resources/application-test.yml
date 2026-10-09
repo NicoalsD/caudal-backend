@@ -1,13 +1,14 @@
 # Test profile: every test that starts Spring uses a real PostgreSQL 18 started by
-# Testcontainers through its JDBC URL. Datasource and Flyway share the same container.
+# Testcontainers through its JDBC URL. Datasource and Flyway share the same container; TC_DAEMON
+# keeps it alive until the JVM ends, whatever connection closes first (Flyway or the pool).
 spring:
   datasource:
-    url: jdbc:tc:postgresql:18:///caudal
+    url: jdbc:tc:postgresql:18:///caudal?TC_DAEMON=true
     driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
     username: test
     password: test
   flyway:
-    url: jdbc:tc:postgresql:18:///caudal
+    url: jdbc:tc:postgresql:18:///caudal?TC_DAEMON=true
     user: test
     password: test
 

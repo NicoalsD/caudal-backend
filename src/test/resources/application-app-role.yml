@@ -1,0 +1,12 @@
+# Test profile that runs the application as caudal_app (least privilege, RLS applies), like in
+# production. Flyway keeps running as the container owner and also loads the test-only migration
+# that gives the role a throwaway password. Datasource and Flyway share the same container.
+spring:
+  datasource:
+    # Its own database (and container): it also holds the test-only migration.
+    url: jdbc:tc:postgresql:18:///caudal_app_role?TC_DAEMON=true
+    username: caudal_app
+    password: test-only-role-password
+  flyway:
+    url: jdbc:tc:postgresql:18:///caudal_app_role?TC_DAEMON=true
+    locations: classpath:db/migration,classpath:db/testmigration
