@@ -70,6 +70,13 @@
     <Bug pattern="THROWS_METHOD_THROWS_CLAUSE_BASIC_EXCEPTION"/>
   </Match>
 
+  <!-- The CSRF matcher and the CORS source read Origin and Authorization only to REFUSE requests
+       that do not match exact expected values; the headers are never trusted as data. -->
+  <Match>
+    <Class name="~co\.caudal\.infrastructure\.security\.SecurityConfig.*"/>
+    <Bug pattern="SERVLET_HEADER"/>
+  </Match>
+
   <!-- The body is application/json built from a fixed catalog message and the request id, which
        RequestIdFilter only accepts when it matches [A-Za-z0-9-]{1,40}; it is never rendered as
        HTML. -->

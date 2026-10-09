@@ -135,7 +135,8 @@ class RefreshFlowIT extends AppRoleIT {
                 .cookie(new Cookie("caudal_rt", secret))
                 .header("X-Requested-With", "caudal-web")
                 .header("Origin", "https://evil.example.test"))
-        .andExpect(status().isForbidden());
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
     mvc.perform(refreshWith(secret)).andExpect(status().isOk());
   }
 

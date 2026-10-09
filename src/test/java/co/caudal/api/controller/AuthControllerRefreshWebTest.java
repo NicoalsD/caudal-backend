@@ -106,8 +106,8 @@ class AuthControllerRefreshWebTest {
                 .cookie(new Cookie("caudal_rt", "old-secret"))
                 .header("X-Requested-With", "caudal-web")
                 .header("Origin", "https://evil.example.test"))
-        // Spring's CORS filter refuses a foreign origin before the controller runs.
-        .andExpect(status().isForbidden());
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
     verifyNoInteractions(refresh);
   }
 

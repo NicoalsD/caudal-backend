@@ -1,5 +1,6 @@
 package co.caudal.api.error;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -47,9 +48,7 @@ class ApiExceptionHandlerWebTest {
 
     @Bean
     SecurityFilterChain openChain(HttpSecurity http) throws Exception {
-      return http.csrf(csrf -> csrf.disable())
-          .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-          .build();
+      return http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll()).build();
     }
   }
 
@@ -80,6 +79,7 @@ class ApiExceptionHandlerWebTest {
   void invalidBodyListsFieldsInSnakeCase() throws Exception {
     mvc.perform(
             post("/probe/body")
+                .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"full_name\":\"\"}"))
         .andExpect(status().isBadRequest())
@@ -94,14 +94,18 @@ class ApiExceptionHandlerWebTest {
 
   @Test
   void malformedJsonIsValidationError() throws Exception {
-    mvc.perform(post("/probe/body").contentType(MediaType.APPLICATION_JSON).content("{oops"))
+    mvc.perform(
+            post("/probe/body")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{oops"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
   }
 
   @Test
   void unsupportedMediaType() throws Exception {
-    mvc.perform(post("/probe/body").contentType(MediaType.TEXT_PLAIN).content("x"))
+    mvc.perform(post("/probe/body").with(csrf()).contentType(MediaType.TEXT_PLAIN).content("x"))
         .andExpect(status().isUnsupportedMediaType())
         .andExpect(jsonPath("$.error.code").value("UNSUPPORTED_MEDIA_TYPE"));
   }

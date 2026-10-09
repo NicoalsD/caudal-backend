@@ -38,10 +38,30 @@ public class RefreshRequestGuard {
    * @throws DomainException with {@code FORBIDDEN} if the header or the origin is not acceptable
    */
   public void verify(HttpServletRequest request) {
-    String marker = request.getHeader(CLIENT_HEADER);
-    String origin = request.getHeader(HttpHeaders.ORIGIN);
-    if (!CLIENT_VALUE.equals(marker) || origin == null || !allowedOrigins.contains(origin)) {
+    if (!isValid(request)) {
       throw new DomainException(ErrorCode.FORBIDDEN);
     }
+  }
+
+  /**
+   * Tells whether the request carries the client header and an allowed origin.
+   *
+   * @param request the incoming request
+   * @return true if both checks pass
+   */
+  public boolean isValid(HttpServletRequest request) {
+    String marker = request.getHeader(CLIENT_HEADER);
+    String origin = request.getHeader(HttpHeaders.ORIGIN);
+    return CLIENT_VALUE.equals(marker) && origin != null && allowedOrigins.contains(origin);
+  }
+
+  /**
+   * Tells whether an origin is one of the allowed ones.
+   *
+   * @param origin value of the {@code Origin} header, possibly null
+   * @return true if it is listed
+   */
+  public boolean isAllowedOrigin(String origin) {
+    return origin != null && allowedOrigins.contains(origin);
   }
 }

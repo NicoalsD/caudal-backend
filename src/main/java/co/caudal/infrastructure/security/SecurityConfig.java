@@ -1,6 +1,7 @@
 package co.caudal.infrastructure.security;
 
 import co.caudal.api.security.CorsProperties;
+import co.caudal.api.security.RefreshRequestGuard;
 import java.util.List;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -21,7 +22,6 @@ import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
  * HTTP security of the API (docs/Seguridad.md, sections 2.3, 2.5, 2.8 and 2.9).
@@ -72,10 +72,12 @@ public class SecurityConfig {
       JwtPermissionsConverter permissions,
       ApiAuthenticationEntryPoint entryPoint,
       ApiAccessDeniedHandler deniedHandler,
-      SecurityErrorWriter errors)
+      SecurityErrorWriter errors,
+      RefreshRequestGuard refreshGuard)
       throws Exception {
     RequestMatcher docs = docsMatcher();
-    return http.csrf(AbstractHttpConfigurer::disable)
+    return http.csrf(
+            csrf -> csrf.requireCsrfProtectionMatcher(cookieDependentRequests(refreshGuard)))
         .cors(Customizer.withDefaults())
         .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .httpBasic(AbstractHttpConfigurer::disable)
@@ -114,6 +116,28 @@ public class SecurityConfig {
         .build();
   }
 
+  /**
+   * CSRF protection for the only requests that depend on a cookie: the ones to the session
+   * endpoints (refresh and logout, where the {@code caudal_rt} cookie is the credential). They need
+   * the {@code X-Requested-With: caudal-web} header and an allowed {@code Origin}, a custom header
+   * that a cross-site form or image cannot add (OWASP: custom request headers). A request that does
+   * not have them is refused by the CSRF filter with {@code 403 FORBIDDEN} in the canonical format.
+   * Requests that carry {@code Authorization: Bearer} do not depend on cookies, so they need no
+   * token; the rest of the API reads no cookie.
+   */
+  static RequestMatcher cookieDependentRequests(RefreshRequestGuard guard) {
+    PathPatternRequestMatcher.Builder paths = PathPatternRequestMatcher.withDefaults();
+    RequestMatcher sessionEndpoints =
+        request ->
+            paths.matcher("/api/v1/auth/refresh").matches(request)
+                || paths.matcher("/api/v1/auth/logout").matches(request);
+    return request -> {
+      String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+      boolean bearer = authorization != null && authorization.startsWith("Bearer ");
+      return sessionEndpoints.matches(request) && !bearer && !guard.isValid(request);
+    };
+  }
+
   @Bean
   CorsConfigurationSource corsConfigurationSource(CorsProperties cors) {
     CorsConfiguration configuration = new CorsConfiguration();
@@ -135,9 +159,12 @@ public class SecurityConfig {
             "Idempotency-Key"));
     configuration.setExposedHeaders(List.of("X-Request-Id", HttpHeaders.RETRY_AFTER));
     configuration.setAllowCredentials(true);
-    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-    source.registerCorsConfiguration("/**", configuration);
-    return source;
+    // A foreign origin gets no CORS configuration: no Access-Control-* headers, and the request
+    // goes on to the security rules, which answer in the canonical format.
+    return request ->
+        cors.allowedOrigins().contains(request.getHeader(HttpHeaders.ORIGIN))
+            ? configuration
+            : null;
   }
 
   private static RequestMatcher docsMatcher() {
