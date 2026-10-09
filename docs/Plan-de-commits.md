@@ -19,18 +19,18 @@ Marca `Hecho` con `[x]` cuando el commit correspondiente se haya fusionado en `d
 
 | Repositorio | Fase 1 | Fase 2 | Fase 3 | Fase 4 | Fase 5 | Fase 6 | Fase 7 | Fase 8 | Fase 9 | Fase 10 | Fase 11 | Fase 12 | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `caudal-backend` | 17 | 54 | 30 | 12 | 15 | 11 | 13 | 10 | 9 | 3 | 7 | 7 | 188 |
+| `caudal-backend` | 17 | 57 | 29 | 12 | 15 | 11 | 13 | 10 | 9 | 3 | 7 | 7 | 190 |
 | `caudal-frontend` | 10 | 6 | 9 | 7 | 12 | 6 | 8 | 8 | 5 | 4 | 2 | 3 | 80 |
 | `caudal-ia` | 8 | 6 | 3 | 0 | 0 | 16 | 0 | 0 | 0 | 8 | 0 | 4 | 45 |
 | `caudal-simulador` | 7 | 14 | 0 | 0 | 8 | 0 | 0 | 0 | 2 | 2 | 24 | 3 | 60 |
-| **Total** | **42** | **80** | **42** | **19** | **35** | **33** | **21** | **18** | **16** | **17** | **33** | **17** | **373** |
+| **Total** | **42** | **83** | **41** | **19** | **35** | **33** | **21** | **18** | **16** | **17** | **33** | **17** | **375** |
 
 | Autor | caudal-backend | caudal-frontend | caudal-ia | caudal-simulador | Total |
 |---|---:|---:|---:|---:|---:|
-| `Drako2305` | 166 | 8 | 0 | 0 | 174 |
+| `Drako2305` | 168 | 8 | 0 | 0 | 176 |
 | `NicoalsD` | 22 | 72 | 0 | 0 | 94 |
 | `nicomora70` | 0 | 0 | 45 | 60 | 105 |
-| **Total** | **188** | **80** | **45** | **60** | **373** |
+| **Total** | **190** | **80** | **45** | **60** | **375** |
 
 Fase 0: 168 commits de documentación y planeación ya realizados; excluidos de esta lista de implementación.
 
@@ -60,8 +60,13 @@ Fase 0: 168 commits de documentación y planeación ya realizados; excluidos de 
 
 ### Fase 2: Base de datos
 
+Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso B073 (antes en la Fase 3) va primero. `FieldLimits` ya existe desde B012 con el límite de `request_id`; B073 agrega la tabla completa de `.agents/input-validation.md`. B189 y B190 son la base que todas las migraciones necesitan: esquemas, extensiones, roles y el mapa de placeholders.
+
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
+| B073 | `feat: agrega límites técnicos en FieldLimits` | `Drako2305` | HU-02, HU-11 | - | [ ] |
+| B189 | `feat: crea esquemas, extensiones y roles de la base de datos` | `Drako2305` | HU-04, HU-32 | - | [ ] |
+| B190 | `feat: alimenta los placeholders de Flyway desde FieldLimits` | `Drako2305` | HU-11 | - | [ ] |
 | B018 | `feat: migra iam.users` | `Drako2305` | HU-04 | Repository | [ ] |
 | B019 | `feat: migra iam.roles, iam.permissions y iam.role_permissions` | `Drako2305` | HU-04 | - | [ ] |
 | B020 | `feat: migra iam.memberships` | `Drako2305` | HU-04 | Repository | [ ] |
@@ -122,7 +127,6 @@ Fase 0: 168 commits de documentación y planeación ya realizados; excluidos de 
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| B073 | `feat: agrega límites técnicos en FieldLimits` | `Drako2305` | HU-02, HU-11 | - | [ ] |
 | B074 | `feat: valida username con FieldLimits` | `Drako2305` | HU-01 | - | [ ] |
 | B075 | `feat: normaliza contraseñas con Unicode NFKC` | `Drako2305` | HU-02 | - | [ ] |
 | B076 | `feat: codifica contraseñas con Argon2id` | `Drako2305` | HU-01, HU-02 | - | [ ] |
