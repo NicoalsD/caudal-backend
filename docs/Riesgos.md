@@ -1,0 +1,35 @@
+# Riesgos
+
+**Escala:** Probabilidad (P) y Impacto (I) de 1 (bajo) a 3 (alto). **Exposición = P × I.** Los riesgos con exposición 6 o más se revisan en cada fase.
+
+| ID | Riesgo | P | I | Exp. | Mitigación | Contingencia |
+|---|---|---|---|---|---|---|
+| RG-01 | **Conectividad rural:** la vereda no tiene señal estable, y el fontanero no puede enviar lecturas ni consultar el horario | 3 | 3 | 9 | PWA con cola offline en IndexedDB (RNF-14), reenvío idempotente por UUID (HU-09, HU-10), mensaje de WhatsApp y cartel impreso (HU-25, HU-26) | Cuaderno de respaldo en el tanque durante el piloto, y captura de lecturas al día siguiente con la misma idempotencia |
+| RG-02 | **Falta de datos reales:** no hay niveles, lluvias ni consumos de la región para calibrar la IA ni validar las reglas | 3 | 3 | 9 | Simulador con gemelo digital y escenarios YAML (`caudal-simulador`), todo marcado "Datos simulados" (RF-39), supuestos explícitos (sección de supuestos) | Presentar el proyecto como prototipo con datos simulados, y pedir a la Junta un piloto de 2 a 4 semanas con lecturas reales |
+| RG-03 | **Memoria del servicio de IA en hosting gratuito:** Chronos y PyTorch pueden no caber en el plan gratuito de Hugging Face Spaces o de Render | 2 | 3 | 6 | Modelo elegido por variable de entorno (`chronos-2-small` o `chronos-bolt-small`), medición de memoria en la fase 6, `RemoteForecasterProxy` con respaldo (RNF-16) | Usar el modelo más pequeño, o desactivar la IA y dejar solo la estimación simple, que sigue cumpliendo la operación |
+| RG-04 | **Render se duerme:** el backend gratuito tarda en responder tras un periodo de inactividad | 3 | 2 | 6 | Indicador de arranque en la app, tiempo de espera mayor en la primera petición (RNF-16), monitoreo externo de salud (por definir) | Plan pagado mínimo durante la presentación y la demo en vivo |
+| RG-05 | **Integrante que se une tarde** (`nicomora70`): la IA y el simulador dependen de una persona que entra en una fase posterior | 3 | 3 | 9 | Contratos primero (OpenAPI del backend, sección 14 de los hechos), alcance mínimo de la IA (estimación simple como respaldo funcional) y del simulador (escenarios básicos) | Reasignar tareas de IA y simulador a NicoalsD o Drako2305, y cerrar el MVP sin IA si es necesario |
+| RG-06 | **Adopción por la comunidad:** el fontanero o la Junta no usan la app y siguen con el papel | 2 | 3 | 6 | Diseño con el fontanero en campo (RNF-12), pruebas con la Junta, WhatsApp y cartel como canales conocidos | Mantener el cuaderno en paralelo durante el piloto, y comparar ambos registros |
+| RG-07 | **Cuentas compartidas o celular compartido:** varias personas usan la misma cuenta, y la auditoría no sabe quién registró qué | 3 | 2 | 6 | Una cuenta por persona (HU-04), membresía con vigencia (RF-04), cierre de sesión global (HU-05), refresh de 30 días solo para `OPERATOR` con cierre manual | Revocar tokens con `logout-all`, cambiar la contraseña, y revisar la auditoría para separar las acciones |
+| RG-08 | **Compatibilidad de Java 25 y Spring Boot 4.1 con las herramientas:** Testcontainers, JaCoCo, SpotBugs, Checkstyle, Spotless y springdoc 3.x pueden no soportar aún esas versiones | 2 | 2 | 4 | Spike de la fase 1 antes de escribir código de dominio, versiones fijadas en Maven Wrapper, CI desde el primer commit | Bajar a la última versión LTS compatible con las herramientas (por definir), o desactivar una herramienta puntual con justificación documentada |
+| RG-09 | **Integración de cuatro repos:** contratos o tipos desalineados entre backend, frontend, IA y simulador | 2 | 2 | 4 | OpenAPI del backend como contrato, tipos del frontend generados con openapi-typescript (RNF-27), ramas `develop` con PR obligatorio y check `commit-lint` | Congelar el contrato antes de cada bloque, y corregir en el backend antes que en el cliente |
+| RG-10 | **Fuga o uso indebido de datos personales** (nombres de familias, contraseñas, claves de dispositivos) | 1 | 3 | 3 | Minimización (no se guardan teléfonos), Proxy público (RNF-20), RLS (RNF-07), hashes (RNF-01), gitleaks (RNF-09), rate limits (RNF-03) | Revocar tokens, rotar secretos, y seguir el procedimiento de incidentes de datos (por definir) |
+| RG-11 | **Cuotas gratuitas agotadas** en Neon, Vercel, Render o Hugging Face Spaces | 2 | 2 | 4 | Índices adecuados, lotes de hasta 100 lecturas, caché de reglas y catálogos, cron de pruebas con límites | Exportar la base de datos y migrar a otro plan gratuito, o pasar a un plan pagado mínimo |
+| RG-12 | **Hardware no probado:** la propuesta de sensor, válvulas y LoRa no se construye ni se prueba, y podría presentarse como real | 3 | 2 | 6 | Hardware marcado como "propuesta documentada, no se construye", valores de referencia con "verificar", bypass manual previsto | Presentar el simulador y la propuesta por separado, sin afirmar que el hardware funciona |
+| RG-13 | **Tiempo del equipo:** tres personas, una de ellas incorporada tarde, y una meta de alrededor de 255 commits en el backend | 3 | 3 | 9 | Backlog por fases con MVP definido (fases 1 a 8 y `backfill`), orden por dependencias, commits pequeños con la convención del proyecto | Pasar los `should` a trabajo futuro en la presentación (HU-17, HU-22, HU-30 a HU-36) |
+| RG-14 | **Datos simulados tomados como reales:** la Junta o la comunidad creen que un horario de prueba es el de verdad | 2 | 3 | 6 | Marca "Datos simulados" en pantalla, PDF y WhatsApp (HU-39), campo `simulated` en la API, acueducto demo separado (`is_demo`) | Revisar los textos antes de cualquier demo, y retirar del acueducto demo cualquier horario que se haya publicado por error |
+
+## Supuestos
+
+- Los planes gratuitos de Neon, Vercel, Render y Hugging Face Spaces alcanzan para el MVP y la presentación. Se verifica al inicio de cada fase.
+- El modelo Chronos (28M o 48M parámetros) corre en CPU con la memoria disponible en el hosting elegido. Por verificar en la fase 6.
+- Guaitarilla está a unos 2.600 metros sobre el nivel del mar; los hogares tienen de 3 a 4 personas y la dotación sigue la referencia del RAS 0330 de 2017. Supuesto por verificar.
+- El régimen de lluvias de Nariño es bimodal. Supuesto por verificar con datos del IDEAM o de la alcaldía.
+- Las familias pueden usar WhatsApp y acceder a una página web desde el celular. No todas las familias tienen celular propio.
+- Los fontaneros tienen un celular con navegador moderno y pueden instalar la PWA.
+- No hay datos reales de la región en esta versión. La evaluación de la IA se hace con datos simulados, y así se declara en el acta.
+- Los valores de ejemplo de las reglas (16 h, 8 h, 3 h, reserva de 1,0) los define la Junta. Ninguno es una recomendación técnica validada.
+- La Junta acepta probar el sistema en un piloto con datos simulados antes de usarlo como decisión oficial (por confirmar).
+- El profesor acepta servicios en planes gratuitos y un servicio de IA alojado en CPU.
+
+Relacionados: [Requerimientos.md](Requerimientos.md) · [Caudal.md](Caudal.md) · [Historias-de-usuario.md](Historias-de-usuario.md) · [Actores-y-permisos.md](Actores-y-permisos.md)
