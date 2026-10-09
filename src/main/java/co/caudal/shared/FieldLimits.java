@@ -46,6 +46,9 @@ public final class FieldLimits {
   /** Length of an Argon2id hash, in bytes. */
   public static final int ARGON2_HASH_BYTES = 32;
 
+  /** Minimum length of the JWT signing secret, in bytes (256 bits for HS256). */
+  public static final int JWT_SECRET_MIN_BYTES = 32;
+
   /** Minimum length of a person name. */
   public static final int PERSON_NAME_MIN = 2;
 

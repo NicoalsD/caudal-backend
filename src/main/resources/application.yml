@@ -48,6 +48,13 @@ caudal:
   api-docs:
     server-url: ${API_PUBLIC_URL:http://localhost:8080}
   security:
+    # Access token (JWT HS256). Secret, issuer and audience have no default: without them the
+    # application does not start.
+    jwt:
+      secret: ${JWT_SECRET}
+      issuer: ${JWT_ISSUER}
+      audience: ${JWT_AUDIENCE}
+      access-ttl-minutes: ${JWT_ACCESS_TTL_MINUTES:15}
     # Argon2id (docs/Seguridad.md, section 2.1). The defaults are the canonical values.
     argon2:
       memory-kib: ${ARGON2_MEMORY_KIB:19456}
