@@ -17,6 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 final class DecoyPasswordHash {
 
   private static final int DECOY_PASSWORD_BYTES = 32;
+  private static final SecureRandom RANDOM = new SecureRandom();
 
   private final PasswordEncoder encoder;
   private final String decoyHash;
@@ -29,7 +30,7 @@ final class DecoyPasswordHash {
   DecoyPasswordHash(PasswordEncoder encoder) {
     this.encoder = encoder;
     byte[] secret = new byte[DECOY_PASSWORD_BYTES];
-    new SecureRandom().nextBytes(secret);
+    RANDOM.nextBytes(secret);
     this.decoyHash = encoder.encode(Base64.getEncoder().encodeToString(secret));
   }
 

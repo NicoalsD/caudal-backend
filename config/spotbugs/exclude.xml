@@ -34,4 +34,11 @@
     <Class name="co.caudal.api.filter.RequestIdFilter"/>
     <Bug pattern="SERVLET_HEADER"/>
   </Match>
+
+  <!-- NormalizedPassword is the one place that applies Unicode NFKC to a password; the detector
+       warns about the normalization call itself, which is exactly the control. -->
+  <Match>
+    <Class name="co.caudal.domain.user.NormalizedPassword"/>
+    <Bug pattern="IMPROPER_UNICODE"/>
+  </Match>
 </FindBugsFilter>
