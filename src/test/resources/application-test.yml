@@ -20,6 +20,9 @@ caudal:
       issuer: caudal-test-issuer
       audience: caudal-test-audience
       access-ttl-minutes: 15
+    refresh:
+      ttl-days: 7
+      operator-ttl-days: 30
     # Low Argon2id cost to keep the tests fast (testing plan, section 5). The test that checks the
     # production parameters builds its own encoder.
     argon2:

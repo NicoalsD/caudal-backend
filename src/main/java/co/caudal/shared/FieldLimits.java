@@ -52,6 +52,9 @@ public final class FieldLimits {
   /** Clock difference tolerated when checking {@code exp} and {@code nbf}, in seconds. */
   public static final int JWT_CLOCK_SKEW_SECONDS = 30;
 
+  /** Length of a SHA-256 digest in lower case hexadecimal ({@code char(64)} in the DB). */
+  public static final int SHA256_HEX_LENGTH = 64;
+
   /** Minimum length of a person name. */
   public static final int PERSON_NAME_MIN = 2;
 

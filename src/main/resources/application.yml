@@ -55,6 +55,10 @@ caudal:
       issuer: ${JWT_ISSUER}
       audience: ${JWT_AUDIENCE}
       access-ttl-minutes: ${JWT_ACCESS_TTL_MINUTES:15}
+    # Lifetime of the refresh token (session), in days.
+    refresh:
+      ttl-days: ${REFRESH_TTL_DAYS_DEFAULT:7}
+      operator-ttl-days: ${REFRESH_TTL_DAYS_OPERATOR:30}
     # Argon2id (docs/Seguridad.md, section 2.1). The defaults are the canonical values.
     argon2:
       memory-kib: ${ARGON2_MEMORY_KIB:19456}
