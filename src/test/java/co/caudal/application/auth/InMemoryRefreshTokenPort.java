@@ -2,6 +2,7 @@ package co.caudal.application.auth;
 
 import co.caudal.application.port.out.RefreshTokenPort;
 import co.caudal.domain.session.RefreshToken;
+import co.caudal.domain.session.RevocationReason;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -55,11 +56,43 @@ class InMemoryRefreshTokenPort implements RefreshTokenPort {
                 token.issuedAt(),
                 token.expiresAt(),
                 now,
-                RefreshToken.REASON_ROTATED,
+                RevocationReason.ROTATED,
                 replacedById));
         return true;
       }
     }
     return false;
+  }
+
+  @Override
+  public int revokeFamily(UUID familyId, RevocationReason reason, Instant now) {
+    int revoked = 0;
+    for (int i = 0; i < tokens.size(); i++) {
+      RefreshToken token = tokens.get(i);
+      if (token.familyId().equals(familyId) && !token.isRevoked()) {
+        tokens.set(i, revokedCopy(token, now, reason));
+        revoked++;
+      }
+    }
+    return revoked;
+  }
+
+  /** Revokes one token directly, as a logout would. */
+  void revoke(int index, RevocationReason reason, Instant now) {
+    tokens.set(index, revokedCopy(tokens.get(index), now, reason));
+  }
+
+  private static RefreshToken revokedCopy(
+      RefreshToken token, Instant now, RevocationReason reason) {
+    return new RefreshToken(
+        token.id(),
+        token.userId(),
+        token.familyId(),
+        token.tokenHash(),
+        token.issuedAt(),
+        token.expiresAt(),
+        now,
+        reason,
+        token.replacedById());
   }
 }

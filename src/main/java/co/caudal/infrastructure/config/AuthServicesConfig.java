@@ -2,6 +2,7 @@ package co.caudal.infrastructure.config;
 
 import co.caudal.application.auth.RefreshTokenService;
 import co.caudal.application.port.out.RefreshTokenPort;
+import co.caudal.application.port.out.SecurityEventPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.infrastructure.security.RefreshProperties;
 import java.time.Clock;
@@ -16,7 +17,7 @@ class AuthServicesConfig {
 
   @Bean
   RefreshTokenService refreshTokenService(
-      RefreshTokenPort tokens, UnitOfWorkPort unitOfWork, Clock clock) {
-    return new RefreshTokenService(tokens, unitOfWork, clock);
+      RefreshTokenPort tokens, SecurityEventPort events, UnitOfWorkPort unitOfWork, Clock clock) {
+    return new RefreshTokenService(tokens, events, unitOfWork, clock);
   }
 }

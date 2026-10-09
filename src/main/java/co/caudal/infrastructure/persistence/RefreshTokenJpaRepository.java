@@ -24,4 +24,12 @@ interface RefreshTokenJpaRepository extends JpaRepository<RefreshTokenEntity, UU
       @Param("replacedById") UUID replacedById,
       @Param("reason") String reason,
       @Param("now") Instant now);
+
+  /** Revokes every token of the family that is still usable; returns how many. */
+  @Modifying(clearAutomatically = true, flushAutomatically = true)
+  @Query(
+      "update RefreshTokenEntity t set t.revokedAt = :now, t.revokedReason = :reason"
+          + " where t.familyId = :familyId and t.revokedAt is null")
+  int revokeFamily(
+      @Param("familyId") UUID familyId, @Param("reason") String reason, @Param("now") Instant now);
 }

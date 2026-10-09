@@ -48,7 +48,7 @@ class RefreshTokenTest {
             NOW,
             token.expiresAt(),
             NOW,
-            RefreshToken.REASON_ROTATED,
+            RevocationReason.ROTATED,
             UUID.randomUUID());
 
     assertThat(revoked.isRevoked()).isTrue();

@@ -2,6 +2,7 @@ package co.caudal.application.port.out;
 
 import co.caudal.application.auth.ClientContext;
 import co.caudal.domain.session.RefreshToken;
+import co.caudal.domain.session.RevocationReason;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -35,4 +36,14 @@ public interface RefreshTokenPort {
    * @return true if this call rotated it; false if it was already revoked (a concurrent use)
    */
   boolean markRotated(UUID tokenId, UUID replacedById, Instant now);
+
+  /**
+   * Revokes every token of a family that is still usable.
+   *
+   * @param familyId the rotation family
+   * @param reason why they are revoked
+   * @param now moment of the revocation
+   * @return how many tokens were revoked
+   */
+  int revokeFamily(UUID familyId, RevocationReason reason, Instant now);
 }

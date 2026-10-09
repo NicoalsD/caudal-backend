@@ -9,8 +9,8 @@ import java.util.UUID;
  * A refresh token as stored: only the hash of the secret, never the secret.
  *
  * <p>All the tokens that descend from one login by rotation share a {@code familyId}. {@code
- * revokedReason} is the reason code of {@code iam.refresh_tokens.revoked_reason} ({@code ROTATED},
- * {@code REUSE_DETECTED}, {@code LOGOUT}, ...).
+ * revokedReason} is the reason of {@code iam.refresh_tokens.revoked_reason}. The lifecycle is
+ * modeled by {@link RefreshTokenState}.
  *
  * @param id identifier, null until the token is saved
  * @param userId owner of the session
@@ -30,11 +30,8 @@ public record RefreshToken(
     Instant issuedAt,
     Instant expiresAt,
     Instant revokedAt,
-    String revokedReason,
+    RevocationReason revokedReason,
     UUID replacedById) {
-
-  /** Reason stored when a token is replaced by its successor. */
-  public static final String REASON_ROTATED = "ROTATED";
 
   /** Validates what every token needs. */
   public RefreshToken {
@@ -77,6 +74,30 @@ public record RefreshToken(
    */
   public boolean isExpired(Instant now) {
     return !now.isBefore(expiresAt);
+  }
+
+  /**
+   * State of the token in its lifecycle.
+   *
+   * @return {@code ACTIVE}, {@code ROTATED} or {@code REVOKED}
+   */
+  public RefreshTokenState state() {
+    return RefreshTokenState.of(revokedAt, revokedReason);
+  }
+
+  /**
+   * Checks that the token may be exchanged for a new one right now.
+   *
+   * @param now the current instant
+   * @throws RefreshTokenReuseException if it was already rotated (the family must be revoked)
+   * @throws SessionRevokedException if it was revoked for another reason
+   * @throws UnauthorizedException if it expired
+   */
+  public void ensureRotatable(Instant now) {
+    state().ensureRotatable();
+    if (isExpired(now)) {
+      throw new UnauthorizedException();
+    }
   }
 
   /**

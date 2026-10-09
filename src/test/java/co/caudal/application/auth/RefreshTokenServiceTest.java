@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import co.caudal.domain.session.OpaqueToken;
 import co.caudal.domain.session.RefreshToken;
+import co.caudal.domain.session.RevocationReason;
+import co.caudal.domain.session.SessionRevokedException;
 import co.caudal.domain.session.UnauthorizedException;
 import java.time.Clock;
 import java.time.Duration;
@@ -21,10 +23,11 @@ class RefreshTokenServiceTest {
   private static final ClientContext CLIENT = new ClientContext("ip-hmac", "JUnit");
 
   private final InMemoryRefreshTokenPort port = new InMemoryRefreshTokenPort();
+  private final RecordingSecurityEvents events = new RecordingSecurityEvents();
   private Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
 
   private RefreshTokenService service() {
-    return new RefreshTokenService(port, Direct.INSTANCE, clock);
+    return new RefreshTokenService(port, events, Direct.INSTANCE, clock);
   }
 
   /** Transaction-less unit of work: runs the work directly. */
@@ -70,7 +73,7 @@ class RefreshTokenServiceTest {
 
     RefreshToken old = port.tokens.get(0);
     assertThat(old.isRevoked()).isTrue();
-    assertThat(old.revokedReason()).isEqualTo("ROTATED");
+    assertThat(old.revokedReason()).isEqualTo(RevocationReason.ROTATED);
     assertThat(old.replacedById()).isEqualTo(port.tokens.get(1).id());
     assertThat(port.tokens.get(1).isRevoked()).isFalse();
   }
@@ -87,12 +90,12 @@ class RefreshTokenServiceTest {
   }
 
   @Test
-  void anAlreadyRotatedTokenIsRejected() {
+  void anAlreadyRotatedTokenIsReportedAsARevokedSession() {
     IssuedRefreshToken first = service().issueNewFamily(USER, Duration.ofDays(7), CLIENT);
     service().rotate(first.rawValue(), CLIENT);
 
     assertThatThrownBy(() -> service().rotate(first.rawValue(), CLIENT))
-        .isInstanceOf(UnauthorizedException.class);
+        .isInstanceOf(SessionRevokedException.class);
   }
 
   @Test

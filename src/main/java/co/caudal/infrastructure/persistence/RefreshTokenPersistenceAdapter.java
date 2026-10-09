@@ -3,6 +3,7 @@ package co.caudal.infrastructure.persistence;
 import co.caudal.application.auth.ClientContext;
 import co.caudal.application.port.out.RefreshTokenPort;
 import co.caudal.domain.session.RefreshToken;
+import co.caudal.domain.session.RevocationReason;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -40,7 +41,12 @@ public class RefreshTokenPersistenceAdapter implements RefreshTokenPort {
 
   @Override
   public boolean markRotated(UUID tokenId, UUID replacedById, Instant now) {
-    return tokens.rotate(tokenId, replacedById, RefreshToken.REASON_ROTATED, now) == 1;
+    return tokens.rotate(tokenId, replacedById, RevocationReason.ROTATED.name(), now) == 1;
+  }
+
+  @Override
+  public int revokeFamily(UUID familyId, RevocationReason reason, Instant now) {
+    return tokens.revokeFamily(familyId, reason.name(), now);
   }
 
   private static RefreshToken toDomain(RefreshTokenEntity entity) {
@@ -52,7 +58,9 @@ public class RefreshTokenPersistenceAdapter implements RefreshTokenPort {
         entity.getIssuedAt(),
         entity.getExpiresAt(),
         entity.getRevokedAt(),
-        entity.getRevokedReason(),
+        entity.getRevokedReason() == null
+            ? null
+            : RevocationReason.valueOf(entity.getRevokedReason()),
         entity.getReplacedById());
   }
 }

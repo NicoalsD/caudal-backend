@@ -8,6 +8,7 @@ import co.caudal.application.auth.IssuedRefreshToken;
 import co.caudal.application.auth.RefreshTokenService;
 import co.caudal.application.auth.RotatedRefreshToken;
 import co.caudal.domain.session.OpaqueToken;
+import co.caudal.domain.session.SessionRevokedException;
 import co.caudal.domain.session.UnauthorizedException;
 import co.caudal.support.AppRoleIT;
 import java.time.Duration;
@@ -57,7 +58,15 @@ class RefreshRotationIT extends AppRoleIT {
 
     assertThat(rotated.userId()).isEqualTo(user);
     assertThatThrownBy(() -> service.rotate(first.rawValue(), CLIENT))
-        .isInstanceOf(UnauthorizedException.class);
+        .isInstanceOf(SessionRevokedException.class);
+  }
+
+  @Test
+  void theSuccessorOfARotationKeepsWorkingUntilAReuseHappens() {
+    UUID user = newUser("rotation.chain", UNUSABLE_HASH);
+    IssuedRefreshToken first = service.issueNewFamily(user, Duration.ofDays(7), CLIENT);
+    RotatedRefreshToken rotated = service.rotate(first.rawValue(), CLIENT);
+
     assertThat(service.rotate(rotated.next().rawValue(), CLIENT).userId()).isEqualTo(user);
   }
 
