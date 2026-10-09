@@ -67,6 +67,9 @@ caudal:
     # Browser origins allowed (CORS and the refresh Origin check). No default; never "*".
     cors:
       allowed-origins: ${CORS_ALLOWED_ORIGINS}
+    # Permissions come from iam.role_permissions; they are cached for this many seconds.
+    permissions:
+      cache-ttl-seconds: ${PERMISSION_CACHE_TTL_SECONDS:60}
     # Argon2id (docs/Seguridad.md, section 2.1). The defaults are the canonical values.
     argon2:
       memory-kib: ${ARGON2_MEMORY_KIB:19456}

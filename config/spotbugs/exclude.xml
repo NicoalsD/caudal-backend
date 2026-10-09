@@ -48,4 +48,33 @@
     <Class name="co.caudal.api.security.RefreshRequestGuard"/>
     <Bug pattern="SERVLET_HEADER"/>
   </Match>
+
+  <!-- The filter reads the Authorization header only to measure it and reject it if it is too
+       large; the value is never used as data. -->
+  <Match>
+    <Class name="co.caudal.infrastructure.security.AuthorizationHeaderSizeFilter"/>
+    <Bug pattern="SERVLET_HEADER"/>
+  </Match>
+
+  <!-- handleSecurity rethrows security exceptions on purpose, so that the Spring Security filters
+       answer 401 or 403 in the canonical format and record the event. -->
+  <Match>
+    <Class name="co.caudal.api.error.ApiExceptionHandler"/>
+    <Method name="handleSecurity"/>
+    <Bug pattern="THROWS_METHOD_THROWS_RUNTIMEEXCEPTION"/>
+  </Match>
+
+  <!-- HttpSecurity.build() declares throws Exception; the bean method cannot narrow it. -->
+  <Match>
+    <Class name="co.caudal.infrastructure.security.SecurityConfig"/>
+    <Bug pattern="THROWS_METHOD_THROWS_CLAUSE_BASIC_EXCEPTION"/>
+  </Match>
+
+  <!-- The body is application/json built from a fixed catalog message and the request id, which
+       RequestIdFilter only accepts when it matches [A-Za-z0-9-]{1,40}; it is never rendered as
+       HTML. -->
+  <Match>
+    <Class name="co.caudal.infrastructure.security.SecurityErrorWriter"/>
+    <Bug pattern="XSS_SERVLET"/>
+  </Match>
 </FindBugsFilter>

@@ -25,6 +25,8 @@ caudal:
       secure: true
     cors:
       allowed-origins: http://localhost:5173,https://app.example.test
+    permissions:
+      cache-ttl-seconds: 60
     refresh:
       ttl-days: 7
       operator-ttl-days: 30
