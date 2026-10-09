@@ -16,13 +16,12 @@ class AppendOnlyAndTriggersIT extends DatabaseIT {
     return owner.queryForObject(
         "INSERT INTO ops.readings (id, aqueduct_id, tank_id, gauge_value, water_appearance_code,"
             + " observed_at, source, rule_set_id, validation_status)"
-            + " VALUES (uuidv7(), ?, ?, "
-            + value
-            + ", 'NORMAL', now(), 'MANUAL_APP', ?, 'ACCEPTED')"
+            + " VALUES (uuidv7(), ?, ?, ?::numeric, 'NORMAL', now(), 'MANUAL_APP', ?, 'ACCEPTED')"
             + " RETURNING id",
         UUID.class,
         aqueduct,
         tankOf(aqueduct),
+        value,
         ruleSet);
   }
 
@@ -59,11 +58,9 @@ class AppendOnlyAndTriggersIT extends DatabaseIT {
     UUID reading = insertReading(aqueduct, activeRuleSet(aqueduct), "2.10");
 
     try (Connection app = appConnection(aqueduct);
-        var statement = app.createStatement()) {
-      assertThatThrownBy(
-              () ->
-                  statement.executeUpdate("DELETE FROM ops.readings WHERE id = '" + reading + "'"))
-          .hasStackTraceContaining("permission denied");
+        var statement = app.prepareStatement("DELETE FROM ops.readings WHERE id = ?")) {
+      statement.setObject(1, reading);
+      assertThatThrownBy(statement::executeUpdate).hasStackTraceContaining("permission denied");
     }
   }
 

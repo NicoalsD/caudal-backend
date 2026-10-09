@@ -23,13 +23,11 @@ class ExclusionConstraintsIT extends DatabaseIT {
   private void band(UUID ruleSet, String band, String min, String max) {
     owner.update(
         "INSERT INTO org.rule_level_bands (rule_set_id, band, min_level, max_level,"
-            + " daily_service_hours) VALUES (?, ?, "
-            + min
-            + ", "
-            + max
-            + ", 8)",
+            + " daily_service_hours) VALUES (?, ?, ?::numeric, ?::numeric, 8)",
         ruleSet,
-        band);
+        band,
+        min,
+        max);
   }
 
   @Test

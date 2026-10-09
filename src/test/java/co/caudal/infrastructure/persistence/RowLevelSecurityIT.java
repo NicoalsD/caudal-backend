@@ -20,6 +20,17 @@ class RowLevelSecurityIT extends DatabaseIT {
     }
   }
 
+  private static int count(Connection connection, String sql, Object parameter)
+      throws SQLException {
+    try (var statement = connection.prepareStatement(sql)) {
+      statement.setObject(1, parameter);
+      try (var result = statement.executeQuery()) {
+        result.next();
+        return result.getInt(1);
+      }
+    }
+  }
+
   @Test
   void forcesRlsOnTheDocumentedTables() {
     Integer forced =
@@ -106,7 +117,7 @@ class RowLevelSecurityIT extends DatabaseIT {
         "INSERT INTO org.valves (sector_id, code, name) VALUES (?, 'V-1', 'Válvula uno')", sector);
 
     try (Connection app = appConnection(first)) {
-      assertThat(count(app, "SELECT count(*) FROM org.valves WHERE sector_id = '" + sector + "'"))
+      assertThat(count(app, "SELECT count(*) FROM org.valves WHERE sector_id = ?", sector))
           .isZero();
     }
   }
@@ -127,10 +138,7 @@ class RowLevelSecurityIT extends DatabaseIT {
         statement.setString(1, user.toString());
         statement.execute();
       }
-      assertThat(
-              count(
-                  app,
-                  "SELECT count(*) FROM iam.memberships WHERE aqueduct_id = '" + aqueduct + "'"))
+      assertThat(count(app, "SELECT count(*) FROM iam.memberships WHERE aqueduct_id = ?", aqueduct))
           .isEqualTo(1);
     }
   }
