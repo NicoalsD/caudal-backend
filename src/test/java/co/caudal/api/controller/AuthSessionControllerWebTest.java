@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import co.caudal.api.error.ApiExceptionHandler;
 import co.caudal.api.filter.RequestIdFilter;
+import co.caudal.application.auth.LogoutAllCommand;
 import co.caudal.application.auth.LogoutCommand;
 import co.caudal.application.command.CommandBus;
 import co.caudal.application.command.Done;
@@ -115,6 +116,30 @@ class AuthSessionControllerWebTest {
                 .header("Origin", "https://app.example.test"))
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+    verifyNoInteractions(commands);
+  }
+
+  @Test
+  void logoutAllClosesEverySessionAndClearsTheCookie() throws Exception {
+    when(commands.dispatch(any())).thenReturn(Done.DONE);
+
+    var response =
+        mvc.perform(post("/api/v1/auth/logout-all").with(session()))
+            .andExpect(status().isNoContent())
+            .andReturn()
+            .getResponse();
+
+    assertThat(response.getHeader("Set-Cookie")).contains("Max-Age=0");
+    ArgumentCaptor<LogoutAllCommand> captor = ArgumentCaptor.forClass(LogoutAllCommand.class);
+    verify(commands).dispatch(captor.capture());
+    assertThat(captor.getValue().caller().userId()).isEqualTo(USER);
+  }
+
+  @Test
+  void logoutAllWithoutAccessTokenAnswers401() throws Exception {
+    mvc.perform(post("/api/v1/auth/logout-all"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
     verifyNoInteractions(commands);
   }
 }

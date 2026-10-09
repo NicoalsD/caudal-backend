@@ -4,9 +4,11 @@ import co.caudal.application.auth.GetCurrentUserUseCase;
 import co.caudal.application.auth.LoginPorts;
 import co.caudal.application.auth.LoginSettings;
 import co.caudal.application.auth.LoginUseCase;
+import co.caudal.application.auth.LogoutAllCommandHandler;
 import co.caudal.application.auth.LogoutCommandHandler;
 import co.caudal.application.auth.RefreshSessionUseCase;
 import co.caudal.application.auth.RefreshTokenService;
+import co.caudal.application.auth.SessionInvalidator;
 import co.caudal.application.port.out.AccessTokenIssuerPort;
 import co.caudal.application.port.out.LoginAccountPort;
 import co.caudal.application.port.out.LoginAttemptPort;
@@ -18,6 +20,7 @@ import co.caudal.application.port.out.RefreshTokenPort;
 import co.caudal.application.port.out.SecurityEventPort;
 import co.caudal.application.port.out.TokenVersionPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
+import co.caudal.application.port.out.UserAccountPort;
 import co.caudal.application.port.out.UserProfilePort;
 import co.caudal.domain.user.LockoutPolicy;
 import co.caudal.infrastructure.security.LoginProperties;
@@ -109,5 +112,17 @@ class AuthServicesConfig {
   LogoutCommandHandler logoutCommandHandler(
       RefreshTokenPort tokens, UnitOfWorkPort unitOfWork, Clock clock) {
     return new LogoutCommandHandler(tokens, unitOfWork, clock);
+  }
+
+  @Bean
+  SessionInvalidator sessionInvalidator(
+      UserAccountPort accounts, RefreshTokenPort tokens, Clock clock) {
+    return new SessionInvalidator(accounts, tokens, clock);
+  }
+
+  @Bean
+  LogoutAllCommandHandler logoutAllCommandHandler(
+      SessionInvalidator sessions, UnitOfWorkPort unitOfWork) {
+    return new LogoutAllCommandHandler(sessions, unitOfWork);
   }
 }

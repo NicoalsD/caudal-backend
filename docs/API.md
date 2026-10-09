@@ -260,7 +260,7 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 
 - **Permiso:** autenticado.
 - **Respuesta 204.** Revoca todos los refresh tokens del usuario (`LOGOUT_ALL`).
-- **Por definir:** si además incrementa `token_version` para invalidar los access tokens vigentes (propuesta: sí).
+- **Efecto:** además incrementa `token_version`, así que los access tokens ya emitidos (también el de esta petición) responden `401 UNAUTHORIZED` en su siguiente uso (HU-05). Borra la cookie `caudal_rt`.
 
 ### 2.5 `POST /api/v1/auth/change-password`
 

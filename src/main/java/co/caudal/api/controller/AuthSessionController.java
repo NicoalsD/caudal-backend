@@ -2,6 +2,7 @@ package co.caudal.api.controller;
 
 import co.caudal.api.security.CallerFactory;
 import co.caudal.api.security.RefreshCookieFactory;
+import co.caudal.application.auth.LogoutAllCommand;
 import co.caudal.application.auth.LogoutCommand;
 import co.caudal.application.command.CommandBus;
 import io.swagger.v3.oas.annotations.Operation;
@@ -50,6 +51,25 @@ public class AuthSessionController {
       @CookieValue(name = RefreshCookieFactory.COOKIE_NAME, required = false) String secret,
       HttpServletRequest http) {
     commands.dispatch(new LogoutCommand(CallerFactory.from(jwt, http), secret));
+    return ResponseEntity.noContent()
+        .cacheControl(CacheControl.noStore())
+        .header(HttpHeaders.SET_COOKIE, cookies.clear().toString())
+        .build();
+  }
+
+  @Operation(
+      summary = "Cerrar la sesión en todos los dispositivos",
+      description =
+          "Revoca todos los refresh tokens de la cuenta (motivo LOGOUT_ALL) e incrementa su"
+              + " token_version, así que los access tokens ya emitidos, incluido el de esta"
+              + " petición, dejan de servir en su siguiente uso y responden 401 UNAUTHORIZED."
+              + " Borra la cookie caudal_rt.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "204", description = "Todas las sesiones cerradas")
+  @ApiResponse(responseCode = "401", description = "UNAUTHORIZED: falta el access token")
+  @PostMapping("/logout-all")
+  public ResponseEntity<Void> logoutAll(@AuthenticationPrincipal Jwt jwt, HttpServletRequest http) {
+    commands.dispatch(new LogoutAllCommand(CallerFactory.from(jwt, http)));
     return ResponseEntity.noContent()
         .cacheControl(CacheControl.noStore())
         .header(HttpHeaders.SET_COOKIE, cookies.clear().toString())

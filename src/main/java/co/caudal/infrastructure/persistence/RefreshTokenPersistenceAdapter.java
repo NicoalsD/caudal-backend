@@ -49,6 +49,11 @@ public class RefreshTokenPersistenceAdapter implements RefreshTokenPort {
     return tokens.revokeFamily(familyId, reason.name(), now);
   }
 
+  @Override
+  public int revokeAllOfUser(UUID userId, RevocationReason reason, Instant now) {
+    return tokens.revokeAllOfUser(userId, reason.name(), now);
+  }
+
   private static RefreshToken toDomain(RefreshTokenEntity entity) {
     return new RefreshToken(
         entity.getId(),

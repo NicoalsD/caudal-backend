@@ -77,6 +77,19 @@ class InMemoryRefreshTokenPort implements RefreshTokenPort {
     return revoked;
   }
 
+  @Override
+  public int revokeAllOfUser(UUID userId, RevocationReason reason, Instant now) {
+    int revoked = 0;
+    for (int i = 0; i < tokens.size(); i++) {
+      RefreshToken token = tokens.get(i);
+      if (token.userId().equals(userId) && !token.isRevoked()) {
+        tokens.set(i, revokedCopy(token, now, reason));
+        revoked++;
+      }
+    }
+    return revoked;
+  }
+
   /** Revokes one token directly, as a logout would. */
   void revoke(int index, RevocationReason reason, Instant now) {
     tokens.set(index, revokedCopy(tokens.get(index), now, reason));

@@ -4,6 +4,7 @@ import co.caudal.application.auth.LoginAccount;
 import co.caudal.application.auth.UserProfile;
 import co.caudal.application.port.out.LoginAccountPort;
 import co.caudal.application.port.out.TokenVersionPort;
+import co.caudal.application.port.out.UserAccountPort;
 import co.caudal.application.port.out.UserProfilePort;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -15,7 +16,8 @@ import org.springframework.stereotype.Component;
 
 /** Persistence adapter of the accounts ({@code iam.users}). */
 @Component
-public class UserPersistenceAdapter implements TokenVersionPort, UserProfilePort, LoginAccountPort {
+public class UserPersistenceAdapter
+    implements TokenVersionPort, UserProfilePort, LoginAccountPort, UserAccountPort {
 
   /** Status of an account that was deactivated for good. */
   static final String STATUS_DISABLED = "DISABLED";
@@ -108,6 +110,15 @@ public class UserPersistenceAdapter implements TokenVersionPort, UserProfilePort
   public void updatePasswordHash(UUID userId, String passwordHash) {
     jdbc.sql("UPDATE iam.users SET password_hash = :hash WHERE id = :id")
         .param("hash", passwordHash)
+        .param("id", userId)
+        .update();
+  }
+
+  @Override
+  public void incrementTokenVersion(UUID userId) {
+    jdbc.sql(
+            "UPDATE iam.users SET token_version = token_version + 1, updated_at = now()"
+                + " WHERE id = :id")
         .param("id", userId)
         .update();
   }

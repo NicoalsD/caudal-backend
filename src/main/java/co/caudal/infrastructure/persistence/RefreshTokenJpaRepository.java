@@ -32,4 +32,12 @@ interface RefreshTokenJpaRepository extends JpaRepository<RefreshTokenEntity, UU
           + " where t.familyId = :familyId and t.revokedAt is null")
   int revokeFamily(
       @Param("familyId") UUID familyId, @Param("reason") String reason, @Param("now") Instant now);
+
+  /** Revokes every usable token of the account, in all its families; returns how many. */
+  @Modifying(clearAutomatically = true, flushAutomatically = true)
+  @Query(
+      "update RefreshTokenEntity t set t.revokedAt = :now, t.revokedReason = :reason"
+          + " where t.userId = :userId and t.revokedAt is null")
+  int revokeAllOfUser(
+      @Param("userId") UUID userId, @Param("reason") String reason, @Param("now") Instant now);
 }
