@@ -15,7 +15,8 @@ public class PasswordPolicyViolationException extends DomainException {
     TOO_SHORT,
     TOO_LONG,
     COMMON,
-    CONTAINS_USERNAME
+    CONTAINS_USERNAME,
+    RECENTLY_USED
   }
 
   private final Rule rule;

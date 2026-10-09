@@ -63,20 +63,25 @@ public class UserPersistenceAdapter
 
   @Override
   public Optional<LoginAccount> findByUsername(String username) {
-    return users
-        .findByUsername(username)
-        .map(
-            user ->
-                new LoginAccount(
-                    user.getId(),
-                    user.getUsername(),
-                    user.getFullName(),
-                    user.getPasswordHash(),
-                    user.getStatus(),
-                    user.getLockedUntil(),
-                    user.getLockoutLevel(),
-                    user.getTokenVersion(),
-                    user.isMustChangePassword()));
+    return users.findByUsername(username).map(UserPersistenceAdapter::toAccount);
+  }
+
+  @Override
+  public Optional<LoginAccount> findById(UUID userId) {
+    return users.findById(userId).map(UserPersistenceAdapter::toAccount);
+  }
+
+  private static LoginAccount toAccount(UserEntity user) {
+    return new LoginAccount(
+        user.getId(),
+        user.getUsername(),
+        user.getFullName(),
+        user.getPasswordHash(),
+        user.getStatus(),
+        user.getLockedUntil(),
+        user.getLockoutLevel(),
+        user.getTokenVersion(),
+        user.isMustChangePassword());
   }
 
   @Override
@@ -119,6 +124,19 @@ public class UserPersistenceAdapter
     jdbc.sql(
             "UPDATE iam.users SET token_version = token_version + 1, updated_at = now()"
                 + " WHERE id = :id")
+        .param("id", userId)
+        .update();
+  }
+
+  @Override
+  public void replacePassword(
+      UUID userId, String passwordHash, Instant changedAt, boolean mustChangePassword) {
+    jdbc.sql(
+            "UPDATE iam.users SET password_hash = :hash, password_changed_at = :changedAt,"
+                + " must_change_password = :mustChange, updated_at = now() WHERE id = :id")
+        .param("hash", passwordHash)
+        .param("changedAt", Timestamp.from(changedAt))
+        .param("mustChange", mustChangePassword)
         .param("id", userId)
         .update();
   }

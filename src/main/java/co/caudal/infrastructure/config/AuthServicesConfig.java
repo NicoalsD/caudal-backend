@@ -1,11 +1,13 @@
 package co.caudal.infrastructure.config;
 
+import co.caudal.application.auth.ChangePasswordCommandHandler;
 import co.caudal.application.auth.GetCurrentUserUseCase;
 import co.caudal.application.auth.LoginPorts;
 import co.caudal.application.auth.LoginSettings;
 import co.caudal.application.auth.LoginUseCase;
 import co.caudal.application.auth.LogoutAllCommandHandler;
 import co.caudal.application.auth.LogoutCommandHandler;
+import co.caudal.application.auth.PasswordRenewal;
 import co.caudal.application.auth.RefreshSessionUseCase;
 import co.caudal.application.auth.RefreshTokenService;
 import co.caudal.application.auth.SessionInvalidator;
@@ -14,6 +16,7 @@ import co.caudal.application.port.out.LoginAccountPort;
 import co.caudal.application.port.out.LoginAttemptPort;
 import co.caudal.application.port.out.MembershipPort;
 import co.caudal.application.port.out.PasswordHasherPort;
+import co.caudal.application.port.out.PasswordHistoryPort;
 import co.caudal.application.port.out.PermissionPort;
 import co.caudal.application.port.out.PrivacyHasherPort;
 import co.caudal.application.port.out.RefreshTokenPort;
@@ -23,6 +26,8 @@ import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.port.out.UserAccountPort;
 import co.caudal.application.port.out.UserProfilePort;
 import co.caudal.domain.user.LockoutPolicy;
+import co.caudal.domain.user.PasswordPolicy;
+import co.caudal.infrastructure.security.Argon2Properties;
 import co.caudal.infrastructure.security.LoginProperties;
 import co.caudal.infrastructure.security.RefreshProperties;
 import co.caudal.shared.PhysicalConstants;
@@ -124,5 +129,29 @@ class AuthServicesConfig {
   LogoutAllCommandHandler logoutAllCommandHandler(
       SessionInvalidator sessions, UnitOfWorkPort unitOfWork) {
     return new LogoutAllCommandHandler(sessions, unitOfWork);
+  }
+
+  // A Spring bean method lists its collaborators; grouping them would only hide the wiring.
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  @Bean
+  PasswordRenewal passwordRenewal(
+      PasswordPolicy policy,
+      PasswordHasherPort passwords,
+      PasswordHistoryPort history,
+      UserAccountPort accounts,
+      Argon2Properties argon2,
+      Clock clock) {
+    return new PasswordRenewal(
+        policy, passwords, history, accounts, argon2.passwordHistorySize(), clock);
+  }
+
+  @Bean
+  ChangePasswordCommandHandler changePasswordCommandHandler(
+      UserAccountPort accounts,
+      PasswordHasherPort passwords,
+      PasswordRenewal renewal,
+      SessionInvalidator sessions,
+      UnitOfWorkPort unitOfWork) {
+    return new ChangePasswordCommandHandler(accounts, passwords, renewal, sessions, unitOfWork);
   }
 }

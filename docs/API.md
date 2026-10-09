@@ -273,7 +273,8 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 | `new_password` | texto | Sí | 12 a 128, NFKC, sin lista de comunes, sin el usuario, no repetida de las últimas 5 |
 
 - **Respuesta 204.** Incrementa `token_version`, revoca los refresh tokens (`PASSWORD_CHANGED`) y pone `must_change_password = false`.
-- **Errores:** `401 UNAUTHORIZED` (contraseña actual incorrecta), `422 PASSWORD_POLICY_VIOLATION`.
+- **Errores:** `401 UNAUTHORIZED` (contraseña actual incorrecta), `422 PASSWORD_POLICY_VIOLATION` (`details.rule`: `TOO_SHORT`, `TOO_LONG`, `COMMON`, `CONTAINS_USERNAME` o `RECENTLY_USED`; una contraseña corta responde 422 y no 400, porque la regla vive en la política).
+- **Historial:** se comparan la contraseña vigente y las anteriores de `iam.password_history`, hasta `PASSWORD_HISTORY_SIZE` en total.
 - **Ejemplo:**
 
 ```json

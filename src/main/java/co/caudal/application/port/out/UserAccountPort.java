@@ -1,5 +1,8 @@
 package co.caudal.application.port.out;
 
+import co.caudal.application.auth.LoginAccount;
+import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 /** Reads and changes the security state of accounts ({@code iam.users}). */
@@ -12,4 +15,23 @@ public interface UserAccountPort {
    * @param userId the account
    */
   void incrementTokenVersion(UUID userId);
+
+  /**
+   * Finds an account by id.
+   *
+   * @param userId the account
+   * @return the account with its stored password hash, or empty
+   */
+  Optional<LoginAccount> findById(UUID userId);
+
+  /**
+   * Replaces the password hash and records when it changed.
+   *
+   * @param userId the account
+   * @param passwordHash the new hash
+   * @param changedAt moment of the change
+   * @param mustChangePassword the value of the flag after the change
+   */
+  void replacePassword(
+      UUID userId, String passwordHash, Instant changedAt, boolean mustChangePassword);
 }
