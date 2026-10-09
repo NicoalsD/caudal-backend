@@ -14,6 +14,20 @@
     <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
   </Match>
 
+  <!-- Value objects and exceptions validate their arguments in the constructor on purpose
+       (architecture rule: records validate in the compact constructor). No class relies on
+       finalizers, so the finalizer attack described by CT_CONSTRUCTOR_THROW does not apply. -->
+  <Match>
+    <Bug pattern="CT_CONSTRUCTOR_THROW"/>
+  </Match>
+
+  <!-- Business exceptions are never Java-serialized (they become JSON error bodies), so their
+       transient details do not need to survive deserialization. -->
+  <Match>
+    <Class name="co.caudal.shared.error.DomainException"/>
+    <Bug pattern="SE_TRANSIENT_FIELD_NOT_RESTORED"/>
+  </Match>
+
   <!-- X-Request-Id is client controlled on purpose; it is only kept when it matches
        FieldLimits.REQUEST_ID_PATTERN, otherwise a new UUID replaces it. -->
   <Match>

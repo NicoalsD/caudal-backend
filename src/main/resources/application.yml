@@ -18,6 +18,12 @@ spring:
     validate-on-migrate: true
     clean-disabled: true
     baseline-on-migrate: false
+  # JSON contract in snake_case (docs/API.md, section 1.1).
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+  mvc:
+    problemdetails:
+      enabled: false
   jpa:
     open-in-view: false
     hibernate:
@@ -26,6 +32,13 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+
+server:
+  error:
+    include-stacktrace: never
+    include-message: never
+    whitelabel:
+      enabled: false
 
 # JSON logs (ECS) with request_id from the MDC and credentials redacted.
 logging:
