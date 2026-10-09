@@ -4,6 +4,8 @@
 
 PostgreSQL 18 · 7 esquemas · 57 tablas. Convenciones: nombres en inglés y `snake_case`; IDs `uuidv7()`; fechas `timestamptz` en UTC; los tamaños `${...}` son placeholders de Flyway que salen de `FieldLimits` (única fuente de los límites técnicos).
 
+**Implementación:** las tablas se crean con las migraciones Flyway `V2` a `V38` (generadas de esta misma especificación) y están desplegadas en Neon (rama `production`, base `caudal`). Además de lo que lista cada tabla, la base agrega: llaves foráneas compuestas `(x_id, aqueduct_id)` cuando las dos tablas tienen acueducto (una FK no pasa por RLS), `UNIQUE (id, aqueduct_id)` en esas tablas, índices en cada llave foránea y la vista `ops.effective_readings`. Detalle en [Seguridad de la base de datos](Seguridad-de-la-base-de-datos.md), sección 13.
+
 **Clasificación de datos:** P = pública, I = interna, C = confidencial, S = secreta (nunca sale en respuestas, logs ni exportes; sin lectura para `caudal_readonly`).
 
 ![Modelo de datos](images/modelo-de-datos.png)
