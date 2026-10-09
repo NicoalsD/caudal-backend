@@ -79,6 +79,9 @@ caudal:
       lock-minutes: ${LOGIN_LOCK_MINUTES:15}
       ip-max-attempts: ${LOGIN_IP_MAX_ATTEMPTS:20}
       ip-window-minutes: ${LOGIN_IP_WINDOW_MINUTES:15}
+    # Lifetime of the one-time activation and reset codes, in minutes (24 hours by default).
+    reset-grant:
+      ttl-minutes: ${RESET_GRANT_TTL_MINUTES:1440}
     # Key that hides IP addresses and typed usernames in the database. No default value.
     privacy:
       ip-hmac-key: ${IP_HMAC_KEY}

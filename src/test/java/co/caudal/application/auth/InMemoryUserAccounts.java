@@ -46,4 +46,16 @@ class InMemoryUserAccounts implements UserAccountPort {
             mustChangePassword));
     mustChange.put(userId, mustChangePassword);
   }
+
+  @Override
+  public Optional<UUID> insertIfAbsent(
+      String username, String fullName, String passwordHash, UUID createdBy) {
+    boolean taken = accounts.values().stream().anyMatch(a -> a.username().equals(username));
+    if (taken) {
+      return Optional.empty();
+    }
+    UUID id = UUID.randomUUID();
+    add(new LoginAccount(id, username, fullName, passwordHash, "ACTIVE", null, 0, 0, true));
+    return Optional.of(id);
+  }
 }

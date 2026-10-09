@@ -32,6 +32,8 @@ caudal:
       lock-minutes: 15
       ip-max-attempts: 20
       ip-window-minutes: 15
+    reset-grant:
+      ttl-minutes: 60
     privacy:
       ip-hmac-key: test-only-ip-hmac-key-with-at-least-32-bytes
     refresh:

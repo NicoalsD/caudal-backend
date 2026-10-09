@@ -34,4 +34,16 @@ public interface UserAccountPort {
    */
   void replacePassword(
       UUID userId, String passwordHash, Instant changedAt, boolean mustChangePassword);
+
+  /**
+   * Creates an account unless the username is taken.
+   *
+   * @param username the normalized username
+   * @param fullName the full name
+   * @param passwordHash the hash of an unknowable password
+   * @param createdBy the account that creates it
+   * @return the id of the new account, or empty if the username already exists
+   */
+  Optional<UUID> insertIfAbsent(
+      String username, String fullName, String passwordHash, UUID createdBy);
 }

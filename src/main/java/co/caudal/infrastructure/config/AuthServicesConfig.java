@@ -16,6 +16,7 @@ import co.caudal.application.auth.SessionInvalidator;
 import co.caudal.application.port.out.AccessTokenIssuerPort;
 import co.caudal.application.port.out.LoginAccountPort;
 import co.caudal.application.port.out.LoginAttemptPort;
+import co.caudal.application.port.out.MembershipAdminPort;
 import co.caudal.application.port.out.MembershipPort;
 import co.caudal.application.port.out.PasswordHasherPort;
 import co.caudal.application.port.out.PasswordHistoryPort;
@@ -28,11 +29,14 @@ import co.caudal.application.port.out.TokenVersionPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.port.out.UserAccountPort;
 import co.caudal.application.port.out.UserProfilePort;
+import co.caudal.application.user.CreateUserCommandHandler;
+import co.caudal.application.user.ResetGrantSettings;
 import co.caudal.domain.user.LockoutPolicy;
 import co.caudal.domain.user.PasswordPolicy;
 import co.caudal.infrastructure.security.Argon2Properties;
 import co.caudal.infrastructure.security.LoginProperties;
 import co.caudal.infrastructure.security.RefreshProperties;
+import co.caudal.infrastructure.security.ResetGrantProperties;
 import co.caudal.shared.PhysicalConstants;
 import java.time.Clock;
 import java.time.Duration;
@@ -42,7 +46,7 @@ import org.springframework.context.annotation.Configuration;
 
 /** Creates the use cases and services of the {@code application} layer, which has no Spring. */
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties(RefreshProperties.class)
+@EnableConfigurationProperties({RefreshProperties.class, ResetGrantProperties.class})
 class AuthServicesConfig {
 
   @Bean
@@ -176,5 +180,25 @@ class AuthServicesConfig {
         sessions,
         unitOfWork,
         clock);
+  }
+
+  @Bean
+  ResetGrantSettings resetGrantSettings(ResetGrantProperties properties) {
+    return new ResetGrantSettings(Duration.ofMinutes(properties.ttlMinutes()));
+  }
+
+  // A Spring bean method lists its collaborators; grouping them would only hide the wiring.
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  @Bean
+  CreateUserCommandHandler createUserCommandHandler(
+      UserAccountPort accounts,
+      MembershipAdminPort memberships,
+      PasswordResetGrantPort grants,
+      PasswordHasherPort passwords,
+      ResetGrantSettings settings,
+      UnitOfWorkPort unitOfWork,
+      Clock clock) {
+    return new CreateUserCommandHandler(
+        accounts, memberships, grants, passwords, settings, unitOfWork, clock);
   }
 }

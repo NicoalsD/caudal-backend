@@ -113,6 +113,7 @@ Los nombres son los de `caudal-backend/.env.example`, que es la fuente de las va
 | `ARGON2_ITERATIONS` | Iteraciones de Argon2id | `2` | No |
 | `ARGON2_PARALLELISM` | Paralelismo de Argon2id | `1` | No |
 | `PASSWORD_HISTORY_SIZE` | Contraseñas anteriores que no se pueden reutilizar | `5` | No |
+| `RESET_GRANT_TTL_MINUTES` | Minutos que sirve un código de activación o de restablecimiento de contraseña | `1440` | No |
 | `LOGIN_MAX_FAILURES` | Fallos seguidos antes de bloquear la cuenta | `5` | No |
 | `LOGIN_LOCK_MINUTES` | Ventana de fallos y tiempo de bloqueo inicial, en minutos | `15` | No |
 | `LOGIN_IP_MAX_ATTEMPTS` | Intentos por IP en la ventana | `20` | No |

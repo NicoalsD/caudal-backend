@@ -140,4 +140,21 @@ public class UserPersistenceAdapter
         .param("id", userId)
         .update();
   }
+
+  @Override
+  public Optional<UUID> insertIfAbsent(
+      String username, String fullName, String passwordHash, UUID createdBy) {
+    // Must-change-password is true by default in the table. ON CONFLICT avoids an exception that
+    // would leave the transaction aborted.
+    return jdbc.sql(
+            "INSERT INTO iam.users (username, full_name, password_hash, created_by)"
+                + " VALUES (:username, :fullName, :hash, :createdBy)"
+                + " ON CONFLICT (username) DO NOTHING RETURNING id")
+        .param("username", username)
+        .param("fullName", fullName)
+        .param("hash", passwordHash)
+        .param("createdBy", createdBy)
+        .query(UUID.class)
+        .optional();
+  }
 }

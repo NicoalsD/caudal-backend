@@ -49,7 +49,7 @@ public abstract class SessionIT extends AppRoleIT {
   }
 
   /** An account with a member role in a new aqueduct. */
-  protected record Account(UUID userId, UUID aqueductId, String username) {}
+  public record Account(UUID userId, UUID aqueductId, String username) {}
 
   /** Creates an account with {@link #PASSWORD} and a membership in a new aqueduct. */
   protected Account account(String username, String role) {
