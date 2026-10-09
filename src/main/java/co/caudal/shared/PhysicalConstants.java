@@ -10,5 +10,8 @@ public final class PhysicalConstants {
   /** Hours in a day. */
   public static final int HOURS_PER_DAY = 24;
 
+  /** Days in a week (ISO numbering 1 to 7). */
+  public static final int DAYS_PER_WEEK = 7;
+
   private PhysicalConstants() {}
 }
