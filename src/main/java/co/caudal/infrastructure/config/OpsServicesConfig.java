@@ -1,7 +1,9 @@
 package co.caudal.infrastructure.config;
 
+import co.caudal.application.catalog.GetCatalogUseCase;
 import co.caudal.application.network.CreateTankCommandHandler;
 import co.caudal.application.network.ListNetworkUseCase;
+import co.caudal.application.port.out.CatalogPort;
 import co.caudal.application.port.out.NetworkPort;
 import co.caudal.application.port.out.RuleSetPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
@@ -29,5 +31,10 @@ class OpsServicesConfig {
   CreateTankCommandHandler createTankCommandHandler(
       NetworkPort network, UnitOfWorkPort unitOfWork) {
     return new CreateTankCommandHandler(network, unitOfWork);
+  }
+
+  @Bean
+  GetCatalogUseCase getCatalogUseCase(CatalogPort catalogs) {
+    return new GetCatalogUseCase(catalogs);
   }
 }
