@@ -1,17 +1,16 @@
 package co.caudal.support;
 
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.time.Instant;
 import java.util.UUID;
-import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
  * Base of the integration tests that must run as the real application role.
@@ -26,29 +25,47 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles({"test", "app-role"})
 public abstract class AppRoleIT {
 
-  /** Throwaway credentials of the owner in the Testcontainers database. */
   private static final String OWNER_USER = "test";
-
   private static final String OWNER_PASSWORD = "test";
+  private static final String APP_ROLE = "caudal_app";
+  private static final String APP_ROLE_PASSWORD = "test-only-role-password";
+
+  private static final PostgreSQLContainer POSTGRES =
+      new PostgreSQLContainer("postgres:18")
+          .withDatabaseName("caudal")
+          .withUsername(OWNER_USER)
+          .withPassword(OWNER_PASSWORD);
+
+  static {
+    POSTGRES.start();
+    Runtime.getRuntime().addShutdownHook(new Thread(POSTGRES::stop));
+  }
+
+  /** Points the datasource at the container as caudal_app and Flyway as the owner. */
+  @DynamicPropertySource
+  static void databaseProperties(DynamicPropertyRegistry registry) {
+    registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+    registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+    registry.add("spring.datasource.username", () -> APP_ROLE);
+    registry.add("spring.datasource.password", () -> APP_ROLE_PASSWORD);
+    registry.add("spring.flyway.url", POSTGRES::getJdbcUrl);
+    registry.add("spring.flyway.user", () -> OWNER_USER);
+    registry.add("spring.flyway.password", () -> OWNER_PASSWORD);
+  }
 
   /** Hash that no password matches; tests that need a real hash pass their own. */
   protected static final String UNUSABLE_HASH =
       "$argon2id$v=19$m=64,t=1,p=1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
-  @Autowired private DataSource appDataSource;
-
   /** Direct SQL as the container owner (bypasses RLS). */
   protected JdbcTemplate owner;
 
   @BeforeEach
-  void connectAsOwner() throws SQLException {
+  void connectAsOwner() {
     if (owner == null) {
-      try (Connection connection = appDataSource.getConnection()) {
-        owner =
-            new JdbcTemplate(
-                new DriverManagerDataSource(
-                    connection.getMetaData().getURL(), OWNER_USER, OWNER_PASSWORD));
-      }
+      owner =
+          new JdbcTemplate(
+              new DriverManagerDataSource(POSTGRES.getJdbcUrl(), OWNER_USER, OWNER_PASSWORD));
     }
   }
 

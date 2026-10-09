@@ -13,7 +13,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.UUID;
-import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 
 class RefreshTokenServiceTest {
@@ -27,17 +26,7 @@ class RefreshTokenServiceTest {
   private Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
 
   private RefreshTokenService service() {
-    return new RefreshTokenService(port, events, Direct.INSTANCE, clock);
-  }
-
-  /** Transaction-less unit of work: runs the work directly. */
-  private enum Direct implements co.caudal.application.port.out.UnitOfWorkPort {
-    INSTANCE;
-
-    @Override
-    public <T> T execute(Supplier<T> work) {
-      return work.get();
-    }
+    return new RefreshTokenService(port, events, new DirectUnitOfWork(), clock);
   }
 
   @Test

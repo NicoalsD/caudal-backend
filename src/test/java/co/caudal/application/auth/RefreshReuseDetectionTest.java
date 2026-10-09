@@ -17,7 +17,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.UUID;
-import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 
 class RefreshReuseDetectionTest {
@@ -28,13 +27,7 @@ class RefreshReuseDetectionTest {
 
   private final InMemoryRefreshTokenPort port = new InMemoryRefreshTokenPort();
   private final RecordingSecurityEvents events = new RecordingSecurityEvents();
-  private final UnitOfWorkPort direct =
-      new UnitOfWorkPort() {
-        @Override
-        public <T> T execute(Supplier<T> work) {
-          return work.get();
-        }
-      };
+  private final UnitOfWorkPort direct = new DirectUnitOfWork();
   private final RefreshTokenService service =
       new RefreshTokenService(port, events, direct, Clock.fixed(NOW, ZoneOffset.UTC));
 
