@@ -1,0 +1,30 @@
+# PostgreSQL 18 local para desarrollo. Las credenciales salen de .env (ver .env.example).
+# Uso: docker compose up -d db
+name: caudal
+
+services:
+  db:
+    image: postgres:18
+    container_name: caudal-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: caudal
+      # Dueño del esquema: el mismo usuario que ejecuta las migraciones de Flyway.
+      POSTGRES_USER: ${FLYWAY_USER:-caudal_migrator}
+      POSTGRES_PASSWORD: ${FLYWAY_PASSWORD:?Define FLYWAY_PASSWORD en .env}
+      POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C.UTF-8
+      TZ: UTC
+    ports:
+      # Solo en la máquina local, nunca expuesto a la red.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - caudal-db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d caudal"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  caudal-db-data:
