@@ -9,14 +9,12 @@ Este documento define quién hace qué, cómo se trabaja (ramas, PR y commits), 
 | Integrante | Cuenta de GitHub | Rol principal | Responsabilidad transversal | Repos principales |
 |---|---|---|---|---|
 | Nicolas Diaz | `NicoalsD` | Frontend, UX y publicación (página pública, WhatsApp, cartel). | Documentación global y DevOps: dueño de los repos, reglas de GitHub, CI, releases. | `caudal-frontend`, `caudal-backend` (docs), todos (configuración). |
-| Drako Salazar | `Drako2305` | Backend Java, base de datos y seguridad. | Líder de seguridad y de patrones de diseño. | `caudal-backend`. Cliente de IA en el backend. |
-| Nicolas Mora | `nicomora70` | IA, datos simulados y simulador y hardware. Se une más adelante. | Detalle operativo de `caudal-ia` y `caudal-simulador` (`.agents/*`) y su código. | `caudal-ia`, `caudal-simulador`. |
+| Drako Salazar | `Drako2305` | Backend Java: base de datos, seguridad, reglas, red y turnos. | Líder de seguridad y de patrones de diseño. | `caudal-backend`. |
+| Nicolas Mora | `nicomora70` | IA, datos simulados, simulador y hardware. En el backend: lecturas, importación, cliente de la IA, evaluación y dispositivos; en el frontend: cola offline, pronóstico, cierre, actas, evaluación y dispositivos. | Detalle operativo de `caudal-ia` y `caudal-simulador` (`.agents/*`) y su código. | `caudal-ia`, `caudal-simulador`, `caudal-backend`, `caudal-frontend`. |
 
 ### 1.1 Situación de nicomora70
 
-Nicolas Mora se une al proyecto más adelante. La fecha de incorporación **por definir**. Mientras tanto, las piezas de IA y simulador se planean y se diseñan con el contrato y la documentación, pero su trabajo permanece asignado a nicomora70. Hasta que se una, el backend funciona con la estimación simple y con el circuito de la IA en abierto.
-
-El reparto de trabajo queda **desigual** en las primeras fases: Nicolas Diaz y Drako cubren la mayor parte del trabajo. Se acepta esta desigualdad inicial. Se revisa cuando nicomora70 se incorpore.
+Nicolas Mora se incorpora el 2026-10-09. El equipo pidió un aporte parecido entre los tres, respetando los roles, así que además de `caudal-ia` y `caudal-simulador` toma las piezas del backend y del frontend que tocan su área (ver el reparto en [Plan de commits](Plan-de-commits.md)). La proyección, con la Fase 0 incluida, es de unos 170 commits por integrante.
 
 ### 1.2 Cuentas y configuración local
 

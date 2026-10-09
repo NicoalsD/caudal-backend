@@ -19,20 +19,22 @@ Marca `Hecho` con `[x]` cuando el commit correspondiente se haya fusionado en `d
 
 | Repositorio | Fase 1 | Fase 2 | Fase 3 | Fase 4 | Fase 5 | Fase 6 | Fase 7 | Fase 8 | Fase 9 | Fase 10 | Fase 11 | Fase 12 | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `caudal-backend` | 17 | 57 | 29 | 12 | 15 | 11 | 13 | 10 | 9 | 3 | 7 | 7 | 190 |
+| `caudal-backend` | 17 | 58 | 31 | 13 | 15 | 11 | 13 | 10 | 9 | 3 | 7 | 7 | 194 |
 | `caudal-frontend` | 10 | 6 | 9 | 7 | 12 | 6 | 8 | 8 | 5 | 4 | 2 | 3 | 80 |
 | `caudal-ia` | 8 | 6 | 3 | 0 | 0 | 16 | 0 | 0 | 0 | 8 | 0 | 4 | 45 |
 | `caudal-simulador` | 7 | 14 | 0 | 0 | 8 | 0 | 0 | 0 | 2 | 2 | 24 | 3 | 60 |
-| **Total** | **42** | **83** | **41** | **19** | **35** | **33** | **21** | **18** | **16** | **17** | **33** | **17** | **375** |
+| **Total** | **42** | **84** | **43** | **20** | **35** | **33** | **21** | **18** | **16** | **17** | **33** | **17** | **379** |
 
 | Autor | caudal-backend | caudal-frontend | caudal-ia | caudal-simulador | Total |
 |---|---:|---:|---:|---:|---:|
-| `Drako2305` | 168 | 8 | 0 | 0 | 176 |
-| `NicoalsD` | 22 | 72 | 0 | 0 | 94 |
-| `nicomora70` | 0 | 0 | 45 | 60 | 105 |
-| **Total** | **190** | **80** | **45** | **60** | **375** |
+| `Drako2305` | 123 | 0 | 0 | 0 | 123 |
+| `NicoalsD` | 33 | 51 | 0 | 0 | 84 |
+| `nicomora70` | 38 | 29 | 45 | 60 | 172 |
+| **Total** | **194** | **80** | **45** | **60** | **379** |
 
 Fase 0: 168 commits de documentación y planeación ya realizados; excluidos de esta lista de implementación.
+
+**Reparto equilibrado (2026-10-09).** El equipo pidió un aporte parecido entre los tres integrantes, respetando los roles. Nicolas Mora (`nicomora70`) se incorpora ya y toma, además de `caudal-ia` y `caudal-simulador`, lo que en el backend y el frontend toca su área: lecturas e importación de datos simulados, cliente de la IA y pronóstico, evaluación IA frente a la estimación simple, dispositivos, y sus pantallas (cola offline de lecturas, estado y pronóstico, cierre y actas, evaluación y dispositivos). Nicolas Diaz (`NicoalsD`) toma publicación, cierre y actas del backend, DevOps y el resto del frontend. Drako Salazar (`Drako2305`) conserva seguridad, reglas, red y turnos. Con la Fase 0 incluida, la proyección es de unos 170 commits por integrante.
 
 ## `caudal-backend`
 
@@ -40,93 +42,95 @@ Fase 0: 168 commits de documentación y planeación ya realizados; excluidos de 
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| B001 | `build: crea el esqueleto Maven de Spring Boot` | `Drako2305` | - | Hexagonal | [ ] |
-| B002 | `build: configura Java 25 y el Maven Wrapper` | `Drako2305` | - | - | [ ] |
-| B003 | `style: configura Spotless con google-java-format` | `Drako2305` | - | - | [ ] |
-| B004 | `build: configura Checkstyle y la regla MagicNumber` | `Drako2305` | - | - | [ ] |
-| B005 | `build: configura SpotBugs y FindSecBugs` | `Drako2305` | - | - | [ ] |
-| B006 | `ci: valida compilación y commit-lint en GitHub Actions` | `NicoalsD` | - | - | [ ] |
-| B007 | `ci: agrega CodeQL y escaneo de secretos` | `NicoalsD` | - | - | [ ] |
-| B008 | `build: define dependencias de Spring y OpenAPI` | `Drako2305` | - | - | [ ] |
-| B009 | `build: configura PostgreSQL 18 y Flyway` | `Drako2305` | - | Repository | [ ] |
-| B010 | `build: levanta PostgreSQL 18 con Docker Compose` | `NicoalsD` | - | - | [ ] |
-| B011 | `docs: documenta variables en .env.example` | `NicoalsD` | - | - | [ ] |
-| B012 | `feat: configura logs JSON con requestId y redacción` | `Drako2305` | - | - | [ ] |
-| B013 | `feat: agrega el formato canónico de errores de API` | `Drako2305` | - | - | [ ] |
-| B014 | `feat: expone GET /actuator/health` | `Drako2305` | - | - | [ ] |
-| B015 | `feat: publica Swagger y OpenAPI con bearer JWT` | `Drako2305` | - | - | [ ] |
-| B016 | `feat: agrega y prueba SystemClock con reloj inyectable` | `Drako2305` | - | P01 | [ ] |
-| B017 | `docs: documenta ejecución local y rutas de Swagger` | `NicoalsD` | - | - | [ ] |
+| B001 | `build: crea el esqueleto Maven de Spring Boot` | `Drako2305` | - | Hexagonal | [x] |
+| B002 | `build: configura Java 25 y el Maven Wrapper` | `Drako2305` | - | - | [x] |
+| B003 | `style: configura Spotless con google-java-format` | `Drako2305` | - | - | [x] |
+| B004 | `build: configura Checkstyle y la regla MagicNumber` | `Drako2305` | - | - | [x] |
+| B005 | `build: configura SpotBugs y FindSecBugs` | `Drako2305` | - | - | [x] |
+| B006 | `ci: valida compilación y commit-lint en GitHub Actions` | `NicoalsD` | - | - | [x] |
+| B007 | `ci: agrega CodeQL y escaneo de secretos` | `NicoalsD` | - | - | [x] |
+| B008 | `build: define dependencias de Spring y OpenAPI` | `Drako2305` | - | - | [x] |
+| B009 | `build: configura PostgreSQL 18 y Flyway` | `Drako2305` | - | Repository | [x] |
+| B010 | `build: levanta PostgreSQL 18 con Docker Compose` | `NicoalsD` | - | - | [x] |
+| B011 | `docs: documenta variables en .env.example` | `NicoalsD` | - | - | [x] |
+| B012 | `feat: configura logs JSON con requestId y redacción` | `Drako2305` | - | - | [x] |
+| B013 | `feat: agrega el formato canónico de errores de API` | `Drako2305` | - | - | [x] |
+| B014 | `feat: expone GET /actuator/health` | `Drako2305` | - | - | [x] |
+| B015 | `feat: publica Swagger y OpenAPI con bearer JWT` | `Drako2305` | - | - | [x] |
+| B016 | `feat: agrega y prueba SystemClock con reloj inyectable` | `Drako2305` | - | P01 | [x] |
+| B017 | `docs: documenta ejecución local y rutas de Swagger` | `NicoalsD` | - | - | [x] |
 
 ### Fase 2: Base de datos
 
-Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso B073 (antes en la Fase 3) va primero. `FieldLimits` ya existe desde B012 con el límite de `request_id`; B073 agrega la tabla completa de `.agents/input-validation.md`. B189 y B190 son la base que todas las migraciones necesitan: esquemas, extensiones, roles y el mapa de placeholders.
+Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso B073 (antes en la Fase 3) va primero. `FieldLimits` ya existe desde B012 con el límite de `request_id`; B073 agrega la tabla completa de `.agents/input-validation.md`. B191 y B192 son la base que todas las migraciones necesitan: esquemas, extensiones, roles y el mapa de placeholders.
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| B073 | `feat: agrega límites técnicos en FieldLimits` | `Drako2305` | HU-02, HU-11 | - | [ ] |
-| B189 | `feat: crea esquemas, extensiones y roles de la base de datos` | `Drako2305` | HU-04, HU-32 | - | [ ] |
-| B190 | `feat: alimenta los placeholders de Flyway desde FieldLimits` | `Drako2305` | HU-11 | - | [ ] |
-| B018 | `feat: migra iam.users` | `Drako2305` | HU-04 | Repository | [ ] |
-| B019 | `feat: migra iam.roles, iam.permissions y iam.role_permissions` | `Drako2305` | HU-04 | - | [ ] |
-| B020 | `feat: migra iam.memberships` | `Drako2305` | HU-04 | Repository | [ ] |
-| B021 | `feat: migra iam.refresh_tokens` | `Drako2305` | HU-05 | - | [ ] |
-| B022 | `feat: migra iam.login_attempts y iam.password_history` | `Drako2305` | HU-02, HU-03 | - | [ ] |
-| B023 | `feat: migra iam.password_reset_grants` | `Drako2305` | HU-02, HU-04 | - | [ ] |
-| B024 | `feat: migra iam.mfa_factors y iam.mfa_recovery_codes` | `Drako2305` | HU-06 | - | [ ] |
-| B025 | `feat: migra iam.api_keys` | `Drako2305` | HU-33 | - | [ ] |
-| B026 | `feat: migra iam.privacy_notice_versions y privacy_acceptances` | `Drako2305` | HU-04 | - | [ ] |
-| B027 | `feat: migra iam.security_events y iam.rate_limit_buckets` | `Drako2305` | HU-03 | - | [ ] |
-| B028 | `feat: migra org.aqueducts` | `Drako2305` | HU-24 | - | [ ] |
-| B029 | `feat: migra org.tanks` | `Drako2305` | HU-14 | - | [ ] |
-| B030 | `feat: migra org.sectors` | `Drako2305` | HU-18 | P08 | [ ] |
-| B031 | `feat: migra org.valves` | `Drako2305` | HU-34 | - | [ ] |
-| B032 | `feat: migra org.catalog_items` | `Drako2305` | HU-11, HU-27 | P23 | [ ] |
-| B033 | `feat: migra org.rule_sets` | `Drako2305` | HU-07, HU-08 | P05 | [ ] |
-| B034 | `feat: migra bandas y ajustes de reglas` (org.rule_level_bands, org.rule_sector_settings, org.rule_valve_orders, org.rule_operating_windows) | `Drako2305` | HU-07 | P05 | [ ] |
-| B035 | `feat: migra ops.sync_batches` | `Drako2305` | HU-10 | P13 | [ ] |
-| B036 | `feat: migra ops.readings` | `Drako2305` | HU-09, HU-11 | P12 | [ ] |
-| B037 | `feat: migra ops.reading_issues y ops.reading_corrections` | `Drako2305` | HU-12, HU-13 | P12 | [ ] |
-| B038 | `feat: migra ops.anomalies` | `Drako2305` | HU-17 | P18 | [ ] |
-| B039 | `feat: migra pronósticos en ops.forecast_runs y forecast_points` | `Drako2305` | HU-15, HU-16 | P06 | [ ] |
-| B040 | `feat: migra ops.forecast_evaluations` | `Drako2305` | HU-33 | P20 | [ ] |
-| B041 | `feat: migra ops.schedule_proposals` | `Drako2305` | HU-18 | P18 | [ ] |
-| B042 | `feat: migra ops.schedule_items y schedule_item_reasons` | `Drako2305` | HU-18, HU-19 | P04 | [ ] |
-| B043 | `feat: migra ops.proposal_snapshots y proposal_decisions` | `Drako2305` | HU-20, HU-21 | P16 | [ ] |
-| B044 | `feat: migra ops.publications` | `Drako2305` | HU-23 | P17 | [ ] |
-| B045 | `feat: migra ops.shift_executions y ops.day_closures` | `Drako2305` | HU-29 | P13 | [ ] |
-| B046 | `feat: migra ops.incidents y incident_status_history` | `Drako2305` | HU-27, HU-28 | P18 | [ ] |
-| B047 | `feat: migra reporting.minutes y reporting.summary_shares` | `Drako2305` | HU-30, HU-31 | P04 | [ ] |
-| B048 | `feat: migra devices.devices y devices.device_keys` | `Drako2305` | HU-34 | P06 | [ ] |
-| B049 | `feat: migra devices.device_nonces y telemetry_points` | `Drako2305` | HU-35 | P12 | [ ] |
-| B050 | `feat: migra devices.valve_commands y valve_command_events` | `Drako2305` | HU-36 | P13 | [ ] |
-| B051 | `feat: migra audit.audit_log` | `Drako2305` | HU-37 | P09 | [ ] |
-| B052 | `feat: migra audit.audit_anchors` | `Drako2305` | HU-37 | - | [ ] |
-| B053 | `feat: migra audit.data_access_log y retention_policies` | `Drako2305` | HU-32, HU-37 | P09 | [ ] |
-| B054 | `feat: migra sim.import_batches` | `Drako2305` | HU-38 | P12 | [ ] |
-| B055 | `feat: agrega triggers append-only y updated_at` | `Drako2305` | HU-37 | P09 | [ ] |
-| B056 | `feat: impide cambios en versiones activas de reglas` | `Drako2305` | HU-08 | P05 | [ ] |
-| B057 | `feat: valida gauge_value contra el rango del tanque` | `Drako2305` | HU-11 | P12 | [ ] |
-| B058 | `feat: encadena hashes de audit.audit_log` | `Drako2305` | HU-37 | P09 | [ ] |
-| B059 | `feat: aplica RLS con app.aqueduct_id a tablas protegidas` | `Drako2305` | HU-04, HU-32 | - | [ ] |
-| B060 | `feat: restringe password_hash, token_hash y secret_ciphertext` | `Drako2305` | HU-02, HU-05, HU-06 | - | [ ] |
-| B061 | `feat: agrega semilla de roles y permisos` | `Drako2305` | HU-04 | - | [ ] |
-| B062 | `feat: agrega semilla de catálogos y políticas de retención` | `Drako2305` | HU-27, HU-37 | - | [ ] |
-| B063 | `feat: agrega acueducto demo e historial simulado inicial` | `Drako2305` | HU-39 | - | [ ] |
-| B064 | `test: verifica restricciones y relaciones de iam` | `Drako2305` | HU-04, HU-05 | Repository | [ ] |
-| B065 | `test: verifica RLS y aislamiento entre acueductos` | `Drako2305` | HU-04, HU-32 | - | [ ] |
-| B066 | `test: verifica append-only y triggers de ops` | `Drako2305` | HU-11, HU-37 | P09 | [ ] |
-| B067 | `test: verifica exclusiones de bandas y turnos` | `Drako2305` | HU-07, HU-19 | - | [ ] |
-| B068 | `test: compara límites SQL con FieldLimits` | `Drako2305` | HU-11 | - | [ ] |
-| B069 | `test: verifica privilegios de caudal_app y caudal_readonly` | `Drako2305` | HU-32, HU-37 | - | [ ] |
-| B070 | `docs: publica el diccionario de las 57 tablas` | `NicoalsD` | - | - | [ ] |
-| B071 | `docs: actualiza la ERD de los siete esquemas` | `NicoalsD` | - | - | [ ] |
-| B072 | `docs: documenta roles SQL, RLS y retención` | `NicoalsD` | - | - | [ ] |
+| B073 | `feat: agrega límites técnicos en FieldLimits` | `Drako2305` | HU-02, HU-11 | - | [x] |
+| B191 | `feat: crea esquemas, extensiones y roles de la base de datos` | `Drako2305` | HU-04, HU-32 | - | [x] |
+| B192 | `feat: alimenta los placeholders de Flyway desde FieldLimits` | `Drako2305` | HU-11 | - | [x] |
+| B018 | `feat: migra iam.users` | `Drako2305` | HU-04 | Repository | [x] |
+| B019 | `feat: migra iam.roles, iam.permissions y iam.role_permissions` | `Drako2305` | HU-04 | - | [x] |
+| B020 | `feat: migra iam.memberships` | `Drako2305` | HU-04 | Repository | [x] |
+| B021 | `feat: migra iam.refresh_tokens` | `Drako2305` | HU-05 | - | [x] |
+| B022 | `feat: migra iam.login_attempts y iam.password_history` | `Drako2305` | HU-02, HU-03 | - | [x] |
+| B023 | `feat: migra iam.password_reset_grants` | `Drako2305` | HU-02, HU-04 | - | [x] |
+| B024 | `feat: migra iam.mfa_factors y iam.mfa_recovery_codes` | `Drako2305` | HU-06 | - | [x] |
+| B025 | `feat: migra iam.api_keys` | `Drako2305` | HU-33 | - | [x] |
+| B026 | `feat: migra iam.privacy_notice_versions y privacy_acceptances` | `Drako2305` | HU-04 | - | [x] |
+| B027 | `feat: migra iam.security_events y iam.rate_limit_buckets` | `Drako2305` | HU-03 | - | [x] |
+| B028 | `feat: migra org.aqueducts` | `Drako2305` | HU-24 | - | [x] |
+| B029 | `feat: migra org.tanks` | `Drako2305` | HU-14 | - | [x] |
+| B030 | `feat: migra org.sectors` | `Drako2305` | HU-18 | P08 | [x] |
+| B031 | `feat: migra org.valves` | `Drako2305` | HU-34 | - | [x] |
+| B032 | `feat: migra org.catalog_items` | `Drako2305` | HU-11, HU-27 | P23 | [x] |
+| B033 | `feat: migra org.rule_sets` | `Drako2305` | HU-07, HU-08 | P05 | [x] |
+| B034 | `feat: migra bandas y ajustes de reglas` (org.rule_level_bands, org.rule_sector_settings, org.rule_valve_orders, org.rule_operating_windows) | `Drako2305` | HU-07 | P05 | [x] |
+| B035 | `feat: migra ops.sync_batches` | `Drako2305` | HU-10 | P13 | [x] |
+| B036 | `feat: migra ops.readings` | `Drako2305` | HU-09, HU-11 | P12 | [x] |
+| B037 | `feat: migra ops.reading_issues y ops.reading_corrections` | `Drako2305` | HU-12, HU-13 | P12 | [x] |
+| B038 | `feat: migra ops.anomalies` | `Drako2305` | HU-17 | P18 | [x] |
+| B039 | `feat: migra pronósticos en ops.forecast_runs y forecast_points` | `Drako2305` | HU-15, HU-16 | P06 | [x] |
+| B040 | `feat: migra ops.forecast_evaluations` | `Drako2305` | HU-33 | P20 | [x] |
+| B041 | `feat: migra ops.schedule_proposals` | `Drako2305` | HU-18 | P18 | [x] |
+| B042 | `feat: migra ops.schedule_items y schedule_item_reasons` | `Drako2305` | HU-18, HU-19 | P04 | [x] |
+| B043 | `feat: migra ops.proposal_snapshots y proposal_decisions` | `Drako2305` | HU-20, HU-21 | P16 | [x] |
+| B044 | `feat: migra ops.publications` | `Drako2305` | HU-23 | P17 | [x] |
+| B045 | `feat: migra ops.shift_executions y ops.day_closures` | `Drako2305` | HU-29 | P13 | [x] |
+| B046 | `feat: migra ops.incidents y incident_status_history` | `Drako2305` | HU-27, HU-28 | P18 | [x] |
+| B047 | `feat: migra reporting.minutes y reporting.summary_shares` | `Drako2305` | HU-30, HU-31 | P04 | [x] |
+| B048 | `feat: migra devices.devices y devices.device_keys` | `Drako2305` | HU-34 | P06 | [x] |
+| B049 | `feat: migra devices.device_nonces y telemetry_points` | `Drako2305` | HU-35 | P12 | [x] |
+| B050 | `feat: migra devices.valve_commands y valve_command_events` | `Drako2305` | HU-36 | P13 | [x] |
+| B051 | `feat: migra audit.audit_log` | `Drako2305` | HU-37 | P09 | [x] |
+| B052 | `feat: migra audit.audit_anchors` | `Drako2305` | HU-37 | - | [x] |
+| B053 | `feat: migra audit.data_access_log y retention_policies` | `Drako2305` | HU-32, HU-37 | P09 | [x] |
+| B054 | `feat: migra sim.import_batches` | `Drako2305` | HU-38 | P12 | [x] |
+| B055 | `feat: agrega triggers append-only y updated_at` | `Drako2305` | HU-37 | P09 | [x] |
+| B056 | `feat: impide cambios en versiones activas de reglas` | `Drako2305` | HU-08 | P05 | [x] |
+| B057 | `feat: valida gauge_value contra el rango del tanque` | `Drako2305` | HU-11 | P12 | [x] |
+| B058 | `feat: encadena hashes de audit.audit_log` | `Drako2305` | HU-37 | P09 | [x] |
+| B059 | `feat: aplica RLS con app.aqueduct_id a tablas protegidas` | `Drako2305` | HU-04, HU-32 | - | [x] |
+| B060 | `feat: restringe password_hash, token_hash y secret_ciphertext` | `Drako2305` | HU-02, HU-05, HU-06 | - | [x] |
+| B061 | `feat: agrega semilla de roles y permisos` | `Drako2305` | HU-04 | - | [x] |
+| B062 | `feat: agrega semilla de catálogos y políticas de retención` | `Drako2305` | HU-27, HU-37 | - | [x] |
+| B063 | `feat: agrega acueducto demo e historial simulado inicial` | `Drako2305` | HU-39 | - | [x] |
+| B064 | `test: verifica restricciones y relaciones de iam` | `Drako2305` | HU-04, HU-05 | Repository | [x] |
+| B065 | `test: verifica RLS y aislamiento entre acueductos` | `Drako2305` | HU-04, HU-32 | - | [x] |
+| B066 | `test: verifica append-only y triggers de ops` | `Drako2305` | HU-11, HU-37 | P09 | [x] |
+| B067 | `test: verifica exclusiones de bandas y turnos` | `Drako2305` | HU-07, HU-19 | - | [x] |
+| B068 | `test: compara límites SQL con FieldLimits` | `Drako2305` | HU-11 | - | [x] |
+| B069 | `test: verifica privilegios de caudal_app y caudal_readonly` | `Drako2305` | HU-32, HU-37 | - | [x] |
+| B070 | `docs: publica el diccionario de las 57 tablas` | `NicoalsD` | - | - | [x] |
+| B071 | `docs: actualiza la ERD de los siete esquemas` | `NicoalsD` | - | - | [x] |
+| B072 | `docs: documenta roles SQL, RLS y retención` | `NicoalsD` | - | - | [x] |
 
 ### Fase 3: Seguridad y login
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
+| B193 | `test: verifica la arquitectura hexagonal con ArchUnit` | `Drako2305` | - | Hexagonal | [ ] |
+| B194 | `build: exige cobertura mínima con JaCoCo` | `NicoalsD` | - | - | [ ] |
 | B074 | `feat: valida username con FieldLimits` | `Drako2305` | HU-01 | - | [ ] |
 | B075 | `feat: normaliza contraseñas con Unicode NFKC` | `Drako2305` | HU-02 | - | [ ] |
 | B076 | `feat: codifica contraseñas con Argon2id` | `Drako2305` | HU-01, HU-02 | - | [ ] |
@@ -179,37 +183,37 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| B116 | `feat: implementa ReadingValidationHandler para rango` | `Drako2305` | HU-11 | P12 | [ ] |
-| B117 | `feat: valida fecha y antigüedad de lecturas` | `Drako2305` | HU-11 | P12 | [ ] |
-| B118 | `feat: marca duplicados en ReadingValidationHandler` | `Drako2305` | HU-12 | P12 | [ ] |
-| B119 | `feat: marca saltos bruscos en ReadingValidationHandler` | `Drako2305` | HU-12 | P12 | [ ] |
-| B120 | `feat: agrega idempotencia por UUID en POST /readings` | `Drako2305` | HU-09 | P13 | [ ] |
-| B121 | `feat: implementa POST /api/v1/readings` | `Drako2305` | HU-09, HU-11 | P12 | [ ] |
-| B122 | `feat: procesa POST /api/v1/readings/batch por elemento` | `Drako2305` | HU-10 | P13 | [ ] |
-| B123 | `feat: publica GET /api/v1/readings con cursor firmado` | `Drako2305` | HU-09 | - | [ ] |
-| B124 | `feat: publica GET /api/v1/readings/{id}` | `Drako2305` | HU-09 | - | [ ] |
-| B125 | `feat: agrega POST /api/v1/readings/{id}/corrections` | `Drako2305` | HU-13 | P13 | [ ] |
-| B126 | `feat: calcula effective_readings sin alterar el original` | `Drako2305` | HU-13 | Repository | [ ] |
-| B127 | `feat: valida idempotencia y orden de ops.sync_batches` | `Drako2305` | HU-10 | P13 | [ ] |
-| B128 | `feat: limita importaciones al acueducto demo` | `Drako2305` | HU-38 | P12 | [ ] |
-| B129 | `feat: implementa POST /api/v1/imports/readings` | `Drako2305` | HU-38 | P12 | [ ] |
-| B130 | `feat: importa ejecuciones de turnos e incidentes simulados` | `Drako2305` | HU-38 | P12 | [ ] |
+| B116 | `feat: implementa ReadingValidationHandler para rango` | `nicomora70` | HU-11 | P12 | [ ] |
+| B117 | `feat: valida fecha y antigüedad de lecturas` | `nicomora70` | HU-11 | P12 | [ ] |
+| B118 | `feat: marca duplicados en ReadingValidationHandler` | `nicomora70` | HU-12 | P12 | [ ] |
+| B119 | `feat: marca saltos bruscos en ReadingValidationHandler` | `nicomora70` | HU-12 | P12 | [ ] |
+| B120 | `feat: agrega idempotencia por UUID en POST /readings` | `nicomora70` | HU-09 | P13 | [ ] |
+| B121 | `feat: implementa POST /api/v1/readings` | `nicomora70` | HU-09, HU-11 | P12 | [ ] |
+| B122 | `feat: procesa POST /api/v1/readings/batch por elemento` | `nicomora70` | HU-10 | P13 | [ ] |
+| B123 | `feat: publica GET /api/v1/readings con cursor firmado` | `nicomora70` | HU-09 | - | [ ] |
+| B124 | `feat: publica GET /api/v1/readings/{id}` | `nicomora70` | HU-09 | - | [ ] |
+| B125 | `feat: agrega POST /api/v1/readings/{id}/corrections` | `nicomora70` | HU-13 | P13 | [ ] |
+| B126 | `feat: calcula effective_readings sin alterar el original` | `nicomora70` | HU-13 | Repository | [ ] |
+| B127 | `feat: valida idempotencia y orden de ops.sync_batches` | `nicomora70` | HU-10 | P13 | [ ] |
+| B128 | `feat: limita importaciones al acueducto demo` | `nicomora70` | HU-38 | P12 | [ ] |
+| B129 | `feat: implementa POST /api/v1/imports/readings` | `nicomora70` | HU-38 | P12 | [ ] |
+| B130 | `feat: importa ejecuciones de turnos e incidentes simulados` | `nicomora70` | HU-38 | P12 | [ ] |
 
 ### Fase 6: Pronóstico
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| B131 | `feat: adapta contrato IA con IaForecastClientAdapter` | `Drako2305` | HU-15 | P06 | [ ] |
-| B132 | `feat: configura timeout de conexión y lectura de IA` | `Drako2305` | HU-16 | P11 | [ ] |
-| B133 | `feat: implementa CircuitBreakerState para pronósticos` | `Drako2305` | HU-16 | P18 | [ ] |
-| B134 | `feat: calcula respaldo de persistencia y rango empírico` | `Drako2305` | HU-16 | P19 | [ ] |
-| B135 | `feat: implementa RemoteForecasterProxy con respaldo` | `Drako2305` | HU-16 | P11 | [ ] |
-| B136 | `feat: guarda pronóstico IA y baseline en sombra` | `Drako2305` | HU-16 | P09 | [ ] |
-| B137 | `feat: agrega TankStatusFacade, TankLevelState y TrendStrategy` | `Drako2305` | HU-14 | P10, P18, P19 | [ ] |
-| B138 | `feat: publica GET /api/v1/tanks/{id}/forecasts/latest` | `Drako2305` | HU-15 | P10 | [ ] |
-| B139 | `feat: implementa POST /api/v1/tanks/{id}/forecasts` | `Drako2305` | HU-15, HU-16 | P06 | [ ] |
-| B140 | `feat: revisa anomalías con PATCH /api/v1/anomalies/{id}` | `Drako2305` | HU-17 | P18 | [ ] |
-| B141 | `test: verifica estados, timeout y respaldo del pronóstico` | `Drako2305` | HU-16 | P18 | [ ] |
+| B131 | `feat: adapta contrato IA con IaForecastClientAdapter` | `nicomora70` | HU-15 | P06 | [ ] |
+| B132 | `feat: configura timeout de conexión y lectura de IA` | `nicomora70` | HU-16 | P11 | [ ] |
+| B133 | `feat: implementa CircuitBreakerState para pronósticos` | `nicomora70` | HU-16 | P18 | [ ] |
+| B134 | `feat: calcula respaldo de persistencia y rango empírico` | `nicomora70` | HU-16 | P19 | [ ] |
+| B135 | `feat: implementa RemoteForecasterProxy con respaldo` | `nicomora70` | HU-16 | P11 | [ ] |
+| B136 | `feat: guarda pronóstico IA y baseline en sombra` | `nicomora70` | HU-16 | P09 | [ ] |
+| B137 | `feat: agrega TankStatusFacade, TankLevelState y TrendStrategy` | `nicomora70` | HU-14 | P10, P18, P19 | [ ] |
+| B138 | `feat: publica GET /api/v1/tanks/{id}/forecasts/latest` | `nicomora70` | HU-15 | P10 | [ ] |
+| B139 | `feat: implementa POST /api/v1/tanks/{id}/forecasts` | `nicomora70` | HU-15, HU-16 | P06 | [ ] |
+| B140 | `feat: revisa anomalías con PATCH /api/v1/anomalies/{id}` | `nicomora70` | HU-17 | P18 | [ ] |
+| B141 | `test: verifica estados, timeout y respaldo del pronóstico` | `nicomora70` | HU-16 | P18 | [ ] |
 
 ### Fase 7: Turnos y decisión de la Junta
 
@@ -248,35 +252,35 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| B165 | `feat: registra POST /api/v1/schedule-items/{id}/execution` | `Drako2305` | HU-29 | P13 | [ ] |
-| B166 | `feat: implementa POST /api/v1/days/{date}/closure` | `Drako2305` | HU-29 | P13 | [ ] |
-| B167 | `feat: impide cierres repetidos en ops.day_closures` | `Drako2305` | HU-29 | P18 | [ ] |
-| B168 | `feat: construye actas con MinutesBuilder` | `Drako2305` | HU-30 | P04 | [ ] |
-| B169 | `feat: clasifica secciones con MinutesSectionVisitor` | `Drako2305` | HU-30 | P21 | [ ] |
-| B170 | `feat: genera documentos con DocumentGenerator` | `Drako2305` | HU-30 | P20 | [ ] |
-| B171 | `feat: implementa POST /api/v1/minutes` | `Drako2305` | HU-30 | P04 | [ ] |
-| B172 | `feat: finaliza acta con POST /api/v1/minutes/{id}/finalize` | `Drako2305` | HU-30 | P13 | [ ] |
-| B173 | `feat: crea PDF final y guarda pdf_sha256` | `Drako2305` | HU-30 | P02 | [ ] |
+| B165 | `feat: registra POST /api/v1/schedule-items/{id}/execution` | `NicoalsD` | HU-29 | P13 | [ ] |
+| B166 | `feat: implementa POST /api/v1/days/{date}/closure` | `NicoalsD` | HU-29 | P13 | [ ] |
+| B167 | `feat: impide cierres repetidos en ops.day_closures` | `NicoalsD` | HU-29 | P18 | [ ] |
+| B168 | `feat: construye actas con MinutesBuilder` | `NicoalsD` | HU-30 | P04 | [ ] |
+| B169 | `feat: clasifica secciones con MinutesSectionVisitor` | `NicoalsD` | HU-30 | P21 | [ ] |
+| B170 | `feat: genera documentos con DocumentGenerator` | `NicoalsD` | HU-30 | P20 | [ ] |
+| B171 | `feat: implementa POST /api/v1/minutes` | `NicoalsD` | HU-30 | P04 | [ ] |
+| B172 | `feat: finaliza acta con POST /api/v1/minutes/{id}/finalize` | `NicoalsD` | HU-30 | P13 | [ ] |
+| B173 | `feat: crea PDF final y guarda pdf_sha256` | `NicoalsD` | HU-30 | P02 | [ ] |
 
 ### Fase 10: Evaluación IA
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| B174 | `feat: calcula MAE, WQL, cobertura y skill por horizonte` | `Drako2305` | HU-33 | P19 | [ ] |
-| B175 | `feat: implementa GET /api/v1/forecast-evaluation` | `Drako2305` | HU-33 | P10 | [ ] |
-| B176 | `test: verifica muestra mínima y skill no calculable` | `Drako2305` | HU-33 | P19 | [ ] |
+| B174 | `feat: calcula MAE, WQL, cobertura y skill por horizonte` | `nicomora70` | HU-33 | P19 | [ ] |
+| B175 | `feat: implementa GET /api/v1/forecast-evaluation` | `nicomora70` | HU-33 | P10 | [ ] |
+| B176 | `test: verifica muestra mínima y skill no calculable` | `nicomora70` | HU-33 | P19 | [ ] |
 
 ### Fase 11: Simulador en vivo y dispositivos
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| B177 | `feat: registra dispositivos en POST /api/v1/devices` | `Drako2305` | HU-34 | P06 | [ ] |
-| B178 | `feat: rota claves Ed25519 con periodo de validez` | `Drako2305` | HU-34 | P06 | [ ] |
-| B179 | `feat: verifica firma Ed25519 y ventana temporal` | `Drako2305` | HU-35 | P12 | [ ] |
-| B180 | `feat: rechaza nonce repetido en POST /api/v1/devices/telemetry` | `Drako2305` | HU-35 | P12 | [ ] |
-| B181 | `feat: procesa telemetría con DeviceTelemetryAdapter` | `Drako2305` | HU-35 | P06 | [ ] |
-| B182 | `feat: obtiene comandos en GET /api/v1/devices/commands` | `Drako2305` | HU-36 | P13 | [ ] |
-| B183 | `feat: confirma comandos en POST /api/v1/devices/commands/{id}/ack` | `Drako2305` | HU-36 | P18 | [ ] |
+| B177 | `feat: registra dispositivos en POST /api/v1/devices` | `nicomora70` | HU-34 | P06 | [ ] |
+| B178 | `feat: rota claves Ed25519 con periodo de validez` | `nicomora70` | HU-34 | P06 | [ ] |
+| B179 | `feat: verifica firma Ed25519 y ventana temporal` | `nicomora70` | HU-35 | P12 | [ ] |
+| B180 | `feat: rechaza nonce repetido en POST /api/v1/devices/telemetry` | `nicomora70` | HU-35 | P12 | [ ] |
+| B181 | `feat: procesa telemetría con DeviceTelemetryAdapter` | `nicomora70` | HU-35 | P06 | [ ] |
+| B182 | `feat: obtiene comandos en GET /api/v1/devices/commands` | `nicomora70` | HU-36 | P13 | [ ] |
+| B183 | `feat: confirma comandos en POST /api/v1/devices/commands/{id}/ack` | `nicomora70` | HU-36 | P18 | [ ] |
 
 ### Fase 12: Endurecimiento, despliegue y v1.0.0
 
@@ -286,9 +290,9 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | B185 | `ci: bloquea dependencias vulnerables en Maven` | `NicoalsD` | - | - | [ ] |
 | B186 | `build: configura imagen Docker de producción` | `NicoalsD` | - | - | [ ] |
 | B187 | `ci: despliega API en Render desde develop` | `NicoalsD` | - | - | [ ] |
-| B188 | `feat: agrega pruebas de autorización y aislamiento RLS` | `Drako2305` | HU-04, HU-35 | - | [ ] |
-| B189 | `test: verifica redacción de secretos en logs y errores` | `Drako2305` | HU-01, HU-05 | - | [ ] |
-| B190 | `docs: documenta endurecimiento y versión v1.0.0` | `Drako2305` | - | - | [ ] |
+| B188 | `feat: agrega pruebas de autorización y aislamiento RLS` | `nicomora70` | HU-04, HU-35 | - | [ ] |
+| B189 | `test: verifica redacción de secretos en logs y errores` | `nicomora70` | HU-01, HU-05 | - | [ ] |
+| B190 | `docs: documenta endurecimiento y versión v1.0.0` | `NicoalsD` | - | - | [ ] |
 
 ## `caudal-frontend`
 
@@ -322,15 +326,15 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| F017 | `feat: implementa AuthHttpClient con token en memoria` | `Drako2305` | HU-01 | P09 | [ ] |
-| F018 | `feat: crea formulario de inicio de sesión` | `Drako2305` | HU-01 | - | [ ] |
-| F019 | `feat: integra POST /api/v1/auth/login` | `Drako2305` | HU-01 | - | [ ] |
-| F020 | `feat: renueva sesión con POST /api/v1/auth/refresh` | `Drako2305` | HU-05 | P11 | [ ] |
-| F021 | `feat: muestra cambio obligatorio de contraseña` | `Drako2305` | HU-02 | - | [ ] |
-| F022 | `feat: implementa formulario de cambio de contraseña` | `Drako2305` | HU-02 | - | [ ] |
-| F023 | `feat: agrega estado de sesión sin datos secretos` | `Drako2305` | HU-01 | P18 | [ ] |
+| F017 | `feat: implementa AuthHttpClient con token en memoria` | `NicoalsD` | HU-01 | P09 | [ ] |
+| F018 | `feat: crea formulario de inicio de sesión` | `NicoalsD` | HU-01 | - | [ ] |
+| F019 | `feat: integra POST /api/v1/auth/login` | `NicoalsD` | HU-01 | - | [ ] |
+| F020 | `feat: renueva sesión con POST /api/v1/auth/refresh` | `NicoalsD` | HU-05 | P11 | [ ] |
+| F021 | `feat: muestra cambio obligatorio de contraseña` | `NicoalsD` | HU-02 | - | [ ] |
+| F022 | `feat: implementa formulario de cambio de contraseña` | `NicoalsD` | HU-02 | - | [ ] |
+| F023 | `feat: agrega estado de sesión sin datos secretos` | `NicoalsD` | HU-01 | P18 | [ ] |
 | F024 | `feat: conserva sesiones aisladas por aqueduct_id` | `NicoalsD` | HU-04 | - | [ ] |
-| F025 | `test: verifica login, expiración y cambio obligatorio` | `Drako2305` | HU-01, HU-02 | - | [ ] |
+| F025 | `test: verifica login, expiración y cambio obligatorio` | `NicoalsD` | HU-01, HU-02 | - | [ ] |
 
 ### Fase 4: Reglas y red
 
@@ -348,29 +352,29 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| F033 | `feat: agrega OfflineDatabase con Dexie` | `NicoalsD` | HU-09 | P01 | [ ] |
-| F034 | `feat: guarda pista de sesión sin secretos en IndexedDB` | `NicoalsD` | HU-09 | - | [ ] |
-| F035 | `feat: agrega SubmitReadingCommand a la cola offline` | `NicoalsD` | HU-09 | P13 | [ ] |
-| F036 | `feat: valida lectura con reglas y catálogo en caché` | `NicoalsD` | HU-09, HU-11 | - | [ ] |
-| F037 | `feat: muestra formulario de lectura del tanque` | `NicoalsD` | HU-09 | - | [ ] |
-| F038 | `feat: detecta conexión con ConnectivityMonitor` | `NicoalsD` | HU-10 | P17 | [ ] |
-| F039 | `feat: agrega SyncQueueStore observable` | `NicoalsD` | HU-10 | P17 | [ ] |
-| F040 | `feat: sincroniza cola por POST /readings/batch` | `NicoalsD` | HU-10 | P13 | [ ] |
-| F041 | `feat: conserva pendientes al cambiar de usuario` | `NicoalsD` | HU-09, HU-10 | - | [ ] |
-| F042 | `feat: presenta errores de validación de lectura` | `NicoalsD` | HU-11, HU-12 | P12 | [ ] |
-| F043 | `feat: agrega corrección de lectura con motivo` | `NicoalsD` | HU-13 | P13 | [ ] |
-| F044 | `test: cubre persistencia, reintento y lote parcial offline` | `NicoalsD` | HU-09, HU-10 | P17 | [ ] |
+| F033 | `feat: agrega OfflineDatabase con Dexie` | `nicomora70` | HU-09 | P01 | [ ] |
+| F034 | `feat: guarda pista de sesión sin secretos en IndexedDB` | `nicomora70` | HU-09 | - | [ ] |
+| F035 | `feat: agrega SubmitReadingCommand a la cola offline` | `nicomora70` | HU-09 | P13 | [ ] |
+| F036 | `feat: valida lectura con reglas y catálogo en caché` | `nicomora70` | HU-09, HU-11 | - | [ ] |
+| F037 | `feat: muestra formulario de lectura del tanque` | `nicomora70` | HU-09 | - | [ ] |
+| F038 | `feat: detecta conexión con ConnectivityMonitor` | `nicomora70` | HU-10 | P17 | [ ] |
+| F039 | `feat: agrega SyncQueueStore observable` | `nicomora70` | HU-10 | P17 | [ ] |
+| F040 | `feat: sincroniza cola por POST /readings/batch` | `nicomora70` | HU-10 | P13 | [ ] |
+| F041 | `feat: conserva pendientes al cambiar de usuario` | `nicomora70` | HU-09, HU-10 | - | [ ] |
+| F042 | `feat: presenta errores de validación de lectura` | `nicomora70` | HU-11, HU-12 | P12 | [ ] |
+| F043 | `feat: agrega corrección de lectura con motivo` | `nicomora70` | HU-13 | P13 | [ ] |
+| F044 | `test: cubre persistencia, reintento y lote parcial offline` | `nicomora70` | HU-09, HU-10 | P17 | [ ] |
 
 ### Fase 6: Estado y pronóstico
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| F045 | `feat: presenta estado y antigüedad del tanque` | `NicoalsD` | HU-14 | P10 | [ ] |
-| F046 | `feat: grafica p10, p50 y p90 con Recharts` | `NicoalsD` | HU-15 | P06 | [ ] |
-| F047 | `feat: distingue pronóstico IA y estimación de respaldo` | `NicoalsD` | HU-16 | P18 | [ ] |
-| F048 | `feat: muestra alerta de lectura obsoleta` | `NicoalsD` | HU-14 | - | [ ] |
-| F049 | `feat: presenta anomalías pendientes de revisión` | `NicoalsD` | HU-17 | - | [ ] |
-| F050 | `test: cubre estados vacíos, error y respaldo del tanque` | `NicoalsD` | HU-14, HU-16 | - | [ ] |
+| F045 | `feat: presenta estado y antigüedad del tanque` | `nicomora70` | HU-14 | P10 | [ ] |
+| F046 | `feat: grafica p10, p50 y p90 con Recharts` | `nicomora70` | HU-15 | P06 | [ ] |
+| F047 | `feat: distingue pronóstico IA y estimación de respaldo` | `nicomora70` | HU-16 | P18 | [ ] |
+| F048 | `feat: muestra alerta de lectura obsoleta` | `nicomora70` | HU-14 | - | [ ] |
+| F049 | `feat: presenta anomalías pendientes de revisión` | `nicomora70` | HU-17 | - | [ ] |
+| F050 | `test: cubre estados vacíos, error y respaldo del tanque` | `nicomora70` | HU-14, HU-16 | - | [ ] |
 
 ### Fase 7: Propuesta y decisión
 
@@ -402,27 +406,27 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| F067 | `feat: registra cumplimiento de turnos` | `NicoalsD` | HU-29 | P13 | [ ] |
-| F068 | `feat: agrega formulario de cierre diario` | `NicoalsD` | HU-29 | P13 | [ ] |
-| F069 | `feat: presenta actas con cuatro secciones epistémicas` | `NicoalsD` | HU-30 | P21 | [ ] |
-| F070 | `feat: descarga PDF final de acta` | `NicoalsD` | HU-30 | P20 | [ ] |
-| F071 | `test: verifica cierre y vista de actas` | `NicoalsD` | HU-29, HU-30 | - | [ ] |
+| F067 | `feat: registra cumplimiento de turnos` | `nicomora70` | HU-29 | P13 | [ ] |
+| F068 | `feat: agrega formulario de cierre diario` | `nicomora70` | HU-29 | P13 | [ ] |
+| F069 | `feat: presenta actas con cuatro secciones epistémicas` | `nicomora70` | HU-30 | P21 | [ ] |
+| F070 | `feat: descarga PDF final de acta` | `nicomora70` | HU-30 | P20 | [ ] |
+| F071 | `test: verifica cierre y vista de actas` | `nicomora70` | HU-29, HU-30 | - | [ ] |
 
 ### Fase 10: Evaluación IA
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| F072 | `feat: presenta métricas MAE, WQL y cobertura` | `NicoalsD` | HU-33 | - | [ ] |
-| F073 | `feat: muestra skill por horizonte de pronóstico` | `NicoalsD` | HU-33 | P19 | [ ] |
-| F074 | `feat: informa muestra insuficiente sin veredicto` | `NicoalsD` | HU-33 | - | [ ] |
-| F075 | `test: verifica estados de la evaluación IA` | `NicoalsD` | HU-33 | - | [ ] |
+| F072 | `feat: presenta métricas MAE, WQL y cobertura` | `nicomora70` | HU-33 | - | [ ] |
+| F073 | `feat: muestra skill por horizonte de pronóstico` | `nicomora70` | HU-33 | P19 | [ ] |
+| F074 | `feat: informa muestra insuficiente sin veredicto` | `nicomora70` | HU-33 | - | [ ] |
+| F075 | `test: verifica estados de la evaluación IA` | `nicomora70` | HU-33 | - | [ ] |
 
 ### Fase 11: Dispositivos
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| F076 | `feat: agrega vista de dispositivos registrados` | `NicoalsD` | HU-34 | - | [ ] |
-| F077 | `test: verifica vista de dispositivos y estado` | `NicoalsD` | HU-34 | - | [ ] |
+| F076 | `feat: agrega vista de dispositivos registrados` | `nicomora70` | HU-34 | - | [ ] |
+| F077 | `test: verifica vista de dispositivos y estado` | `nicomora70` | HU-34 | - | [ ] |
 
 ### Fase 12: Endurecimiento y despliegue
 

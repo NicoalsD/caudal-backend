@@ -30,9 +30,9 @@ Es un proyecto de la materia **Patrones de Software**. El profesor exige backend
 
 | Integrante | Cuenta | Rol en este repo |
 |---|---|---|
-| Drako Salazar | `Drako2305` | Dueño del backend: dominio, base de datos, seguridad, patrones |
-| Nicolas Diaz | `NicoalsD` | DevOps (CI, Docker, despliegue), módulo de publicación y documentación global |
-| Nicolas Mora | `nicomora70` | Se une más adelante: cliente de la IA, dispositivos e importación del simulador |
+| Drako Salazar | `Drako2305` | Dueño del backend: dominio, base de datos, seguridad, reglas, red, turnos y patrones |
+| Nicolas Diaz | `NicoalsD` | DevOps (CI, Docker, despliegue), publicación, cierre y actas, y documentación global |
+| Nicolas Mora | `nicomora70` | Lecturas e importación de datos simulados, cliente de la IA y pronóstico, evaluación y dispositivos |
 
 Solo esas tres cuentas. El cambio de cuenta e identidad, las ramas y los PR están en [`.agents/workflow.md`](.agents/workflow.md).
 
