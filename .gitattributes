@@ -5,3 +5,5 @@
 *.png binary
 *.jpg binary
 *.drawio text eol=lf
+mvnw text eol=lf
+*.cmd text eol=crlf
