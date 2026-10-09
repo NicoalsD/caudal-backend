@@ -21,6 +21,9 @@ spring:
   # JSON contract in snake_case (docs/API.md, section 1.1).
   jackson:
     property-naming-strategy: SNAKE_CASE
+    # Unknown fields are rejected. Coercion of types is off (see JsonStrictnessConfig).
+    deserialization:
+      fail-on-unknown-properties: true
   mvc:
     problemdetails:
       enabled: false
@@ -47,6 +50,44 @@ springdoc:
 caudal:
   api-docs:
     server-url: ${API_PUBLIC_URL:http://localhost:8080}
+  security:
+    # Access token (JWT HS256). Secret, issuer and audience have no default: without them the
+    # application does not start.
+    jwt:
+      secret: ${JWT_SECRET}
+      issuer: ${JWT_ISSUER}
+      audience: ${JWT_AUDIENCE}
+      access-ttl-minutes: ${JWT_ACCESS_TTL_MINUTES:15}
+    # Lifetime of the refresh token (session), in days.
+    refresh:
+      ttl-days: ${REFRESH_TTL_DAYS_DEFAULT:7}
+      operator-ttl-days: ${REFRESH_TTL_DAYS_OPERATOR:30}
+    # Refresh cookie (caudal_rt). The PWA (Vercel) and the API (Render) are different sites, so the
+    # default is SameSite=None, protected by X-Requested-With and the Origin check.
+    cookie:
+      same-site: ${COOKIE_SAME_SITE:None}
+      secure: ${COOKIE_SECURE:true}
+    # Browser origins allowed (CORS and the refresh Origin check). No default; never "*".
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS}
+    # Permissions come from iam.role_permissions; they are cached for this many seconds.
+    permissions:
+      cache-ttl-seconds: ${PERMISSION_CACHE_TTL_SECONDS:60}
+    # Lock after consecutive failures (window = first lock) and limit per IP.
+    login:
+      max-failures: ${LOGIN_MAX_FAILURES:5}
+      lock-minutes: ${LOGIN_LOCK_MINUTES:15}
+      ip-max-attempts: ${LOGIN_IP_MAX_ATTEMPTS:20}
+      ip-window-minutes: ${LOGIN_IP_WINDOW_MINUTES:15}
+    # Key that hides IP addresses and typed usernames in the database. No default value.
+    privacy:
+      ip-hmac-key: ${IP_HMAC_KEY}
+    # Argon2id (docs/Seguridad.md, section 2.1). The defaults are the canonical values.
+    argon2:
+      memory-kib: ${ARGON2_MEMORY_KIB:19456}
+      iterations: ${ARGON2_ITERATIONS:2}
+      parallelism: ${ARGON2_PARALLELISM:1}
+      password-history-size: ${PASSWORD_HISTORY_SIZE:5}
 
 server:
   error:

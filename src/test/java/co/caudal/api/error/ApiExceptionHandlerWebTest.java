@@ -1,5 +1,6 @@
 package co.caudal.api.error;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -16,9 +17,14 @@ import jakarta.validation.constraints.Size;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -30,9 +36,21 @@ import org.springframework.web.bind.annotation.RestController;
   ApiExceptionHandler.class,
   RequestIdFilter.class,
   MessagesConfig.class,
-  ApiExceptionHandlerWebTest.ProbeController.class
+  ApiExceptionHandlerWebTest.ProbeController.class,
+  ApiExceptionHandlerWebTest.OpenSecurity.class
 })
 class ApiExceptionHandlerWebTest {
+
+  /** This test is about error bodies, not security: every request is allowed. */
+  @TestConfiguration
+  @EnableWebSecurity
+  static class OpenSecurity {
+
+    @Bean
+    SecurityFilterChain openChain(HttpSecurity http) throws Exception {
+      return http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll()).build();
+    }
+  }
 
   @Autowired private MockMvc mvc;
 
@@ -61,6 +79,7 @@ class ApiExceptionHandlerWebTest {
   void invalidBodyListsFieldsInSnakeCase() throws Exception {
     mvc.perform(
             post("/probe/body")
+                .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"full_name\":\"\"}"))
         .andExpect(status().isBadRequest())
@@ -75,14 +94,18 @@ class ApiExceptionHandlerWebTest {
 
   @Test
   void malformedJsonIsValidationError() throws Exception {
-    mvc.perform(post("/probe/body").contentType(MediaType.APPLICATION_JSON).content("{oops"))
+    mvc.perform(
+            post("/probe/body")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{oops"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
   }
 
   @Test
   void unsupportedMediaType() throws Exception {
-    mvc.perform(post("/probe/body").contentType(MediaType.TEXT_PLAIN).content("x"))
+    mvc.perform(post("/probe/body").with(csrf()).contentType(MediaType.TEXT_PLAIN).content("x"))
         .andExpect(status().isUnsupportedMediaType())
         .andExpect(jsonPath("$.error.code").value("UNSUPPORTED_MEDIA_TYPE"));
   }

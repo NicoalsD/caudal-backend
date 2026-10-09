@@ -1,0 +1,7 @@
+# Test profile that runs the application as caudal_app (least privilege, RLS applies), like in
+# production. The datasource, the Flyway login and the container are set by AppRoleIT, because the
+# Testcontainers JDBC driver ignores the user name and would log in as the owner. Flyway also loads
+# the test-only migration that gives the role a throwaway password.
+spring:
+  flyway:
+    locations: classpath:db/migration,classpath:db/testmigration

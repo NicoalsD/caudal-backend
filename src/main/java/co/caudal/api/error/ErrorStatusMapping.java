@@ -4,11 +4,17 @@ import co.caudal.shared.error.ErrorCode;
 import org.springframework.http.HttpStatus;
 
 /** Assigns the HTTP status of every {@link ErrorCode} (docs/API.md, section 1.4). */
-final class ErrorStatusMapping {
+public final class ErrorStatusMapping {
 
   private ErrorStatusMapping() {}
 
-  static HttpStatus statusOf(ErrorCode code) {
+  /**
+   * Returns the HTTP status of an error code.
+   *
+   * @param code the error code
+   * @return its status
+   */
+  public static HttpStatus statusOf(ErrorCode code) {
     return switch (code) {
       case VALIDATION_ERROR, CURSOR_INVALID -> HttpStatus.BAD_REQUEST;
       case UNAUTHORIZED,

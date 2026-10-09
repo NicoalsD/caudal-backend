@@ -40,6 +40,27 @@ public final class FieldLimits {
   /** Maximum length of any password input, checked before hashing. */
   public static final int PASSWORD_MAX = 128;
 
+  /** Length of the random salt of an Argon2id hash, in bytes. */
+  public static final int ARGON2_SALT_BYTES = 16;
+
+  /** Length of an Argon2id hash, in bytes. */
+  public static final int ARGON2_HASH_BYTES = 32;
+
+  /** Minimum length of the JWT signing secret, in bytes (256 bits for HS256). */
+  public static final int JWT_SECRET_MIN_BYTES = 32;
+
+  /** Clock difference tolerated when checking {@code exp} and {@code nbf}, in seconds. */
+  public static final int JWT_CLOCK_SKEW_SECONDS = 30;
+
+  /** Length of a SHA-256 digest in lower case hexadecimal ({@code char(64)} in the DB). */
+  public static final int SHA256_HEX_LENGTH = 64;
+
+  /** Maximum length of the username typed at login, before any format check. */
+  public static final int LOGIN_USERNAME_INPUT_MAX = 128;
+
+  /** Minimum length of the HMAC key that hides IP addresses and usernames, in bytes. */
+  public static final int HMAC_KEY_MIN_BYTES = 32;
+
   /** Minimum length of a person name. */
   public static final int PERSON_NAME_MIN = 2;
 

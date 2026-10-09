@@ -16,6 +16,8 @@ import org.slf4j.MDC;
 import org.springframework.context.MessageSource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -108,6 +110,16 @@ public class ApiExceptionHandler {
   ResponseEntity<ErrorResponse> handleTooLarge(
       MaxUploadSizeExceededException ex, HttpServletRequest request) {
     return build(ErrorCode.PAYLOAD_TOO_LARGE, Map.of(), new Object[0], request);
+  }
+
+  /**
+   * Security failures raised inside a controller (a denied {@code @PreAuthorize}) are not business
+   * errors: they go back to the security filters, which answer 401 or 403 in the canonical format
+   * and record the event.
+   */
+  @ExceptionHandler({AccessDeniedException.class, AuthenticationException.class})
+  void handleSecurity(RuntimeException ex) {
+    throw ex;
   }
 
   @ExceptionHandler(Exception.class)

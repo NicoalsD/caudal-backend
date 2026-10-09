@@ -1,12 +1,46 @@
 # Test profile: every test that starts Spring uses a real PostgreSQL 18 started by
-# Testcontainers through its JDBC URL. Datasource and Flyway share the same container.
+# Testcontainers through its JDBC URL. Datasource and Flyway share the same container; TC_DAEMON
+# keeps it alive until the JVM ends, whatever connection closes first (Flyway or the pool).
 spring:
   datasource:
-    url: jdbc:tc:postgresql:18:///caudal
+    url: jdbc:tc:postgresql:18:///caudal?TC_DAEMON=true
     driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
     username: test
     password: test
   flyway:
-    url: jdbc:tc:postgresql:18:///caudal
+    url: jdbc:tc:postgresql:18:///caudal?TC_DAEMON=true
     user: test
     password: test
+
+caudal:
+  security:
+    # Obvious test-only values; never used outside the test profile.
+    jwt:
+      secret: test-only-jwt-secret-with-at-least-32-bytes-0000
+      issuer: caudal-test-issuer
+      audience: caudal-test-audience
+      access-ttl-minutes: 15
+    cookie:
+      same-site: None
+      secure: true
+    cors:
+      allowed-origins: http://localhost:5173,https://app.example.test
+    permissions:
+      cache-ttl-seconds: 60
+    login:
+      max-failures: 5
+      lock-minutes: 15
+      ip-max-attempts: 20
+      ip-window-minutes: 15
+    privacy:
+      ip-hmac-key: test-only-ip-hmac-key-with-at-least-32-bytes
+    refresh:
+      ttl-days: 7
+      operator-ttl-days: 30
+    # Low Argon2id cost to keep the tests fast (testing plan, section 5). The test that checks the
+    # production parameters builds its own encoder.
+    argon2:
+      memory-kib: 64
+      iterations: 1
+      parallelism: 1
+      password-history-size: 5

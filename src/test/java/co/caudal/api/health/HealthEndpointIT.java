@@ -1,5 +1,6 @@
 package co.caudal.api.health;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -27,8 +28,14 @@ class HealthEndpointIT {
 
   @Test
   void otherActuatorEndpointsAreNotExposed() throws Exception {
-    mvc.perform(get("/actuator/env")).andExpect(status().isNotFound());
-    mvc.perform(get("/actuator/beans")).andExpect(status().isNotFound());
-    mvc.perform(get("/actuator/heapdump")).andExpect(status().isNotFound());
+    // Even with a valid session they do not exist.
+    for (String path : new String[] {"/actuator/env", "/actuator/beans", "/actuator/heapdump"}) {
+      mvc.perform(get(path).with(jwt())).andExpect(status().isNotFound());
+    }
+  }
+
+  @Test
+  void anonymousRequestsToOtherActuatorEndpointsAreDeniedByDefault() throws Exception {
+    mvc.perform(get("/actuator/env")).andExpect(status().isUnauthorized());
   }
 }
