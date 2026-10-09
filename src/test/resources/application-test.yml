@@ -10,3 +10,13 @@ spring:
     url: jdbc:tc:postgresql:18:///caudal
     user: test
     password: test
+
+caudal:
+  security:
+    # Low Argon2id cost to keep the tests fast (testing plan, section 5). The test that checks the
+    # production parameters builds its own encoder.
+    argon2:
+      memory-kib: 64
+      iterations: 1
+      parallelism: 1
+      password-history-size: 5

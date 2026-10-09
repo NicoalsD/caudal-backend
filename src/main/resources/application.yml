@@ -47,6 +47,13 @@ springdoc:
 caudal:
   api-docs:
     server-url: ${API_PUBLIC_URL:http://localhost:8080}
+  security:
+    # Argon2id (docs/Seguridad.md, section 2.1). The defaults are the canonical values.
+    argon2:
+      memory-kib: ${ARGON2_MEMORY_KIB:19456}
+      iterations: ${ARGON2_ITERATIONS:2}
+      parallelism: ${ARGON2_PARALLELISM:1}
+      password-history-size: ${PASSWORD_HISTORY_SIZE:5}
 
 server:
   error:

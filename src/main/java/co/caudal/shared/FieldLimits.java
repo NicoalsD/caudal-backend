@@ -40,6 +40,12 @@ public final class FieldLimits {
   /** Maximum length of any password input, checked before hashing. */
   public static final int PASSWORD_MAX = 128;
 
+  /** Length of the random salt of an Argon2id hash, in bytes. */
+  public static final int ARGON2_SALT_BYTES = 16;
+
+  /** Length of an Argon2id hash, in bytes. */
+  public static final int ARGON2_HASH_BYTES = 32;
+
   /** Minimum length of a person name. */
   public static final int PERSON_NAME_MIN = 2;
 
