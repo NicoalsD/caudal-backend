@@ -19,4 +19,13 @@ public record Caller(UUID userId, UUID aqueductId, String role, String ipAddress
     Objects.requireNonNull(userId, "userId");
     Objects.requireNonNull(aqueductId, "aqueductId");
   }
+
+  /**
+   * Scope of a transaction that acts for this caller, for row level security.
+   *
+   * @return the scope of the caller's account and aqueduct
+   */
+  public SessionScope scope() {
+    return new SessionScope(userId, aqueductId);
+  }
 }
