@@ -127,13 +127,13 @@ Reglas:
 
 | Uso | Host | Opciones |
 |---|---|---|
-| API (`DATABASE_URL`) | Pooler de Neon, si la aplicación lo necesita (verificar compatibilidad con los `SET LOCAL` y `statement_timeout` por rol). | `sslmode=verify-full`. |
-| Migraciones (`FLYWAY_URL`) | Conexión directa, sin pooler. | `sslmode=verify-full`. |
+| API (`DATABASE_URL`) | Host directo de Neon; usar pooler solo tras verificar compatibilidad con los `SET LOCAL` por rol. | `sslmode=verify-full` y `sslfactory=org.postgresql.ssl.DefaultJavaSSLFactory`. |
+| Migraciones (`FLYWAY_URL`) | Conexión directa, sin pooler. | `sslmode=verify-full` y `sslfactory=org.postgresql.ssl.DefaultJavaSSLFactory`. |
 
 Notas:
 - Los `SET LOCAL app.aqueduct_id` son por transacción. Funcionan con el pooler en modo de transacción, pero debe confirmarse (verificar).
 - Flyway necesita una conexión directa porque usa bloqueos de sesión y comandos que el pooler puede no soportar (verificar).
-- `sslmode=verify-full` exige que el cliente valide el certificado del servidor. Se configura el almacén de confianza con el certificado de Neon (verificar cómo lo entrega la imagen de Render).
+- `sslfactory=org.postgresql.ssl.DefaultJavaSSLFactory` usa el almacén de confianza del JRE; `sslmode=verify-full` valida además el nombre del host. Ambos parámetros deben ir en las URLs JDBC de Neon.
 
 ### 4.3 Roles y tiempos
 
