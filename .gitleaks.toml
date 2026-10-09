@@ -1,0 +1,8 @@
+# gitleaks: reglas por defecto más excepciones revisadas.
+# Los marcadores de .env.example ("cambia-esto-...") no son secretos.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Marcadores de ejemplo sin valor real"
+regexes = ['''cambia-esto-[a-z0-9-]+''']
