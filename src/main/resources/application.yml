@@ -1,0 +1,84 @@
+spring:
+  application:
+    name: caudal-backend
+  # Application connection: caudal_app with minimal DML privileges.
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+    hikari:
+      pool-name: caudal-app
+  # Migrations run with the schema owner (caudal_migrator), on the direct connection.
+  flyway:
+    url: ${FLYWAY_URL}
+    user: ${FLYWAY_USER}
+    password: ${FLYWAY_PASSWORD}
+    locations: classpath:db/migration
+    schemas: public
+    validate-on-migrate: true
+    clean-disabled: true
+    baseline-on-migrate: false
+  # JSON contract in snake_case (docs/API.md, section 1.1).
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+  mvc:
+    problemdetails:
+      enabled: false
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+# Swagger UI and OpenAPI document; API_DOCS_ENABLED=false turns both into 404.
+springdoc:
+  api-docs:
+    enabled: ${API_DOCS_ENABLED:true}
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: ${API_DOCS_ENABLED:true}
+    path: /swagger-ui.html
+  paths-to-match: /api/v1/**
+  default-produces-media-type: application/json
+
+caudal:
+  api-docs:
+    server-url: ${API_PUBLIC_URL:http://localhost:8080}
+
+server:
+  error:
+    include-stacktrace: never
+    include-message: never
+    whitelabel:
+      enabled: false
+
+# Only the health endpoint is exposed, without details (it is public).
+management:
+  endpoints:
+    access:
+      default: none
+    web:
+      base-path: /actuator
+      exposure:
+        include: health
+  endpoint:
+    health:
+      access: read-only
+      show-details: never
+      show-components: never
+      probes:
+        enabled: true
+
+# JSON logs (ECS) with request_id from the MDC and credentials redacted.
+logging:
+  structured:
+    format:
+      console: ecs
+    json:
+      customizer: co.caudal.infrastructure.logging.RedactingJsonMembersCustomizer
+  level:
+    root: ${LOG_LEVEL:INFO}
+    co.caudal: ${LOG_LEVEL:INFO}

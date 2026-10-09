@@ -1,0 +1,99 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+    "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+    "https://checkstyle.org/dtds/configuration_1_3.dtd">
+<!--
+  CAUDAL backend style rules. Formatting is owned by Spotless (google-java-format);
+  this file only checks what the formatter cannot: magic numbers, naming, imports,
+  size limits and risky constructs. See AGENTS.md section 3.2.
+-->
+<module name="Checker">
+  <property name="charset" value="UTF-8"/>
+  <property name="severity" value="error"/>
+  <property name="fileExtensions" value="java"/>
+
+  <module name="SuppressWarningsFilter"/>
+  <module name="FileTabCharacter"/>
+  <module name="NewlineAtEndOfFile"/>
+  <module name="FileLength">
+    <property name="max" value="800"/>
+  </module>
+
+  <module name="TreeWalker">
+    <module name="SuppressWarningsHolder"/>
+
+    <!-- No hardcoded values: business parameters live in the database and
+         technical limits in FieldLimits. Only named constants are allowed. -->
+    <module name="MagicNumber">
+      <property name="ignoreNumbers" value="-1, 0, 1, 2"/>
+      <property name="ignoreHashCodeMethod" value="true"/>
+      <property name="ignoreAnnotation" value="false"/>
+      <property name="ignoreFieldDeclaration" value="false"/>
+    </module>
+
+    <!-- Naming (identifiers in English, enforced by review). -->
+    <module name="PackageName">
+      <property name="format" value="^co\.caudal(\.[a-z][a-z0-9]*)*$"/>
+    </module>
+    <module name="TypeName"/>
+    <module name="MethodName"/>
+    <module name="ConstantName"/>
+    <module name="LocalVariableName"/>
+    <module name="MemberName"/>
+    <module name="ParameterName"/>
+    <module name="StaticVariableName"/>
+    <module name="AbbreviationAsWordInName">
+      <property name="allowedAbbreviationLength" value="1"/>
+      <property name="ignoreFinal" value="false"/>
+    </module>
+
+    <!-- Imports. -->
+    <module name="AvoidStarImport"/>
+    <module name="RedundantImport"/>
+    <module name="UnusedImports"/>
+    <module name="IllegalImport"/>
+
+    <!-- Size and complexity. -->
+    <module name="MethodLength">
+      <property name="max" value="60"/>
+    </module>
+    <module name="ParameterNumber">
+      <property name="max" value="8"/>
+      <property name="ignoreAnnotatedBy" value="Override"/>
+    </module>
+    <module name="CyclomaticComplexity">
+      <property name="max" value="12"/>
+    </module>
+
+    <!-- Risky constructs. -->
+    <module name="EmptyCatchBlock"/>
+    <module name="EqualsHashCode"/>
+    <module name="FallThrough"/>
+    <module name="IllegalCatch">
+      <property name="illegalClassNames" value="java.lang.Throwable, java.lang.Error"/>
+    </module>
+    <module name="IllegalInstantiation">
+      <property name="classes" value="java.lang.Boolean, java.util.Date"/>
+    </module>
+    <module name="MissingSwitchDefault"/>
+    <module name="ModifiedControlVariable"/>
+    <module name="MultipleVariableDeclarations"/>
+    <module name="OneStatementPerLine"/>
+    <module name="SimplifyBooleanExpression"/>
+    <module name="SimplifyBooleanReturn"/>
+    <module name="StringLiteralEquality"/>
+    <module name="NeedBraces"/>
+    <module name="UpperEll"/>
+    <module name="HideUtilityClassConstructor">
+      <property name="ignoreAnnotatedBy" value="SpringBootApplication"/>
+    </module>
+    <module name="FinalClass"/>
+
+    <!-- The system clock is read only by SystemClock (ARCH-11). -->
+    <module name="RegexpSinglelineJava">
+      <property name="format" value="System\.currentTimeMillis\(\)|System\.out\.|System\.err\.|printStackTrace\(\)"/>
+      <property name="message" value="Usa el reloj inyectado y el logger; no System.currentTimeMillis, System.out ni printStackTrace."/>
+      <property name="ignoreComments" value="true"/>
+    </module>
+  </module>
+</module>
