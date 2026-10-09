@@ -4,6 +4,7 @@ import co.caudal.application.auth.GetCurrentUserUseCase;
 import co.caudal.application.auth.LoginPorts;
 import co.caudal.application.auth.LoginSettings;
 import co.caudal.application.auth.LoginUseCase;
+import co.caudal.application.auth.LogoutCommandHandler;
 import co.caudal.application.auth.RefreshSessionUseCase;
 import co.caudal.application.auth.RefreshTokenService;
 import co.caudal.application.port.out.AccessTokenIssuerPort;
@@ -102,5 +103,11 @@ class AuthServicesConfig {
       Clock clock) {
     return new RefreshSessionUseCase(
         refreshTokens, versions, memberships, accessTokens, hasher, unitOfWork, clock);
+  }
+
+  @Bean
+  LogoutCommandHandler logoutCommandHandler(
+      RefreshTokenPort tokens, UnitOfWorkPort unitOfWork, Clock clock) {
+    return new LogoutCommandHandler(tokens, unitOfWork, clock);
   }
 }
