@@ -20,6 +20,11 @@ caudal:
       issuer: caudal-test-issuer
       audience: caudal-test-audience
       access-ttl-minutes: 15
+    cookie:
+      same-site: None
+      secure: true
+    cors:
+      allowed-origins: http://localhost:5173,https://app.example.test
     refresh:
       ttl-days: 7
       operator-ttl-days: 30

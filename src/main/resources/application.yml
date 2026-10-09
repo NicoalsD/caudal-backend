@@ -59,6 +59,14 @@ caudal:
     refresh:
       ttl-days: ${REFRESH_TTL_DAYS_DEFAULT:7}
       operator-ttl-days: ${REFRESH_TTL_DAYS_OPERATOR:30}
+    # Refresh cookie (caudal_rt). The PWA (Vercel) and the API (Render) are different sites, so the
+    # default is SameSite=None, protected by X-Requested-With and the Origin check.
+    cookie:
+      same-site: ${COOKIE_SAME_SITE:None}
+      secure: ${COOKIE_SECURE:true}
+    # Browser origins allowed (CORS and the refresh Origin check). No default; never "*".
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS}
     # Argon2id (docs/Seguridad.md, section 2.1). The defaults are the canonical values.
     argon2:
       memory-kib: ${ARGON2_MEMORY_KIB:19456}

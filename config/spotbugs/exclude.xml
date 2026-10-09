@@ -41,4 +41,11 @@
     <Class name="co.caudal.domain.user.NormalizedPassword"/>
     <Bug pattern="IMPROPER_UNICODE"/>
   </Match>
+
+  <!-- The refresh guard reads X-Requested-With and Origin to REJECT requests that do not match
+       exact expected values; the header is never trusted as input data. -->
+  <Match>
+    <Class name="co.caudal.api.security.RefreshRequestGuard"/>
+    <Bug pattern="SERVLET_HEADER"/>
+  </Match>
 </FindBugsFilter>
