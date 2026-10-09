@@ -1,3 +1,28 @@
 spring:
   application:
     name: caudal-backend
+  # Application connection: caudal_app with minimal DML privileges.
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+    hikari:
+      pool-name: caudal-app
+  # Migrations run with the schema owner (caudal_migrator), on the direct connection.
+  flyway:
+    url: ${FLYWAY_URL}
+    user: ${FLYWAY_USER}
+    password: ${FLYWAY_PASSWORD}
+    locations: classpath:db/migration
+    schemas: public
+    validate-on-migrate: true
+    clean-disabled: true
+    baseline-on-migrate: false
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC

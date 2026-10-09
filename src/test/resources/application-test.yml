@@ -1,0 +1,12 @@
+# Test profile: every test that starts Spring uses a real PostgreSQL 18 started by
+# Testcontainers through its JDBC URL. Datasource and Flyway share the same container.
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:18:///caudal
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+    username: test
+    password: test
+  flyway:
+    url: jdbc:tc:postgresql:18:///caudal
+    user: test
+    password: test
