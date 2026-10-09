@@ -1,0 +1,30 @@
+# Sistema operativo y editores
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.iml
+*.swp
+
+# Variables de entorno y secretos (nunca se suben)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+keys/
+
+# Logs
+*.log
+logs/
+
+# Java / Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+*.class
+hs_err_pid*
+replay_pid*
+
+# Reportes
+coverage/
