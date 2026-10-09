@@ -77,4 +77,10 @@
     <Class name="co.caudal.infrastructure.security.SecurityErrorWriter"/>
     <Bug pattern="XSS_SERVLET"/>
   </Match>
+
+  <!-- Informational: controllers are endpoints by definition. Every route is denied by default by
+       the security filter chain, and PermissionDeniedIT checks it. -->
+  <Match>
+    <Bug pattern="SPRING_ENDPOINT"/>
+  </Match>
 </FindBugsFilter>
