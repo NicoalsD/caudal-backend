@@ -1,0 +1,51 @@
+services:
+  - type: web
+    name: caudal-api
+    runtime: docker
+    repo: https://github.com/NicoalsD/caudal-backend
+    branch: develop
+    region: ohio
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /actuator/health
+    autoDeployTrigger: "off"
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_USERNAME
+        value: caudal_app
+      - key: DATABASE_PASSWORD
+        sync: false
+      - key: FLYWAY_URL
+        sync: false
+      - key: FLYWAY_USER
+        sync: false
+      - key: FLYWAY_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_ISSUER
+        value: caudal-api
+      - key: JWT_AUDIENCE
+        value: caudal-web
+      - key: IP_HMAC_KEY
+        generateValue: true
+      - key: MFA_ENCRYPTION_KEY
+        generateValue: true
+      - key: MFA_KEY_ID
+        value: caudal-mfa-v1
+      - key: COOKIE_SAME_SITE
+        value: "None"
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: PORT
+        value: "10000"
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: API_PUBLIC_URL
+        value: https://caudal-api.onrender.com
+      - key: API_DOCS_ENABLED
+        value: "true"
+      - key: LOG_LEVEL
+        value: INFO

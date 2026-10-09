@@ -17,7 +17,7 @@ Restricciones de la especificación:
 
 ## 2. Imagen Docker
 
-Construcción multi-etapa: una etapa compila con JDK y otra ejecuta con JRE. La imagen final no contiene Maven ni código fuente.
+La construcción multi-etapa de `Dockerfile` compila con JDK 25 y ejecuta con JRE 25. La imagen final no contiene Maven ni código fuente. `.dockerignore` excluye secretos locales, artefactos y metadatos de Git del contexto de build.
 
 ```dockerfile
 # Stage 1: build the executable jar (tests run in CI, not here)
@@ -69,15 +69,17 @@ Criterio de aceptación: la API responde a la carga de la demo sin reinicios por
 | Entorno | Docker |
 | Rama de despliegue | `main` para producción. `develop` para un servicio de pruebas, si existe (verificar). |
 | Ruta de salud | `/actuator/health` |
-| Puerto | Render define `PORT`. La aplicación lee `server.port=${PORT:8080}` (verificar). |
-| Región | Por definir. Elegir la más cercana a Neon para reducir latencia (verificar). |
-| Plan | Por definir. Verificar memoria disponible y comportamiento de suspensión en el plan gratuito. |
+| Puerto | Render define `PORT`; Spring usa `server.port=${PORT:8080}`. |
+| Región | Ohio, cercana a Neon us-east-2. |
+| Plan | `free` para pruebas; suspende al quedar inactivo. Medir memoria antes de producción. |
+
+La configuración implementada está en `render.yaml`: servicio `caudal-api`, rama `develop`, región Ohio, plan gratuito, despliegue manual y health check `/actuator/health`. Las credenciales externas se declaran con `sync: false`; los secretos de firma y cifrado se generan en Render.
 
 Comportamiento de suspensión: un plan que suspende el servicio tras inactividad aumenta la latencia de la primera petición. La PWA debe mostrar un estado de "conectando" en vez de fallar (verificar con el equipo de frontend).
 
 ### 3.2 Variables de entorno en Render
 
-Las variables se cargan en el panel de Render o con un blueprint si se decide usarlo (verificar). Ningún valor real se escribe en el repositorio. La lista completa y sus marcadores están en `.env.example`.
+Las variables se cargan desde `render.yaml` al crear el Blueprint. Ningún valor real se escribe en el repositorio: Neon y CORS se piden en el panel; los secretos de firma/cifrado se generan en Render. La lista local está en `.env.example`.
 
 Grupos:
 

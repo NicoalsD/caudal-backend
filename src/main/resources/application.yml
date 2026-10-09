@@ -90,6 +90,7 @@ caudal:
       password-history-size: ${PASSWORD_HISTORY_SIZE:5}
 
 server:
+  port: ${PORT:8080}
   error:
     include-stacktrace: never
     include-message: never
