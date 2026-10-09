@@ -17,14 +17,16 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 public class Argon2PasswordHasherAdapter implements PasswordHasherPort {
 
   private final PasswordEncoder encoder;
+  private final DecoyPasswordHash decoy;
 
   /**
-   * Creates an adapter over an existing encoder (tests and the decoy hash share it).
+   * Creates an adapter over an existing encoder. The decoy hash is created with the same encoder.
    *
    * @param encoder the Argon2id encoder
    */
   public Argon2PasswordHasherAdapter(PasswordEncoder encoder) {
     this.encoder = encoder;
+    this.decoy = new DecoyPasswordHash(encoder);
   }
 
   /**
@@ -56,6 +58,13 @@ public class Argon2PasswordHasherAdapter implements PasswordHasherPort {
       return encoder.matches(password.value(), encodedHash);
     } catch (IllegalArgumentException malformedHash) {
       return false;
+    }
+  }
+
+  @Override
+  public void verifyAgainstDecoy(NormalizedPassword password) {
+    if (password.length() <= FieldLimits.PASSWORD_MAX) {
+      decoy.verify(password);
     }
   }
 

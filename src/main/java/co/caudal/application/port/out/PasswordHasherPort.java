@@ -30,4 +30,12 @@ public interface PasswordHasherPort {
    * @return true if the hash should be replaced
    */
   boolean needsRehash(String encodedHash);
+
+  /**
+   * Spends the time of one verification without any account behind it, so that the response time of
+   * a login does not reveal whether the username exists or is usable.
+   *
+   * @param password the password that was typed
+   */
+  void verifyAgainstDecoy(NormalizedPassword password);
 }
