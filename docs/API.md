@@ -284,8 +284,8 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 ### 2.6 `POST /api/v1/auth/reset-password`
 
 - **Permiso:** público (con código de un solo uso emitido por la Junta).
-- **Cuerpo:** `username` (texto, mismo límite que login), `code` (texto, longitud por definir), `new_password` (mismo límite que 2.5).
-- **Respuesta 204.** Marca el código como usado y revoca las sesiones.
+- **Cuerpo:** `username` (texto, mismo tope de entrada que login), `code` (texto de 1 a 32 caracteres; el código real tiene 12 caracteres Crockford base32, se muestra como `ABCD-EFGH-JKMN` y se acepta en minúsculas, con espacios o guiones), `new_password` (mismo límite que 2.5).
+- **Respuesta 204.** Marca el código como usado, incrementa `token_version` y revoca las sesiones (`PASSWORD_CHANGED`). No cambia `must_change_password`: una cuenta nueva sigue obligada a cambiar su contraseña tras el primer ingreso (HU-02). Si la contraseña no cumple la política responde 422 y el código no se gasta.
 - **Errores:** `401 UNAUTHORIZED` (código inválido, vencido o usado; mensaje genérico), `422 PASSWORD_POLICY_VIOLATION`, `429 RATE_LIMITED`.
 
 ### 2.7 `GET /api/v1/auth/me`

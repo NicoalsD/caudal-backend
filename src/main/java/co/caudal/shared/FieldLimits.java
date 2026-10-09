@@ -176,6 +176,15 @@ public final class FieldLimits {
   public static final String TRACKING_CODE_PATTERN =
       "^[0-9A-HJKMNP-TV-Z]{" + TRACKING_CODE_LENGTH + "}$";
 
+  /** Number of characters of a one-time reset or activation code. */
+  public static final int RESET_CODE_LENGTH = 12;
+
+  /** Crockford base32 reset code, as stored (upper case, no separators). */
+  public static final String RESET_CODE_PATTERN = "^[0-9A-HJKMNP-TV-Z]{" + RESET_CODE_LENGTH + "}$";
+
+  /** Longest reset code text accepted from a person before normalizing (spaces and hyphens). */
+  public static final int RESET_CODE_INPUT_MAX = 32;
+
   // Requests.
 
   /** Maximum number of elements in any list, unless a field says otherwise. */

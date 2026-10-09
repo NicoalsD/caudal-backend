@@ -147,7 +147,7 @@ Convenciones de la tabla:
 | `POST /auth/change-password` | `current_password` | string | Sí | 1 | 128 | Solo tope de entrada | NFKC | `PASSWORD` | `FIELD_TOO_LONG` |
 | `POST /auth/change-password` | `new_password` | string | Sí | 12 | 128 | No en la lista de comunes; no contiene el usuario; no está en las últimas 5 | NFKC | `PASSWORD` | `PASSWORD_POLICY_VIOLATION` (`FIELD_TOO_SHORT` en detalle si aplica) |
 | `POST /auth/reset-password` | `username` | string | Sí | 3 | 32 | `USERNAME` | trim, minúsculas ASCII | `USERNAME` | `FIELD_FORMAT_INVALID` |
-| `POST /auth/reset-password` | `code` | string | Sí | por definir | por definir | Formato del código de un solo uso (por definir; se muestra una sola vez) | trim, mayúsculas, sin espacios | por definir (`RESET_CODE`) | `FIELD_FORMAT_INVALID` |
+| `POST /auth/reset-password` | `code` | string | Sí | 1 | 32 | Entrada de 1 a 32 caracteres (`RESET_CODE_INPUT_MAX`); tras normalizar debe cumplir `RESET_CODE_PATTERN` (12 caracteres Crockford base32). Si no cumple responde `UNAUTHORIZED` genérico, igual que un código vencido | trim, mayúsculas, sin espacios ni guiones | `RESET_CODE` | `FIELD_TOO_LONG` o `UNAUTHORIZED` (401) |
 | `POST /auth/reset-password` | `new_password` | string | Sí | 12 | 128 | Igual que `new_password` del cambio | NFKC | `PASSWORD` | `PASSWORD_POLICY_VIOLATION` |
 | `POST /auth/mfa/*` (confirmación) | `totp_code` | string | Sí | 6 | 6 | `^[0-9]{6}$` (propuesta, verificar: 6 dígitos) | trim | por definir (`MFA_CODE`) | `FIELD_FORMAT_INVALID` |
 | `POST /auth/mfa/*` (respaldo) | `recovery_code` | string | Según regla | por definir | por definir | Formato por definir | trim, mayúsculas, sin guiones | por definir | `FIELD_FORMAT_INVALID` |

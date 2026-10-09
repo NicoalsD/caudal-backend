@@ -10,6 +10,8 @@ import co.caudal.application.auth.LogoutCommandHandler;
 import co.caudal.application.auth.PasswordRenewal;
 import co.caudal.application.auth.RefreshSessionUseCase;
 import co.caudal.application.auth.RefreshTokenService;
+import co.caudal.application.auth.ResetPasswordCommandHandler;
+import co.caudal.application.auth.ResetPasswordPorts;
 import co.caudal.application.auth.SessionInvalidator;
 import co.caudal.application.port.out.AccessTokenIssuerPort;
 import co.caudal.application.port.out.LoginAccountPort;
@@ -17,6 +19,7 @@ import co.caudal.application.port.out.LoginAttemptPort;
 import co.caudal.application.port.out.MembershipPort;
 import co.caudal.application.port.out.PasswordHasherPort;
 import co.caudal.application.port.out.PasswordHistoryPort;
+import co.caudal.application.port.out.PasswordResetGrantPort;
 import co.caudal.application.port.out.PermissionPort;
 import co.caudal.application.port.out.PrivacyHasherPort;
 import co.caudal.application.port.out.RefreshTokenPort;
@@ -153,5 +156,25 @@ class AuthServicesConfig {
       SessionInvalidator sessions,
       UnitOfWorkPort unitOfWork) {
     return new ChangePasswordCommandHandler(accounts, passwords, renewal, sessions, unitOfWork);
+  }
+
+  // A Spring bean method lists its collaborators; grouping them would only hide the wiring.
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  @Bean
+  ResetPasswordCommandHandler resetPasswordCommandHandler(
+      LoginAccountPort accounts,
+      PasswordResetGrantPort grants,
+      MembershipPort memberships,
+      PasswordHasherPort passwords,
+      PasswordRenewal renewal,
+      SessionInvalidator sessions,
+      UnitOfWorkPort unitOfWork,
+      Clock clock) {
+    return new ResetPasswordCommandHandler(
+        new ResetPasswordPorts(accounts, grants, memberships, passwords),
+        renewal,
+        sessions,
+        unitOfWork,
+        clock);
   }
 }
