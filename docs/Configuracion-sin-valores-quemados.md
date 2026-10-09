@@ -137,6 +137,7 @@ Los nombres son los de `caudal-backend/.env.example`, que es la fuente de las va
 | `DEVICE_KEY_ROTATION_DAYS` | Días que la clave anterior sigue válida | `7` | No |
 | `MAX_JSON_BODY_BYTES` | Tamaño máximo del cuerpo JSON normal | `65536` | No |
 | `API_DOCS_ENABLED` | Activa Swagger y `/v3/api-docs` | `true` (apagar con `false`) | No |
+| `API_PUBLIC_URL` | URL pública de la API que muestra Swagger como servidor | `http://localhost:8080` | No |
 | `LOG_LEVEL` | Nivel de log | `INFO` | No |
 | `SEED_DEMO_DATA` | Carga el acueducto demo con datos simulados | `true` | No |
 | `PORT` | Puerto HTTP (lo inyecta Render) | `8080` | No |
