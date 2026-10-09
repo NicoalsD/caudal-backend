@@ -13,4 +13,11 @@
   <Match>
     <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
   </Match>
+
+  <!-- X-Request-Id is client controlled on purpose; it is only kept when it matches
+       FieldLimits.REQUEST_ID_PATTERN, otherwise a new UUID replaces it. -->
+  <Match>
+    <Class name="co.caudal.api.filter.RequestIdFilter"/>
+    <Bug pattern="SERVLET_HEADER"/>
+  </Match>
 </FindBugsFilter>

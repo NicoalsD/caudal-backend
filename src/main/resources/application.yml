@@ -26,3 +26,14 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+
+# JSON logs (ECS) with request_id from the MDC and credentials redacted.
+logging:
+  structured:
+    format:
+      console: ecs
+    json:
+      customizer: co.caudal.infrastructure.logging.RedactingJsonMembersCustomizer
+  level:
+    root: ${LOG_LEVEL:INFO}
+    co.caudal: ${LOG_LEVEL:INFO}
