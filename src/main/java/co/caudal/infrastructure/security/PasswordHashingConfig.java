@@ -1,6 +1,7 @@
 package co.caudal.infrastructure.security;
 
 import co.caudal.application.port.out.PasswordHasherPort;
+import co.caudal.domain.user.PasswordPolicy;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,5 +20,10 @@ class PasswordHashingConfig {
   @Bean
   PasswordHasherPort passwordHasher(PasswordEncoder encoder) {
     return new Argon2PasswordHasherAdapter(encoder);
+  }
+
+  @Bean
+  PasswordPolicy passwordPolicy() {
+    return new PasswordPolicy(CommonPasswordsLoader.load());
   }
 }
