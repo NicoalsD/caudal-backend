@@ -159,7 +159,7 @@ public class TankStatusFacade {
   }
 
   /** Bands are {@code [min, max)}; the band that ends at the top of the gauge includes it. */
-  static String band(RuleSetView rules, TankView tank, BigDecimal level) {
+  public static String band(RuleSetView rules, TankView tank, BigDecimal level) {
     for (BandView band : rules.bands()) {
       boolean top = band.maxLevel().compareTo(tank.gaugeMax()) >= 0;
       boolean above = level.compareTo(band.minLevel()) >= 0;
