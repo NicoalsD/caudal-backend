@@ -532,10 +532,10 @@ Las reglas se leen en la app offline para validar lecturas, así que `GET /rule-
 
 ### 6.4 `POST /api/v1/rule-sets`
 
-- **Permiso:** `RULESET_PROPOSE`.
+- **Permiso:** `RULESET_DRAFT` (`BOARD_ADMIN` y `BOARD_MEMBER`).
 - **Cuerpo:** `change_reason` (texto, opcional en el borrador; si viene, 10 a 500). Se exige al activar (6.6). Ver `Reglas-de-negocio.md`, sección 7.
-- **Respuesta 201:** borrador copia de la versión `ACTIVE` (patrón Prototype, sección 1.1 de reglas). `BOARD_ADMIN` y `BOARD_MEMBER` pueden crearlo.
-- **Errores:** `409 CONFLICT` (por definir: ya existe un borrador abierto).
+- **Respuesta 201:** borrador copia de la versión `ACTIVE` con el número siguiente y `based_on_rule_set_id` (patrón Prototype, sección 1.1 de reglas), con la forma de 6.3.
+- **Errores:** `404 NOT_FOUND` (no hay versión activa que copiar), `409 CONFLICT` con `details.reason = DRAFT_EXISTS` (ya existe un borrador abierto; un acueducto tiene uno a la vez).
 - **Ejemplo:** `{ "change_reason": "Sube la reserva de 1,00 a 1,20 por la temporada seca." }`
 
 ### 6.5 `PATCH /api/v1/rule-sets/{id}`

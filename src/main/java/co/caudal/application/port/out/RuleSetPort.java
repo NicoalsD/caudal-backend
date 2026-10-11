@@ -3,6 +3,7 @@ package co.caudal.application.port.out;
 import co.caudal.application.rules.RuleSetDetail;
 import co.caudal.application.rules.RuleSetSummary;
 import co.caudal.application.rules.RuleSetView;
+import co.caudal.domain.rules.RuleSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -45,4 +46,29 @@ public interface RuleSetPort {
    * @return the version, or empty
    */
   Optional<RuleSetDetail> findDetail(UUID id);
+
+  /**
+   * Tells whether the aqueduct of the session already has a draft.
+   *
+   * @return true if a version is in {@code DRAFT}
+   */
+  boolean draftExists();
+
+  /**
+   * The highest version number of the aqueduct of the session.
+   *
+   * @return the number, or 0 if there is none
+   */
+  int maxVersion();
+
+  /**
+   * Stores a draft with its children.
+   *
+   * @param aqueductId the aqueduct of the session
+   * @param draft the draft
+   * @param createdBy who creates it
+   * @param changeReason why, or null
+   * @return the id of the new version
+   */
+  UUID insertDraft(UUID aqueductId, RuleSet draft, UUID createdBy, String changeReason);
 }

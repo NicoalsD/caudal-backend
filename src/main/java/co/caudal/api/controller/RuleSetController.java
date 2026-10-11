@@ -1,15 +1,19 @@
 package co.caudal.api.controller;
 
+import co.caudal.api.dto.request.CreateRuleSetDraftRequest;
 import co.caudal.api.dto.response.PageResponse;
 import co.caudal.api.dto.response.RuleSetResponse;
 import co.caudal.api.dto.response.RuleSetSummaryResponse;
 import co.caudal.api.dto.response.RuleSetVersionResponse;
 import co.caudal.api.mapper.RuleSetMapper;
 import co.caudal.api.security.CallerFactory;
+import co.caudal.application.command.CommandBus;
 import co.caudal.application.pagination.Page;
+import co.caudal.application.rules.CreateRuleSetDraftCommand;
 import co.caudal.application.rules.GetCurrentRuleSetUseCase;
 import co.caudal.application.rules.GetRuleSetUseCase;
 import co.caudal.application.rules.ListRuleSetsUseCase;
+import co.caudal.application.rules.RuleSetDetail;
 import co.caudal.application.rules.RuleSetSummary;
 import co.caudal.shared.FieldLimits;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,17 +21,21 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import java.util.UUID;
 import org.springframework.http.CacheControl;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -41,12 +49,45 @@ public class RuleSetController {
   private final GetCurrentRuleSetUseCase current;
   private final ListRuleSetsUseCase list;
   private final GetRuleSetUseCase get;
+  private final CommandBus commands;
 
   RuleSetController(
-      GetCurrentRuleSetUseCase current, ListRuleSetsUseCase list, GetRuleSetUseCase get) {
+      GetCurrentRuleSetUseCase current,
+      ListRuleSetsUseCase list,
+      GetRuleSetUseCase get,
+      CommandBus commands) {
     this.current = current;
     this.list = list;
     this.get = get;
+    this.commands = commands;
+  }
+
+  @Operation(
+      summary = "Crear un borrador de reglas",
+      description =
+          "Copia la versión ACTIVE completa (parámetros, bandas, sectores, orden de válvulas y"
+              + " ventanas) en una versión nueva en DRAFT con el número siguiente y"
+              + " based_on_rule_set_id apuntando a la original (patrón Prototype). El motivo es"
+              + " opcional aquí y obligatorio al activar. Un acueducto tiene un solo borrador a la"
+              + " vez. Requiere el permiso RULESET_DRAFT.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "201", description = "Borrador creado")
+  @ApiResponse(responseCode = "400", description = "VALIDATION_ERROR: el motivo no es válido")
+  @ApiResponse(responseCode = "403", description = "FORBIDDEN: falta el permiso RULESET_DRAFT")
+  @ApiResponse(responseCode = "404", description = "NOT_FOUND: no hay una versión activa")
+  @ApiResponse(responseCode = "409", description = "CONFLICT: ya hay un borrador abierto")
+  @PostMapping
+  @PreAuthorize("hasAuthority('RULESET_DRAFT')")
+  public ResponseEntity<RuleSetVersionResponse> createDraft(
+      @AuthenticationPrincipal Jwt jwt,
+      @Valid @RequestBody CreateRuleSetDraftRequest request,
+      HttpServletRequest http) {
+    RuleSetDetail draft =
+        commands.dispatch(
+            new CreateRuleSetDraftCommand(CallerFactory.from(jwt, http), request.changeReason()));
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .cacheControl(CacheControl.noStore())
+        .body(RuleSetMapper.toResponse(draft));
   }
 
   @Operation(

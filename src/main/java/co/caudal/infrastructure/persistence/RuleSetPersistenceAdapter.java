@@ -8,6 +8,8 @@ import co.caudal.application.rules.RuleSetView.BandView;
 import co.caudal.application.rules.RuleSetView.SectorSettingView;
 import co.caudal.application.rules.RuleSetView.ValveOrderView;
 import co.caudal.application.rules.RuleSetView.WindowView;
+import co.caudal.domain.rules.RuleSet;
+import co.caudal.domain.rules.RuleSet.Parameters;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -75,6 +77,105 @@ public class RuleSetPersistenceAdapter implements RuleSetPort {
                                 rs.getObject("activated_by", UUID.class),
                                 SqlTime.instant(rs, "activated_at")))
                     .optional());
+  }
+
+  @Override
+  public boolean draftExists() {
+    return jdbc.sql("SELECT EXISTS (SELECT 1 FROM org.rule_sets WHERE status = 'DRAFT')")
+        .query(Boolean.class)
+        .single();
+  }
+
+  @Override
+  public int maxVersion() {
+    return jdbc.sql("SELECT coalesce(max(version), 0) FROM org.rule_sets")
+        .query(Integer.class)
+        .single();
+  }
+
+  @Override
+  public UUID insertDraft(UUID aqueductId, RuleSet draft, UUID createdBy, String changeReason) {
+    Parameters p = draft.parameters();
+    UUID id =
+        jdbc.sql(
+                "INSERT INTO org.rule_sets (aqueduct_id, version, status, based_on_rule_set_id,"
+                    + " reserve_level, reserve_policy, max_daily_service_hours, min_shift_hours,"
+                    + " max_shift_hours, allocation_strategy, duplicate_window_minutes,"
+                    + " max_level_change_per_hour, stale_reading_hours, max_backdate_days,"
+                    + " forecast_horizon_days, forecast_context_days, trend_threshold_per_day,"
+                    + " change_reason, created_by) VALUES (:aqueduct, :version, 'DRAFT', :basedOn,"
+                    + " :reserve, :policy, :maxDaily, :minShift, :maxShift, :strategy, :duplicate,"
+                    + " :jump, :stale, :backdate, :horizon, :context, :trend, :reason, :createdBy)"
+                    + " RETURNING id")
+            .param("aqueduct", aqueductId)
+            .param("version", draft.version())
+            .param("basedOn", draft.basedOnRuleSetId())
+            .param("reserve", p.reserveLevel())
+            .param("policy", p.reservePolicy())
+            .param("maxDaily", p.maxDailyServiceHours())
+            .param("minShift", p.minShiftHours())
+            .param("maxShift", p.maxShiftHours())
+            .param("strategy", p.allocationStrategy())
+            .param("duplicate", p.duplicateWindowMinutes())
+            .param("jump", p.maxLevelChangePerHour())
+            .param("stale", p.staleReadingHours())
+            .param("backdate", p.maxBackdateDays())
+            .param("horizon", p.forecastHorizonDays())
+            .param("context", p.forecastContextDays())
+            .param("trend", p.trendThresholdPerDay())
+            .param("reason", changeReason)
+            .param("createdBy", createdBy)
+            .query(UUID.class)
+            .single();
+    insertChildren(id, draft);
+    return id;
+  }
+
+  private void insertChildren(UUID ruleSetId, RuleSet rules) {
+    for (RuleSet.LevelBand band : rules.bands()) {
+      jdbc.sql(
+              "INSERT INTO org.rule_level_bands (rule_set_id, band, min_level, max_level,"
+                  + " daily_service_hours, priority_only) VALUES (:id, :band, :min, :max, :hours,"
+                  + " :priorityOnly)")
+          .param("id", ruleSetId)
+          .param("band", band.band())
+          .param("min", band.minLevel())
+          .param("max", band.maxLevel())
+          .param("hours", band.dailyServiceHours())
+          .param("priorityOnly", band.priorityOnly())
+          .update();
+    }
+    for (RuleSet.SectorSetting sector : rules.sectors()) {
+      jdbc.sql(
+              "INSERT INTO org.rule_sector_settings (rule_set_id, sector_id, is_included,"
+                  + " is_priority, priority_rank) VALUES (:id, :sector, :included, :priority,"
+                  + " :rank)")
+          .param("id", ruleSetId)
+          .param("sector", sector.sectorId())
+          .param("included", sector.included())
+          .param("priority", sector.priority())
+          .param("rank", sector.priorityRank(), Types.SMALLINT)
+          .update();
+    }
+    for (RuleSet.ValveOrder valve : rules.valveOrder()) {
+      jdbc.sql(
+              "INSERT INTO org.rule_valve_orders (rule_set_id, valve_id, sequence_order)"
+                  + " VALUES (:id, :valve, :order)")
+          .param("id", ruleSetId)
+          .param("valve", valve.valveId())
+          .param("order", valve.sequenceOrder())
+          .update();
+    }
+    for (RuleSet.OperatingWindow window : rules.windows()) {
+      jdbc.sql(
+              "INSERT INTO org.rule_operating_windows (rule_set_id, day_of_week, start_time,"
+                  + " end_time) VALUES (:id, :day, :start, :end)")
+          .param("id", ruleSetId)
+          .param("day", window.dayOfWeek(), Types.SMALLINT)
+          .param("start", window.start())
+          .param("end", window.end())
+          .update();
+    }
   }
 
   @Override
