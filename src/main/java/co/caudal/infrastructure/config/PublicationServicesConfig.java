@@ -3,6 +3,7 @@ package co.caudal.infrastructure.config;
 import co.caudal.application.event.DomainEventPublisher;
 import co.caudal.application.port.out.AqueductPort;
 import co.caudal.application.port.out.AuditLogPort;
+import co.caudal.application.port.out.DocumentRenderingPort;
 import co.caudal.application.port.out.NetworkPort;
 import co.caudal.application.port.out.ProposalPort;
 import co.caudal.application.port.out.PublicSchedulePort;
@@ -11,6 +12,7 @@ import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.publication.GetPublicScheduleUseCase;
 import co.caudal.application.publication.PublishScheduleCommandHandler;
 import co.caudal.application.publication.SchedulePublicationAuditor;
+import co.caudal.infrastructure.document.DocumentRenderingAdapter;
 import co.caudal.infrastructure.persistence.PublicSchedulePersistenceAdapter;
 import co.caudal.infrastructure.publication.PublicScheduleProxy;
 import java.time.Clock;
@@ -23,16 +25,18 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 class PublicationServicesConfig {
 
   @Bean
+  @SuppressWarnings("checkstyle:ParameterNumber")
   PublishScheduleCommandHandler publishScheduleCommandHandler(
       ProposalPort proposals,
       PublicationPort publications,
       NetworkPort network,
       AqueductPort aqueducts,
+      DocumentRenderingPort documents,
       UnitOfWorkPort unitOfWork,
       DomainEventPublisher events,
       Clock clock) {
     return new PublishScheduleCommandHandler(
-        proposals, publications, network, aqueducts, unitOfWork, events, clock);
+        proposals, publications, network, aqueducts, documents, unitOfWork, events, clock);
   }
 
   @Bean
@@ -49,8 +53,14 @@ class PublicationServicesConfig {
   GetPublicScheduleUseCase getPublicScheduleUseCase(
       AqueductPort aqueducts,
       PublicSchedulePort schedules,
+      DocumentRenderingPort documents,
       UnitOfWorkPort unitOfWork,
       Clock clock) {
-    return new GetPublicScheduleUseCase(aqueducts, schedules, unitOfWork, clock);
+    return new GetPublicScheduleUseCase(aqueducts, schedules, documents, unitOfWork, clock);
+  }
+
+  @Bean
+  DocumentRenderingPort documentRenderingPort() {
+    return new DocumentRenderingAdapter();
   }
 }

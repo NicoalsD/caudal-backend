@@ -30,6 +30,9 @@ class PublicationIT extends PublishedScheduleIT {
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.proposal_id").value(id))
             .andExpect(jsonPath("$.published_at").isNotEmpty())
+            .andExpect(
+                jsonPath("$.poster_sha256")
+                    .value(org.hamcrest.Matchers.matchesPattern("[0-9a-f]{64}")))
             .andReturn()
             .getResponse()
             .getContentAsString();
@@ -119,6 +122,23 @@ class PublicationIT extends PublishedScheduleIT {
             .getResponse()
             .getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
     assertThat(text).startsWith("*Horario de agua de").contains("\n- Sector ALTO: de ");
+    String stored =
+        owner.queryForObject(
+            "SELECT poster_sha256 FROM ops.publications WHERE id = ?::uuid",
+            String.class,
+            publication);
+    byte[] pdf =
+        mvc.perform(get("/api/v1/public/" + slug + "/schedule/poster.pdf?date=" + TOMORROW))
+            .andExpect(status().isOk())
+            .andExpect(
+                org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                    .string("X-Content-SHA256", stored))
+            .andReturn()
+            .getResponse()
+            .getContentAsByteArray();
+    assertThat(new String(pdf, 0, 8, java.nio.charset.StandardCharsets.US_ASCII))
+        .isEqualTo("%PDF-1.4");
+    assertThat(co.caudal.shared.hash.Sha256.hex(pdf)).isEqualTo(stored);
     mvc.perform(get("/api/v1/public/" + slug + "/schedule?date=" + TOMORROW.plusDays(1)))
         .andExpect(status().isNotFound());
     mvc.perform(get("/api/v1/public/no-existe/schedule")).andExpect(status().isNotFound());

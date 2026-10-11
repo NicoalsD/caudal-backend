@@ -2,6 +2,7 @@ package co.caudal.api.controller;
 
 import co.caudal.api.dto.response.PublicScheduleResponse;
 import co.caudal.application.publication.GetPublicScheduleUseCase;
+import co.caudal.application.publication.PosterFile;
 import co.caudal.application.publication.PublicSchedule;
 import co.caudal.shared.FieldLimits;
 import io.swagger.v3.oas.annotations.Operation;
@@ -12,6 +13,9 @@ import jakarta.validation.constraints.Size;
 import java.time.Duration;
 import java.time.LocalDate;
 import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,6 +30,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class PublicScheduleController {
 
   private static final Duration MAX_AGE = Duration.ofMinutes(1);
+  private static final String SHA_HEADER = "X-Content-SHA256";
+  private static final String POSTER_NAME = "horario.pdf";
 
   private final GetPublicScheduleUseCase schedule;
 
@@ -83,5 +89,29 @@ public class PublicScheduleController {
     return ResponseEntity.ok()
         .cacheControl(CacheControl.maxAge(MAX_AGE).cachePublic())
         .body(schedule.execute(aqueductSlug, date).whatsappText());
+  }
+
+  @Operation(
+      summary = "Cartel PDF del horario",
+      description =
+          "El cartel para imprimir del horario publicado. La cabecera X-Content-SHA256 trae el"
+              + " hash guardado al publicar, que coincide con el del archivo. No requiere sesión.")
+  @ApiResponse(responseCode = "200", description = "El cartel en PDF")
+  @ApiResponse(responseCode = "404", description = "NOT_FOUND")
+  @GetMapping(value = "/schedule/poster.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+  public ResponseEntity<byte[]> poster(
+      @PathVariable
+          @Size(min = FieldLimits.AQUEDUCT_SLUG_MIN, max = FieldLimits.AQUEDUCT_SLUG_MAX)
+          @Pattern(regexp = FieldLimits.AQUEDUCT_SLUG_PATTERN)
+          String aqueductSlug,
+      @RequestParam(required = false) LocalDate date) {
+    PosterFile poster = schedule.poster(aqueductSlug, date);
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.maxAge(MAX_AGE).cachePublic())
+        .header(SHA_HEADER, poster.sha256())
+        .header(
+            HttpHeaders.CONTENT_DISPOSITION,
+            ContentDisposition.inline().filename(POSTER_NAME).build().toString())
+        .body(poster.pdf());
   }
 }

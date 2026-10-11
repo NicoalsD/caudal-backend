@@ -5,6 +5,7 @@ import co.caudal.application.command.CommandHandler;
 import co.caudal.application.event.DomainEventPublisher;
 import co.caudal.application.network.SectorView;
 import co.caudal.application.port.out.AqueductPort;
+import co.caudal.application.port.out.DocumentRenderingPort;
 import co.caudal.application.port.out.NetworkPort;
 import co.caudal.application.port.out.ProposalPort;
 import co.caudal.application.port.out.PublicationPort;
@@ -14,6 +15,7 @@ import co.caudal.domain.event.SchedulePublished;
 import co.caudal.domain.schedule.ProposalState;
 import co.caudal.shared.error.DomainException;
 import co.caudal.shared.error.ErrorCode;
+import co.caudal.shared.hash.Sha256;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -24,9 +26,9 @@ import java.util.stream.Collectors;
 
 /**
  * Publishes an approved proposal: it moves it to {@code PUBLISHED} if nobody changed it since the
- * member saw it, and keeps an append-only publication with the message to share. The message has
- * only sectors and hours (docs/Reglas-de-negocio.md, section 13). Then it announces {@link
- * SchedulePublished}.
+ * member saw it, and keeps an append-only publication with the message to share and the hash of the
+ * poster. The message has only sectors and hours (docs/Reglas-de-negocio.md, section 13). Then it
+ * announces {@link SchedulePublished}.
  *
  * @pattern P13 Command
  */
@@ -37,6 +39,7 @@ public class PublishScheduleCommandHandler
   private final PublicationPort publications;
   private final NetworkPort network;
   private final AqueductPort aqueducts;
+  private final DocumentRenderingPort documents;
   private final UnitOfWorkPort unitOfWork;
   private final DomainEventPublisher events;
   private final Clock clock;
@@ -48,6 +51,7 @@ public class PublishScheduleCommandHandler
    * @param publications publications
    * @param network sector names
    * @param aqueducts name and time zone
+   * @param documents renders the poster
    * @param unitOfWork transaction boundary
    * @param events publishes {@code SchedulePublished}
    * @param clock source of time
@@ -58,6 +62,7 @@ public class PublishScheduleCommandHandler
       PublicationPort publications,
       NetworkPort network,
       AqueductPort aqueducts,
+      DocumentRenderingPort documents,
       UnitOfWorkPort unitOfWork,
       DomainEventPublisher events,
       Clock clock) {
@@ -65,6 +70,7 @@ public class PublishScheduleCommandHandler
     this.publications = publications;
     this.network = network;
     this.aqueducts = aqueducts;
+    this.documents = documents;
     this.unitOfWork = unitOfWork;
     this.events = events;
     this.clock = clock;
@@ -88,20 +94,19 @@ public class PublishScheduleCommandHandler
             throw new DomainException(ErrorCode.CONFLICT);
           }
           ProposalState next = ProposalState.of(current.summary().status()).publish();
+          List<ScheduleLine> lines = lines(current);
+          LocalDate day = current.summary().serviceDate();
           String text =
-              new ScheduleNotice(
-                      new WhatsAppChannel(),
-                      aqueduct.name(),
-                      current.summary().serviceDate(),
-                      zone,
-                      lines(current))
+              new ScheduleNotice(new WhatsAppChannel(), aqueduct.name(), day, zone, lines)
                   .publish();
+          String posterSha =
+              Sha256.hex(documents.poster(SchedulePoster.of(aqueduct.name(), day, zone, lines)));
           if (!proposals.transition(command.proposalId(), command.lockVersion(), next.code())) {
             throw new DomainException(ErrorCode.CONFLICT);
           }
           PublicationView publication =
               publications.insert(
-                  aqueduct.id(), command.proposalId(), command.caller().userId(), text, null);
+                  aqueduct.id(), command.proposalId(), command.caller().userId(), text, posterSha);
           events.publish(
               new SchedulePublished(
                   aqueduct.id(),
