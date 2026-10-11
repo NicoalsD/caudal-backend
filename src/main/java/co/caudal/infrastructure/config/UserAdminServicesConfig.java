@@ -1,6 +1,8 @@
 package co.caudal.infrastructure.config;
 
 import co.caudal.application.auth.SessionInvalidator;
+import co.caudal.application.pagination.SignedCursorCodec;
+import co.caudal.application.port.out.PrivacyHasherPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.port.out.UserAdminPort;
 import co.caudal.application.user.UpdateUserCommandHandler;
@@ -11,6 +13,11 @@ import org.springframework.context.annotation.Configuration;
 /** Use cases of the administration of accounts and memberships by the Board. */
 @Configuration(proxyBeanMethods = false)
 class UserAdminServicesConfig {
+
+  @Bean
+  SignedCursorCodec signedCursorCodec(PrivacyHasherPort hasher) {
+    return new SignedCursorCodec(hasher);
+  }
 
   @Bean
   UpdateUserCommandHandler updateUserCommandHandler(

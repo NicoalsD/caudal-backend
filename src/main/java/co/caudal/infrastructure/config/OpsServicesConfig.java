@@ -3,9 +3,9 @@ package co.caudal.infrastructure.config;
 import co.caudal.application.catalog.GetCatalogUseCase;
 import co.caudal.application.network.CreateTankCommandHandler;
 import co.caudal.application.network.ListNetworkUseCase;
+import co.caudal.application.pagination.SignedCursorCodec;
 import co.caudal.application.port.out.CatalogPort;
 import co.caudal.application.port.out.NetworkPort;
-import co.caudal.application.port.out.PrivacyHasherPort;
 import co.caudal.application.port.out.ReadingPort;
 import co.caudal.application.port.out.RuleSetPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
@@ -58,8 +58,8 @@ class OpsServicesConfig {
   }
 
   @Bean
-  ReadingCursor readingCursor(PrivacyHasherPort hasher) {
-    return new ReadingCursor(hasher);
+  ReadingCursor readingCursor(SignedCursorCodec codec) {
+    return new ReadingCursor(codec);
   }
 
   @Bean

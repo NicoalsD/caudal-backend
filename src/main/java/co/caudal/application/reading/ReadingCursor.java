@@ -1,19 +1,16 @@
 package co.caudal.application.reading;
 
-import co.caudal.application.port.out.PrivacyHasherPort;
+import co.caudal.application.pagination.SignedCursorCodec;
 import co.caudal.shared.error.DomainException;
 import co.caudal.shared.error.ErrorCode;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
-import java.util.Base64;
 import java.util.UUID;
 
 /**
- * Opaque, signed cursor of the list of readings (docs/API.md, section 1.5). It carries the position
- * (observation moment and id) and an HMAC, so a cursor that was altered answers {@code
- * CURSOR_INVALID}.
+ * Cursor of the list of readings (docs/API.md, section 1.5): the observation moment and the id of
+ * the last reading of a page, signed by {@link SignedCursorCodec}.
  */
 public class ReadingCursor {
 
@@ -25,20 +22,18 @@ public class ReadingCursor {
    */
   public record Position(Instant observedAt, UUID id) {}
 
-  private static final String SEPARATOR = ".";
+  private static final String LIST = "reading";
+  private static final char BAR = '|';
 
-  /** Purpose tag signed with the payload so a cursor signature never equals any other HMAC. */
-  private static final String PURPOSE = "reading-cursor|";
-
-  private final PrivacyHasherPort signer;
+  private final SignedCursorCodec codec;
 
   /**
-   * Creates the codec.
+   * Creates the cursor codec of readings.
    *
-   * @param signer produces the HMAC of a text
+   * @param codec signs and verifies the position
    */
-  public ReadingCursor(PrivacyHasherPort signer) {
-    this.signer = signer;
+  public ReadingCursor(SignedCursorCodec codec) {
+    this.codec = codec;
   }
 
   /**
@@ -49,12 +44,7 @@ public class ReadingCursor {
    * @return the opaque text
    */
   public String encode(Instant observedAt, UUID id) {
-    String payload = observedAt.truncatedTo(ChronoUnit.MICROS) + "|" + id;
-    return Base64.getUrlEncoder()
-            .withoutPadding()
-            .encodeToString(payload.getBytes(StandardCharsets.UTF_8))
-        + SEPARATOR
-        + signer.hmac(PURPOSE + payload);
+    return codec.encode(LIST, observedAt.truncatedTo(ChronoUnit.MICROS) + "|" + id);
   }
 
   /**
@@ -65,24 +55,12 @@ public class ReadingCursor {
    * @throws DomainException with {@code CURSOR_INVALID} if it is malformed or altered
    */
   public Position decode(String cursor) {
+    String position = codec.decode(LIST, cursor);
+    int bar = position.indexOf(BAR);
     try {
-      int dot = cursor.indexOf(SEPARATOR);
-      String payload =
-          new String(
-              Base64.getUrlDecoder().decode(cursor.substring(0, dot)), StandardCharsets.UTF_8);
-      String signature = cursor.substring(dot + 1);
-      if (!MessageDigest.isEqual(
-          signer.hmac(PURPOSE + payload).getBytes(StandardCharsets.UTF_8),
-          signature.getBytes(StandardCharsets.UTF_8))) {
-        throw new DomainException(ErrorCode.CURSOR_INVALID);
-      }
-      int bar = payload.indexOf('|');
       return new Position(
-          Instant.parse(payload.substring(0, bar)), UUID.fromString(payload.substring(bar + 1)));
-    } catch (RuntimeException malformed) {
-      if (malformed instanceof DomainException domain) {
-        throw domain;
-      }
+          Instant.parse(position.substring(0, bar)), UUID.fromString(position.substring(bar + 1)));
+    } catch (DateTimeParseException | IllegalArgumentException | IndexOutOfBoundsException bad) {
       throw new DomainException(ErrorCode.CURSOR_INVALID);
     }
   }
