@@ -42,6 +42,13 @@
     <Bug pattern="IMPROPER_UNICODE"/>
   </Match>
 
+  <!-- PersonName applies Unicode NFC to the names people type so that equal names compare equal;
+       the detector warns about the normalization call itself, which is the control. -->
+  <Match>
+    <Class name="co.caudal.domain.user.PersonName"/>
+    <Bug pattern="IMPROPER_UNICODE"/>
+  </Match>
+
   <!-- The refresh guard reads X-Requested-With and Origin to REJECT requests that do not match
        exact expected values; the header is never trusted as input data. -->
   <Match>
