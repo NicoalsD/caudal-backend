@@ -415,14 +415,15 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 ### 4.3 `GET /api/v1/privacy-notice/current`
 
 - **Permiso:** autenticado.
-- **Respuesta:** `version`, `text_es`, `text_sha256`, `effective_at`.
+- **Respuesta:** `version`, `text_es`, `text_sha256`, `effective_at`. La vigente es la versión más alta con `effective_at` ya cumplido. La semilla (V49) trae la versión 1, un borrador que requiere revisión jurídica.
+- **Errores:** `404 NOT_FOUND` (no hay aviso vigente).
 
 ### 4.4 `POST /api/v1/privacy-notice/accept`
 
 - **Permiso:** autenticado.
 - **Cuerpo:** `version` (entero, obligatorio, debe ser la versión vigente).
-- **Respuesta 201:** `user_id`, `version`, `accepted_at`.
-- **Errores:** `409 CONFLICT` (la versión ya no es la vigente).
+- **Respuesta 201:** `user_id`, `version`, `accepted_at`. Se guarda la IP en HMAC. Aceptar otra vez la misma versión devuelve la primera aceptación. `GET /auth/me` muestra la última versión aceptada en `privacy_accepted_version`.
+- **Errores:** `409 CONFLICT` con `details.current_version` (la versión ya no es la vigente).
 
 ## 5. Red: tanques, sectores y válvulas
 
