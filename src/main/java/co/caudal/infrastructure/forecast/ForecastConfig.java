@@ -1,6 +1,9 @@
 package co.caudal.infrastructure.forecast;
 
+import co.caudal.application.forecast.BaselineForecaster;
 import co.caudal.application.port.out.ForecastServicePort;
+import co.caudal.application.port.out.ForecasterPort;
+import co.caudal.domain.forecast.NaivePersistenceStrategy;
 import java.net.http.HttpClient;
 import java.time.Clock;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -26,5 +29,16 @@ class ForecastConfig {
   @Bean
   CircuitBreaker forecastCircuitBreaker(CircuitBreakerSettings settings, Clock clock) {
     return new CircuitBreaker(settings, clock);
+  }
+
+  @Bean
+  BaselineForecaster baselineForecaster() {
+    return new BaselineForecaster(new NaivePersistenceStrategy());
+  }
+
+  @Bean
+  ForecasterPort forecaster(
+      ForecastServicePort service, CircuitBreaker breaker, BaselineForecaster baseline) {
+    return new RemoteForecasterProxy(service, breaker, baseline);
   }
 }
