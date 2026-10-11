@@ -234,6 +234,12 @@ public final class FieldLimits {
   /** Maximum decimals of a gauge value or correction. */
   public static final int GAUGE_DECIMALS_MAX = 2;
 
+  /** Maximum integer digits of a gauge bound ({@code numeric(6,2)}). */
+  public static final int GAUGE_INTEGER_DIGITS_MAX = 4;
+
+  /** Maximum integer digits of the gauge step ({@code numeric(4,2)}). */
+  public static final int GAUGE_STEP_INTEGER_DIGITS_MAX = 2;
+
   /** Minimum forecast horizon accepted by the API, in days. */
   public static final int FORECAST_HORIZON_DAYS_MIN = 1;
 

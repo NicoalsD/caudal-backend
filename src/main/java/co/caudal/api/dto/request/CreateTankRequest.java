@@ -28,16 +28,22 @@ public record CreateTankRequest(
         String name,
     @Schema(description = "Valor mínimo de la regla.", example = "0.00")
         @NotNull
-        @Digits(integer = 4, fraction = FieldLimits.GAUGE_DECIMALS_MAX)
+        @Digits(
+            integer = FieldLimits.GAUGE_INTEGER_DIGITS_MAX,
+            fraction = FieldLimits.GAUGE_DECIMALS_MAX)
         BigDecimal gaugeMin,
     @Schema(description = "Valor máximo de la regla; mayor que el mínimo.", example = "5.00")
         @NotNull
-        @Digits(integer = 4, fraction = FieldLimits.GAUGE_DECIMALS_MAX)
+        @Digits(
+            integer = FieldLimits.GAUGE_INTEGER_DIGITS_MAX,
+            fraction = FieldLimits.GAUGE_DECIMALS_MAX)
         BigDecimal gaugeMax,
     @Schema(description = "Precisión de lectura; mayor que 0.", example = "0.05")
         @NotNull
         @DecimalMin(value = "0.01")
-        @Digits(integer = 2, fraction = FieldLimits.GAUGE_DECIMALS_MAX)
+        @Digits(
+            integer = FieldLimits.GAUGE_STEP_INTEGER_DIGITS_MAX,
+            fraction = FieldLimits.GAUGE_DECIMALS_MAX)
         BigDecimal gaugeStep,
     @Schema(description = "Capacidad en litros (opcional).", example = "20000") @Positive
         Integer capacityLiters) {}
