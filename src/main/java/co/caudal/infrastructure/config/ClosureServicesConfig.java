@@ -3,6 +3,7 @@ package co.caudal.infrastructure.config;
 import co.caudal.application.execution.CloseDayCommandHandler;
 import co.caudal.application.execution.GetDayClosureUseCase;
 import co.caudal.application.execution.RecordExecutionCommandHandler;
+import co.caudal.application.minutes.FinalizeMinutesCommandHandler;
 import co.caudal.application.minutes.GenerateMinutesCommandHandler;
 import co.caudal.application.minutes.GetMinutesUseCase;
 import co.caudal.application.port.out.AqueductPort;
@@ -12,6 +13,7 @@ import co.caudal.application.port.out.MinutesPort;
 import co.caudal.application.port.out.MinutesSourcePort;
 import co.caudal.application.port.out.ProposalPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
+import java.time.Clock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -49,5 +51,11 @@ class ClosureServicesConfig {
   @Bean
   GetMinutesUseCase getMinutesUseCase(MinutesPort minutes, UnitOfWorkPort unitOfWork) {
     return new GetMinutesUseCase(minutes, unitOfWork);
+  }
+
+  @Bean
+  FinalizeMinutesCommandHandler finalizeMinutesCommandHandler(
+      MinutesPort minutes, UnitOfWorkPort unitOfWork, Clock clock) {
+    return new FinalizeMinutesCommandHandler(minutes, unitOfWork, clock);
   }
 }

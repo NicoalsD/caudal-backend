@@ -111,4 +111,33 @@ class MinutesIT extends PublishedScheduleIT {
             get("/api/v1/minutes/" + UUID.randomUUID()).header("Authorization", member.bearer()))
         .andExpect(status().isNotFound());
   }
+
+  @Test
+  void aDraftIsFinalizedOnceWithTheHeadOfTheAuditChain() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    Session member = login(account("minutes.final", "BOARD_MEMBER", aqueduct));
+    Session operator = login(account("minutes.final.op", "OPERATOR", aqueduct));
+    String id = minutesWithEveryKind(aqueduct, member, operator);
+
+    mvc.perform(
+            post("/api/v1/minutes/" + id + "/finalize").header("Authorization", operator.bearer()))
+        .andExpect(status().isForbidden());
+    mvc.perform(
+            post("/api/v1/minutes/" + id + "/finalize").header("Authorization", member.bearer()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("FINAL"))
+        .andExpect(jsonPath("$.finalized_by").value(member.userId().toString()))
+        .andExpect(jsonPath("$.finalized_at").isNotEmpty())
+        .andExpect(
+            jsonPath("$.audit_head_hash")
+                .value(org.hamcrest.Matchers.matchesPattern("[0-9a-f]{64}")));
+    mvc.perform(
+            post("/api/v1/minutes/" + id + "/finalize").header("Authorization", member.bearer()))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error.code").value("INVALID_STATE_TRANSITION"));
+    mvc.perform(
+            post("/api/v1/minutes/" + UUID.randomUUID() + "/finalize")
+                .header("Authorization", member.bearer()))
+        .andExpect(status().isNotFound());
+  }
 }

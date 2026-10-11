@@ -4,6 +4,7 @@ import co.caudal.api.dto.request.GenerateMinutesRequest;
 import co.caudal.api.dto.response.MinutesResponse;
 import co.caudal.api.security.CallerFactory;
 import co.caudal.application.command.CommandBus;
+import co.caudal.application.minutes.FinalizeMinutesCommand;
 import co.caudal.application.minutes.GenerateMinutesCommand;
 import co.caudal.application.minutes.GetMinutesUseCase;
 import co.caudal.application.minutes.MinutesView;
@@ -77,5 +78,25 @@ public class MinutesController {
     return ResponseEntity.ok()
         .cacheControl(CacheControl.noStore())
         .body(MinutesResponse.of(get.execute(CallerFactory.from(jwt, http), id)));
+  }
+
+  @Operation(
+      summary = "Cerrar un acta como final",
+      description =
+          "Pasa el acta de DRAFT a FINAL, con quién y cuándo, y el hash cabeza de la cadena de"
+              + " auditoría. Un acta FINAL ya no cambia. Requiere el permiso MINUTES_GENERATE.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "200", description = "Acta final")
+  @ApiResponse(responseCode = "404", description = "NOT_FOUND")
+  @ApiResponse(responseCode = "409", description = "INVALID_STATE_TRANSITION: ya es FINAL")
+  @PostMapping("/{id}/finalize")
+  @PreAuthorize("hasAuthority('MINUTES_GENERATE')")
+  public ResponseEntity<MinutesResponse> finalizeMinutes(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id, HttpServletRequest http) {
+    MinutesView minutes =
+        commands.dispatch(new FinalizeMinutesCommand(CallerFactory.from(jwt, http), id));
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.noStore())
+        .body(MinutesResponse.of(minutes));
   }
 }

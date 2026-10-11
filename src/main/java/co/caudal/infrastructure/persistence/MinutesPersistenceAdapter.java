@@ -7,6 +7,7 @@ import co.caudal.domain.minutes.MinutesEntry;
 import co.caudal.domain.minutes.MinutesSection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
@@ -61,6 +62,29 @@ public class MinutesPersistenceAdapter implements MinutesPort {
   @Override
   public Optional<MinutesView> find(UUID id) {
     return jdbc.sql(COLUMNS + " WHERE id = :id").param("id", id).query(this::view).optional();
+  }
+
+  @Override
+  public boolean finalizeDraft(
+      UUID id, UUID finalizedBy, Instant finalizedAt, String pdfSha256, String auditHeadHash) {
+    return jdbc.sql(
+                "UPDATE reporting.minutes SET status = 'FINAL', finalized_by = :by, finalized_at ="
+                    + " :at, pdf_sha256 = :sha, audit_head_hash = :head WHERE id = :id AND status"
+                    + " = 'DRAFT'")
+            .param("by", finalizedBy)
+            .param("at", SqlTime.offset(finalizedAt), Types.TIMESTAMP_WITH_TIMEZONE)
+            .param("sha", pdfSha256, Types.CHAR)
+            .param("head", auditHeadHash, Types.CHAR)
+            .param("id", id)
+            .update()
+        == 1;
+  }
+
+  @Override
+  public Optional<String> auditHeadHash() {
+    return jdbc.sql("SELECT row_hash FROM audit.audit_log ORDER BY id DESC LIMIT 1")
+        .query(String.class)
+        .optional();
   }
 
   private static Map<String, String> entry(MinutesEntry e) {
