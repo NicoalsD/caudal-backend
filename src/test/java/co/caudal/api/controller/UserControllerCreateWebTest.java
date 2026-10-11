@@ -16,6 +16,7 @@ import co.caudal.api.filter.RequestIdFilter;
 import co.caudal.application.command.CommandBus;
 import co.caudal.application.user.CreateUserCommand;
 import co.caudal.application.user.CreatedUser;
+import co.caudal.application.user.ListUsersUseCase;
 import co.caudal.domain.user.InvalidUsernameException;
 import co.caudal.infrastructure.config.MessagesConfig;
 import co.caudal.shared.error.DomainException;
@@ -52,6 +53,7 @@ class UserControllerCreateWebTest {
 
   @Autowired private MockMvc mvc;
   @MockitoBean private CommandBus commands;
+  @MockitoBean private ListUsersUseCase list;
 
   private static RequestPostProcessor admin() {
     return jwt()

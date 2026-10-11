@@ -324,7 +324,9 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 
 - **Permiso:** `USER_MANAGE`.
 - **Parámetros:** `status` (`ACTIVE`, `LOCKED`, `DISABLED`), `limit`, `cursor`.
-- **Respuesta:** lista de `id`, `username`, `full_name` (confidencial, solo para `BOARD_ADMIN`), `status`, `must_change_password`, `last_login_at`.
+- **Alcance:** cuentas con alguna membresía, vigente o pasada, en el acueducto de la sesión, ordenadas por `username`.
+- **Respuesta:** `items` con `id`, `username`, `full_name` (confidencial, solo para `BOARD_ADMIN`), `status`, `locked_until`, `must_change_password`, `last_login_at`, y `next_cursor`.
+- **Errores:** `400 VALIDATION_ERROR`, `400 CURSOR_INVALID` (cursor alterado o de otra colección).
 - **Ejemplo:** `GET /api/v1/users?status=ACTIVE&limit=20`
 
 ### 3.2 `POST /api/v1/users`

@@ -128,4 +128,36 @@ class UserAdministrationIT extends SessionIT {
     update(login(operator), admin.userId(), "{\"status\":\"LOCKED\"}")
         .andExpect(status().isForbidden());
   }
+
+  @Test
+  void listsOnlyTheAccountsOfTheAqueductPageByPage() throws Exception {
+    Account admin = account("list.admin", "BOARD_ADMIN");
+    account("list.b.operator", "OPERATOR", admin.aqueductId());
+    account("list.c.member", "BOARD_MEMBER", admin.aqueductId());
+    account("list.outsider", "OPERATOR");
+    Session session = login(admin);
+
+    String first =
+        mvc.perform(get("/api/v1/users?limit=2").header("Authorization", session.bearer()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items.length()").value(2))
+            .andExpect(jsonPath("$.items[0].username").value("list.admin"))
+            .andExpect(jsonPath("$.items[1].username").value("list.b.operator"))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    String cursor = first.replaceAll(".*\"next_cursor\":\"([^\"]+)\".*", "$1");
+
+    mvc.perform(
+            get("/api/v1/users?limit=2&cursor=" + cursor).header("Authorization", session.bearer()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items.length()").value(1))
+        .andExpect(jsonPath("$.items[0].username").value("list.c.member"))
+        .andExpect(jsonPath("$.next_cursor").doesNotExist());
+    mvc.perform(get("/api/v1/users?status=LOCKED").header("Authorization", session.bearer()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items.length()").value(0));
+    mvc.perform(get("/api/v1/users?status=GONE").header("Authorization", session.bearer()))
+        .andExpect(status().isBadRequest());
+  }
 }

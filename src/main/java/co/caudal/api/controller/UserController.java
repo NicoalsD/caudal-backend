@@ -4,12 +4,16 @@ import co.caudal.api.dto.request.CreateUserRequest;
 import co.caudal.api.dto.request.UpdateUserRequest;
 import co.caudal.api.dto.response.CreatedUserResponse;
 import co.caudal.api.dto.response.ManagedUserResponse;
+import co.caudal.api.dto.response.PageResponse;
 import co.caudal.api.mapper.UserMapper;
 import co.caudal.api.security.CallerFactory;
 import co.caudal.application.command.CommandBus;
+import co.caudal.application.pagination.Page;
 import co.caudal.application.user.CreateUserCommand;
+import co.caudal.application.user.ListUsersUseCase;
 import co.caudal.application.user.ManagedUser;
 import co.caudal.application.user.UpdateUserCommand;
+import co.caudal.shared.FieldLimits;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -18,6 +22,9 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
 import java.util.UUID;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
@@ -25,11 +32,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Administration of accounts by the Board (permission {@code USER_MANAGE}). */
@@ -39,9 +48,42 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
   private final CommandBus commands;
+  private final ListUsersUseCase list;
 
-  UserController(CommandBus commands) {
+  UserController(CommandBus commands, ListUsersUseCase list) {
     this.commands = commands;
+    this.list = list;
+  }
+
+  @Operation(
+      summary = "Listar los usuarios del acueducto",
+      description =
+          "Cuentas con alguna membresía, vigente o pasada, en el acueducto de la sesión, ordenadas"
+              + " por nombre de usuario. Filtro opcional status (ACTIVE, LOCKED o DISABLED). Se"
+              + " pagina con limit (1 a 100, por defecto 20) y un cursor firmado. full_name es un"
+              + " dato confidencial. Requiere el permiso USER_MANAGE.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "200", description = "Página de usuarios")
+  @ApiResponse(responseCode = "400", description = "VALIDATION_ERROR o CURSOR_INVALID")
+  @ApiResponse(responseCode = "403", description = "FORBIDDEN: falta el permiso USER_MANAGE")
+  @GetMapping
+  @PreAuthorize("hasAuthority('USER_MANAGE')")
+  public ResponseEntity<PageResponse<ManagedUserResponse>> list(
+      @AuthenticationPrincipal Jwt jwt,
+      @RequestParam(required = false) @Pattern(regexp = FieldLimits.ACCOUNT_STATUS_PATTERN)
+          String status,
+      @RequestParam(defaultValue = "" + FieldLimits.PAGE_LIMIT_DEFAULT)
+          @Min(FieldLimits.PAGE_LIMIT_MIN)
+          @Max(FieldLimits.PAGE_LIMIT_MAX)
+          int limit,
+      @RequestParam(required = false) String cursor,
+      HttpServletRequest http) {
+    Page<ManagedUser> page = list.execute(CallerFactory.from(jwt, http), status, limit, cursor);
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.noStore())
+        .body(
+            new PageResponse<>(
+                page.items().stream().map(UserMapper::toResponse).toList(), page.nextCursor()));
   }
 
   @Operation(
