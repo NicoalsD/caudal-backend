@@ -74,61 +74,6 @@ public class RuleSetPersistenceAdapter implements RuleSetPort {
   }
 
   private RuleSetView withChildren(RuleSetView head) {
-    List<BandView> bands =
-        jdbc.sql(
-                "SELECT band, min_level, max_level, daily_service_hours, priority_only"
-                    + " FROM org.rule_level_bands WHERE rule_set_id = :id ORDER BY min_level")
-            .param("id", head.id())
-            .query(
-                (rs, row) ->
-                    new BandView(
-                        rs.getString("band"),
-                        rs.getBigDecimal("min_level"),
-                        rs.getBigDecimal("max_level"),
-                        rs.getBigDecimal("daily_service_hours"),
-                        rs.getBoolean("priority_only")))
-            .list();
-    List<SectorSettingView> sectors =
-        jdbc.sql(
-                "SELECT sector_id, is_included, is_priority, priority_rank"
-                    + " FROM org.rule_sector_settings WHERE rule_set_id = :id"
-                    + " ORDER BY priority_rank NULLS LAST, sector_id")
-            .param("id", head.id())
-            .query(
-                (rs, row) -> {
-                  int rank = rs.getInt("priority_rank");
-                  Integer priorityRank = rs.wasNull() ? null : rank;
-                  return new SectorSettingView(
-                      rs.getObject("sector_id", UUID.class),
-                      rs.getBoolean("is_included"),
-                      rs.getBoolean("is_priority"),
-                      priorityRank);
-                })
-            .list();
-    List<ValveOrderView> valves =
-        jdbc.sql(
-                "SELECT valve_id, sequence_order FROM org.rule_valve_orders"
-                    + " WHERE rule_set_id = :id ORDER BY sequence_order")
-            .param("id", head.id())
-            .query(
-                (rs, row) ->
-                    new ValveOrderView(
-                        rs.getObject("valve_id", UUID.class), rs.getInt("sequence_order")))
-            .list();
-    List<WindowView> windows =
-        jdbc.sql(
-                "SELECT day_of_week, start_time, end_time FROM org.rule_operating_windows"
-                    + " WHERE rule_set_id = :id ORDER BY day_of_week NULLS FIRST, start_time")
-            .param("id", head.id())
-            .query(
-                (rs, row) -> {
-                  int day = rs.getInt("day_of_week");
-                  return new WindowView(
-                      rs.wasNull() ? null : day,
-                      rs.getObject("start_time", LocalTime.class),
-                      rs.getObject("end_time", LocalTime.class));
-                })
-            .list();
     return new RuleSetView(
         head.id(),
         head.version(),
@@ -146,9 +91,72 @@ public class RuleSetPersistenceAdapter implements RuleSetPort {
         head.forecastHorizonDays(),
         head.forecastContextDays(),
         head.trendThresholdPerDay(),
-        bands,
-        sectors,
-        valves,
-        windows);
+        bands(head.id()),
+        sectors(head.id()),
+        valves(head.id()),
+        windows(head.id()));
+  }
+
+  private List<BandView> bands(UUID ruleSetId) {
+    return jdbc.sql(
+            "SELECT band, min_level, max_level, daily_service_hours, priority_only"
+                + " FROM org.rule_level_bands WHERE rule_set_id = :id ORDER BY min_level")
+        .param("id", ruleSetId)
+        .query(
+            (rs, row) ->
+                new BandView(
+                    rs.getString("band"),
+                    rs.getBigDecimal("min_level"),
+                    rs.getBigDecimal("max_level"),
+                    rs.getBigDecimal("daily_service_hours"),
+                    rs.getBoolean("priority_only")))
+        .list();
+  }
+
+  private List<SectorSettingView> sectors(UUID ruleSetId) {
+    return jdbc.sql(
+            "SELECT sector_id, is_included, is_priority, priority_rank"
+                + " FROM org.rule_sector_settings WHERE rule_set_id = :id"
+                + " ORDER BY priority_rank NULLS LAST, sector_id")
+        .param("id", ruleSetId)
+        .query(
+            (rs, row) -> {
+              int rank = rs.getInt("priority_rank");
+              Integer priorityRank = rs.wasNull() ? null : rank;
+              return new SectorSettingView(
+                  rs.getObject("sector_id", UUID.class),
+                  rs.getBoolean("is_included"),
+                  rs.getBoolean("is_priority"),
+                  priorityRank);
+            })
+        .list();
+  }
+
+  private List<ValveOrderView> valves(UUID ruleSetId) {
+    return jdbc.sql(
+            "SELECT valve_id, sequence_order FROM org.rule_valve_orders"
+                + " WHERE rule_set_id = :id ORDER BY sequence_order")
+        .param("id", ruleSetId)
+        .query(
+            (rs, row) ->
+                new ValveOrderView(
+                    rs.getObject("valve_id", UUID.class), rs.getInt("sequence_order")))
+        .list();
+  }
+
+  private List<WindowView> windows(UUID ruleSetId) {
+    return jdbc.sql(
+            "SELECT day_of_week, start_time, end_time FROM org.rule_operating_windows"
+                + " WHERE rule_set_id = :id ORDER BY day_of_week NULLS FIRST, start_time")
+        .param("id", ruleSetId)
+        .query(
+            (rs, row) -> {
+              int day = rs.getInt("day_of_week");
+              return new WindowView(
+                  rs.wasNull() ? null : day,
+                  rs.getObject("start_time", LocalTime.class),
+                  rs.getObject("end_time", LocalTime.class));
+            })
+        .list();
   }
 }
