@@ -5,7 +5,6 @@ import co.caudal.application.port.out.ReadingPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.shared.error.DomainException;
 import co.caudal.shared.error.ErrorCode;
-import java.util.List;
 import java.util.UUID;
 
 /** Reads one reading with its warnings and corrections (docs/API.md, section 7.4). */
@@ -39,14 +38,11 @@ public class GetReadingUseCase {
         () -> {
           ReadingView reading =
               readings.findById(id).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
-          List<CorrectionView> corrections = readings.corrections(id);
           return new ReadingDetail(
               reading,
-              corrections.isEmpty()
-                  ? reading.gaugeValue()
-                  : corrections.getLast().correctedGaugeValue(),
+              readings.effectiveValue(id).orElse(reading.gaugeValue()),
               readings.issues(id),
-              corrections);
+              readings.corrections(id));
         });
   }
 }

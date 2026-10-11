@@ -94,4 +94,39 @@ class ReadingCorrectionIT extends SessionIT {
     correct(operator, UUID.randomUUID(), "2.00", "Un motivo suficiente.")
         .andExpect(status().isNotFound());
   }
+
+  @Test
+  void theLatestCorrectionWinsAndTheOriginalNeverChanges() throws Exception {
+    UUID tank = newTank(demoAqueduct());
+    Session operator = login(account("correct.latest", "OPERATOR", demoAqueduct()));
+    UUID reading = recordReading(operator, tank, "2.10");
+    correct(operator, reading, "2.00", "Primera corrección del valor.")
+        .andExpect(status().isCreated());
+
+    correct(operator, reading, "1.95", "Segunda corrección con la foto.")
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.effective_gauge_value").value(1.95));
+
+    mvc.perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(
+                    "/api/v1/readings/" + reading)
+                .header("Authorization", operator.bearer()))
+        .andExpect(jsonPath("$.reading.gauge_value").value(2.10))
+        .andExpect(jsonPath("$.reading.effective_gauge_value").value(1.95))
+        .andExpect(jsonPath("$.reading.correction_count").value(2))
+        .andExpect(jsonPath("$.corrections[0].corrected_gauge_value").value(2.00))
+        .andExpect(jsonPath("$.corrections[1].corrected_gauge_value").value(1.95));
+    mvc.perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(
+                    "/api/v1/readings?tank_id=" + tank)
+                .header("Authorization", operator.bearer()))
+        .andExpect(jsonPath("$.items[0].gauge_value").value(2.10))
+        .andExpect(jsonPath("$.items[0].effective_gauge_value").value(1.95));
+    org.assertj.core.api.Assertions.assertThat(
+            owner.queryForObject(
+                "SELECT gauge_value FROM ops.readings WHERE id = ?",
+                java.math.BigDecimal.class,
+                reading))
+        .isEqualByComparingTo("2.10");
+  }
 }

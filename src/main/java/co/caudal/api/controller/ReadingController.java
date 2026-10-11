@@ -13,7 +13,7 @@ import co.caudal.api.security.CallerFactory;
 import co.caudal.application.command.CommandBus;
 import co.caudal.application.reading.BatchResult;
 import co.caudal.application.reading.CorrectReadingCommand;
-import co.caudal.application.reading.CorrectionView;
+import co.caudal.application.reading.CorrectionResult;
 import co.caudal.application.reading.CreateReadingBatchCommand;
 import co.caudal.application.reading.CreateReadingCommand;
 import co.caudal.application.reading.GetReadingUseCase;
@@ -85,7 +85,7 @@ public class ReadingController {
       @PathVariable UUID id,
       @Valid @RequestBody CorrectReadingRequest request,
       HttpServletRequest http) {
-    CorrectionView correction =
+    CorrectionResult result =
         commands.dispatch(
             new CorrectReadingCommand(
                 CallerFactory.from(jwt, http),
@@ -96,13 +96,13 @@ public class ReadingController {
         .cacheControl(CacheControl.noStore())
         .body(
             new CorrectionResponse(
-                correction.id(),
-                correction.readingId(),
-                correction.correctedGaugeValue(),
-                correction.reason(),
-                correction.correctedBy(),
-                correction.createdAt(),
-                correction.correctedGaugeValue()));
+                result.correction().id(),
+                result.correction().readingId(),
+                result.correction().correctedGaugeValue(),
+                result.correction().reason(),
+                result.correction().correctedBy(),
+                result.correction().createdAt(),
+                result.effectiveGaugeValue()));
   }
 
   @Operation(

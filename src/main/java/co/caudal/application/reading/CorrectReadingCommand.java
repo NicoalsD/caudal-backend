@@ -15,7 +15,7 @@ import java.util.UUID;
  */
 public record CorrectReadingCommand(
     Caller caller, UUID readingId, BigDecimal correctedGaugeValue, String reason)
-    implements AuditableCommand<CorrectionView> {
+    implements AuditableCommand<CorrectionResult> {
 
   @Override
   public String auditEntityType() {
@@ -23,7 +23,7 @@ public record CorrectReadingCommand(
   }
 
   @Override
-  public String auditEntityId(CorrectionView result) {
-    return result.id().toString();
+  public String auditEntityId(CorrectionResult result) {
+    return result.correction().id().toString();
   }
 }

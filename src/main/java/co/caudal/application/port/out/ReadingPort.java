@@ -136,4 +136,13 @@ public interface ReadingPort {
       BigDecimal correctedGaugeValue,
       String reason,
       UUID correctedBy);
+
+  /**
+   * The value that counts for a reading: its latest correction, or the original ({@code
+   * ops.effective_readings}).
+   *
+   * @param readingId the reading
+   * @return the value, or empty if the reading is not in the aqueduct
+   */
+  Optional<BigDecimal> effectiveValue(UUID readingId);
 }

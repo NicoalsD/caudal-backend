@@ -14,14 +14,15 @@ import java.util.UUID;
 
 /**
  * Corrects a reading (docs/Reglas-de-negocio.md, section 9): a new row in {@code
- * ops.reading_corrections}, never a change of the original. The corrected value must be on the
- * gauge of the tank and the reason is required. The Board corrects any reading of its aqueduct; the
- * plumber only the ones they recorded.
+ * ops.reading_corrections}, never a change of the original; the effective value comes from the view
+ * {@code ops.effective_readings}, where the latest correction wins. The corrected value must be on
+ * the gauge of the tank and the reason is required. The Board corrects any reading of its aqueduct;
+ * the plumber only the ones they recorded.
  *
  * @pattern P13 Command
  */
 public class CorrectReadingCommandHandler
-    implements CommandHandler<CorrectReadingCommand, CorrectionView> {
+    implements CommandHandler<CorrectReadingCommand, CorrectionResult> {
 
   /** Role that may only correct its own readings. */
   static final String OWN_READINGS_ONLY_ROLE = "OPERATOR";
@@ -45,12 +46,12 @@ public class CorrectReadingCommandHandler
   }
 
   @Override
-  public CorrectionView handle(CorrectReadingCommand command) {
+  public CorrectionResult handle(CorrectReadingCommand command) {
     ChangeReason reason = ChangeReason.require(command.reason());
     return unitOfWork.executeAs(command.caller().scope(), () -> correct(command, reason));
   }
 
-  private CorrectionView correct(CorrectReadingCommand command, ChangeReason reason) {
+  private CorrectionResult correct(CorrectReadingCommand command, ChangeReason reason) {
     ReadingView reading =
         readings
             .findById(command.readingId())
@@ -72,12 +73,15 @@ public class CorrectReadingCommandHandler
               "gauge_max", tank.gaugeMax().toPlainString(),
               "value", command.correctedGaugeValue().toPlainString()));
     }
-    return readings.insertCorrection(
-        command.caller().aqueductId(),
-        reading.id(),
-        command.correctedGaugeValue(),
-        reason.value(),
-        command.caller().userId());
+    CorrectionView correction =
+        readings.insertCorrection(
+            command.caller().aqueductId(),
+            reading.id(),
+            command.correctedGaugeValue(),
+            reason.value(),
+            command.caller().userId());
+    return new CorrectionResult(
+        correction, readings.effectiveValue(reading.id()).orElse(correction.correctedGaugeValue()));
   }
 
   @Override

@@ -246,6 +246,14 @@ public class ReadingPersistenceAdapter implements ReadingPort {
         .single();
   }
 
+  @Override
+  public Optional<BigDecimal> effectiveValue(UUID readingId) {
+    return jdbc.sql("SELECT gauge_value FROM ops.effective_readings WHERE id = :id")
+        .param("id", readingId)
+        .query(BigDecimal.class)
+        .optional();
+  }
+
   private static CorrectionView correction(ResultSet rs, int row) throws SQLException {
     return new CorrectionView(
         rs.getObject("id", UUID.class),
