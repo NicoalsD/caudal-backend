@@ -5,6 +5,7 @@ import co.caudal.application.port.out.ClosurePort;
 import co.caudal.application.port.out.ProposalPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.schedule.ProposalSummary;
+import co.caudal.domain.execution.DayState;
 import co.caudal.domain.schedule.ProposalState;
 import co.caudal.shared.FieldLimits;
 import co.caudal.shared.error.DomainException;
@@ -13,8 +14,9 @@ import co.caudal.shared.text.SafeText;
 
 /**
  * Closes a day of service (docs/Reglas-de-negocio.md, section 14): only a day with a published
- * schedule closes, only once, and its proposal moves to {@code CLOSED}, so no more executions are
- * recorded for it.
+ * schedule closes, only once ({@link DayState}), and its proposal moves to {@code CLOSED}, so no
+ * more executions are recorded for it. Two closures at the same time meet the unique key of the
+ * database, which also answers CONFLICT.
  *
  * @pattern P13 Command
  */
@@ -48,9 +50,7 @@ public class CloseDayCommandHandler implements CommandHandler<CloseDayCommand, C
     return unitOfWork.executeAs(
         command.caller().scope(),
         () -> {
-          if (closures.find(command.serviceDate()).isPresent()) {
-            throw new DomainException(ErrorCode.CONFLICT);
-          }
+          DayState.of(closures.find(command.serviceDate()).isPresent()).close();
           ProposalSummary published =
               proposals
                   .list(command.serviceDate(), command.serviceDate(), PUBLISHED, null, 1)

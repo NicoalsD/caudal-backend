@@ -2,16 +2,22 @@ package co.caudal.infrastructure.persistence;
 
 import co.caudal.application.execution.ClosureView;
 import co.caudal.application.port.out.ClosurePort;
+import co.caudal.shared.error.DomainException;
+import co.caudal.shared.error.ErrorCode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 
-/** Stores closures of days. Row level security limits the aqueduct. */
+/**
+ * Stores closures of days. Row level security limits the aqueduct; the unique key {@code
+ * day_closures_day_uq} refuses a second closure of the same day.
+ */
 @Component
 public class ClosurePersistenceAdapter implements ClosurePort {
 
@@ -33,6 +39,15 @@ public class ClosurePersistenceAdapter implements ClosurePort {
 
   @Override
   public ClosureView insert(UUID aqueductId, LocalDate serviceDate, String notes, UUID closedBy) {
+    try {
+      return insertRow(aqueductId, serviceDate, notes, closedBy);
+    } catch (DuplicateKeyException closedMeanwhile) {
+      throw new DomainException(ErrorCode.CONFLICT);
+    }
+  }
+
+  private ClosureView insertRow(
+      UUID aqueductId, LocalDate serviceDate, String notes, UUID closedBy) {
     return jdbc.sql(
             "INSERT INTO ops.day_closures (aqueduct_id, service_date, notes, closed_by) VALUES"
                 + " (:aqueduct, :day, :notes, :by)"
