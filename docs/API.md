@@ -591,9 +591,11 @@ Una lectura es una observación del nivel de la regla pintada. Su estatus epist�
 
 ### 7.3 `GET /api/v1/readings`
 
-- **Permiso:** `READING_CREATE` o `READING_CORRECT` (verificar).
-- **Parámetros:** `tank_id` (obligatorio), `from`, `to` (fechas ISO), `validation_status`, `limit`, `cursor`.
-- **Respuesta:** lista de lecturas con su valor efectivo (`effective_gauge_value`) y `correction_count`.
+- **Permiso:** `READING_VIEW` (lo tienen `BOARD_ADMIN`, `BOARD_MEMBER`, `OPERATOR` y `PROJECT_TEAM`).
+- **Parámetros:** `tank_id` (obligatorio), `from` y `to` (ISO-8601 con zona, inclusivos; `from` no puede ser posterior a `to`), `validation_status` (`ACCEPTED` o `FLAGGED`), `limit` y `cursor` (sección 1.5).
+- **Orden:** de la más reciente a la más antigua por `observed_at` y, a igual momento, por `id`. El cursor guarda esa posición firmada con HMAC.
+- **Respuesta 200:** `items` (lecturas con su valor efectivo `effective_gauge_value` y `correction_count`) y `next_cursor`.
+- **Errores:** `400 CURSOR_INVALID`, `400 VALIDATION_ERROR` (`limit` fuera de 1 a 100, rango invertido o estado desconocido), `404 NOT_FOUND` (tanque inexistente o de otro acueducto), `403 FORBIDDEN`.
 
 ### 7.4 `GET /api/v1/readings/{id}`
 
