@@ -1,6 +1,7 @@
 package co.caudal.api.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -182,5 +183,50 @@ class DamageReportIT extends SessionIT {
             org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
                 .exists("Retry-After"));
     report(slug, valid, "203.0.113.61").andExpect(status().isCreated());
+  }
+
+  @Test
+  void theReporterFollowsTheReportWithItsCodeOnly() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    String answer =
+        report(
+                slugOf(aqueduct),
+                body("LEAK", "Hay agua saliendo del tubo de la escuela.", ""),
+                "203.0.113.70")
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    String code = JsonPath.read(answer, "$.tracking_code");
+    String typed = code.substring(0, 4).toLowerCase() + "-" + code.substring(4);
+
+    String status =
+        mvc.perform(get("/api/v1/public/damage-reports/" + typed))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("REPORTED"))
+            .andExpect(jsonPath("$.status_label_es").value("Recibido"))
+            .andExpect(jsonPath("$.category_label_es").value("Fuga"))
+            .andExpect(jsonPath("$.reported_at").isNotEmpty())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    assertThat(status).doesNotContain("escuela").doesNotContain("203.0.113");
+
+    UUID incident =
+        owner.queryForObject(
+            "SELECT id FROM ops.incidents WHERE aqueduct_id = ?", UUID.class, aqueduct);
+    owner.update("UPDATE ops.incidents SET status = 'VERIFYING' WHERE id = ?", incident);
+    owner.update(
+        "INSERT INTO ops.incident_status_history (aqueduct_id, incident_id, from_status,"
+            + " to_status, changed_at) VALUES (?, ?, 'REPORTED', 'VERIFYING', now() + interval"
+            + " '1 minute')",
+        aqueduct,
+        incident);
+    mvc.perform(get("/api/v1/public/damage-reports/" + code))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status_label_es").value("En revisión"));
+
+    mvc.perform(get("/api/v1/public/damage-reports/NOPE")).andExpect(status().isBadRequest());
+    mvc.perform(get("/api/v1/public/damage-reports/" + TrackingCode.generate().value()))
+        .andExpect(status().isNotFound());
   }
 }

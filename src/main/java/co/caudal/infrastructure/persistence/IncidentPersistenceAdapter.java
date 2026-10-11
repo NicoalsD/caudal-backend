@@ -1,13 +1,18 @@
 package co.caudal.infrastructure.persistence;
 
 import co.caudal.application.incident.NewIncident;
+import co.caudal.application.incident.TrackedReport;
 import co.caudal.application.port.out.IncidentPort;
 import java.sql.Types;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 
-/** Stores incidents and their history. Row level security limits the aqueduct. */
+/**
+ * Stores incidents and their history. Row level security limits the aqueduct, except for the public
+ * lookup by tracking code, which goes through {@code ops.find_public_report}.
+ */
 @Component
 public class IncidentPersistenceAdapter implements IncidentPort {
 
@@ -46,5 +51,22 @@ public class IncidentPersistenceAdapter implements IncidentPort {
         .param("status", REPORTED)
         .update();
     return id;
+  }
+
+  @Override
+  public Optional<TrackedReport> findByTrackingHash(String trackingCodeHash) {
+    return jdbc.sql(
+            "SELECT aqueduct_id, status, category_code, reported_at, updated_at"
+                + " FROM ops.find_public_report(:hash)")
+        .param("hash", trackingCodeHash)
+        .query(
+            (rs, row) ->
+                new TrackedReport(
+                    rs.getObject("aqueduct_id", UUID.class),
+                    rs.getString("status"),
+                    rs.getString("category_code"),
+                    SqlTime.instant(rs, "reported_at"),
+                    SqlTime.instant(rs, "updated_at")))
+        .optional();
   }
 }

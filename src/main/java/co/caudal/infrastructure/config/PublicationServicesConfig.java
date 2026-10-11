@@ -3,6 +3,7 @@ package co.caudal.infrastructure.config;
 import co.caudal.application.event.DomainEventPublisher;
 import co.caudal.application.incident.DamageReportCommandHandler;
 import co.caudal.application.incident.PublicFormGuard;
+import co.caudal.application.incident.TrackDamageReportUseCase;
 import co.caudal.application.port.out.AqueductPort;
 import co.caudal.application.port.out.AuditLogPort;
 import co.caudal.application.port.out.CatalogPort;
@@ -106,5 +107,11 @@ class PublicationServicesConfig {
         clock,
         new RateLimit(rates.publicReportsPerHour(), Duration.ofHours(1)),
         Duration.ofSeconds(form.minSeconds()));
+  }
+
+  @Bean
+  TrackDamageReportUseCase trackDamageReportUseCase(
+      IncidentPort incidents, CatalogPort catalogs, UnitOfWorkPort unitOfWork) {
+    return new TrackDamageReportUseCase(incidents, catalogs, unitOfWork);
   }
 }
