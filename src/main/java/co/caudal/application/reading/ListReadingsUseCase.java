@@ -1,6 +1,7 @@
 package co.caudal.application.reading;
 
 import co.caudal.application.auth.Caller;
+import co.caudal.application.pagination.PageLimit;
 import co.caudal.application.port.out.NetworkPort;
 import co.caudal.application.port.out.ReadingPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
@@ -52,6 +53,7 @@ public class ListReadingsUseCase {
    *     {@code VALIDATION_ERROR} when {@code from} is after {@code to}
    */
   public Page execute(Caller caller, ReadingFilter filter, int limit, String cursor) {
+    int size = PageLimit.checked(limit);
     if (filter.from() != null && filter.to() != null && filter.from().isAfter(filter.to())) {
       throw new DomainException(ErrorCode.VALIDATION_ERROR);
     }
@@ -65,12 +67,12 @@ public class ListReadingsUseCase {
                   filter,
                   position == null ? null : position.observedAt(),
                   position == null ? null : position.id(),
-                  limit + 1);
-          if (rows.size() <= limit) {
+                  size + 1);
+          if (rows.size() <= size) {
             return new Page(rows, null);
           }
-          List<ListedReading> items = rows.subList(0, limit);
-          ReadingView last = items.get(limit - 1).reading();
+          List<ListedReading> items = rows.subList(0, size);
+          ReadingView last = items.get(size - 1).reading();
           return new Page(List.copyOf(items), cursors.encode(last.observedAt(), last.id()));
         });
   }

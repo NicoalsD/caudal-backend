@@ -2,6 +2,7 @@ package co.caudal.application.user;
 
 import co.caudal.application.auth.Caller;
 import co.caudal.application.pagination.Page;
+import co.caudal.application.pagination.PageLimit;
 import co.caudal.application.pagination.SignedCursorCodec;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.port.out.UserAdminPort;
@@ -40,17 +41,18 @@ public class ListUsersUseCase {
    * @return the page
    */
   public Page<ManagedUser> execute(Caller caller, String status, int limit, String cursor) {
+    int size = PageLimit.checked(limit);
     String after = cursor == null ? null : cursors.decode(LIST, cursor);
     return unitOfWork.executeAs(
         caller.scope(),
         () -> {
           List<ManagedUser> rows =
-              users.listInAqueduct(caller.aqueductId(), status, after, limit + 1);
-          if (rows.size() <= limit) {
+              users.listInAqueduct(caller.aqueductId(), status, after, size + 1);
+          if (rows.size() <= size) {
             return new Page<>(rows, null);
           }
-          List<ManagedUser> items = rows.subList(0, limit);
-          return new Page<>(items, cursors.encode(LIST, items.get(limit - 1).username()));
+          List<ManagedUser> items = rows.subList(0, size);
+          return new Page<>(items, cursors.encode(LIST, items.get(size - 1).username()));
         });
   }
 }

@@ -2,6 +2,7 @@ package co.caudal.application.user;
 
 import co.caudal.application.auth.Caller;
 import co.caudal.application.pagination.Page;
+import co.caudal.application.pagination.PageLimit;
 import co.caudal.application.pagination.SignedCursorCodec;
 import co.caudal.application.port.out.MembershipAdminPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
@@ -46,6 +47,7 @@ public class ListMembershipsUseCase {
    */
   public Page<MembershipView> execute(
       Caller caller, UUID userId, UUID aqueductId, int limit, String cursor) {
+    int size = PageLimit.checked(limit);
     if (aqueductId != null && !aqueductId.equals(caller.aqueductId())) {
       throw new DomainException(ErrorCode.FORBIDDEN);
     }
@@ -54,12 +56,12 @@ public class ListMembershipsUseCase {
         caller.scope(),
         () -> {
           List<MembershipView> rows =
-              memberships.list(caller.aqueductId(), userId, after, limit + 1);
-          if (rows.size() <= limit) {
+              memberships.list(caller.aqueductId(), userId, after, size + 1);
+          if (rows.size() <= size) {
             return new Page<>(rows, null);
           }
-          List<MembershipView> items = rows.subList(0, limit);
-          return new Page<>(items, cursors.encode(LIST, items.get(limit - 1).id().toString()));
+          List<MembershipView> items = rows.subList(0, size);
+          return new Page<>(items, cursors.encode(LIST, items.get(size - 1).id().toString()));
         });
   }
 
