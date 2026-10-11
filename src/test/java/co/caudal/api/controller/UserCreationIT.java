@@ -172,7 +172,7 @@ class UserCreationIT extends SessionIT {
     Account admin = account("users.invalid", "BOARD_ADMIN");
     Session session = login(admin);
 
-    create(session, "ghost.role", admin.aqueductId(), "GHOST_ROLE")
+    create(session, "ghost.role.create", admin.aqueductId(), "GHOST_ROLE")
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.error.details.fields[0].field").value("role"));
     create(session, "Bad Name!", admin.aqueductId(), "OPERATOR")
@@ -181,7 +181,8 @@ class UserCreationIT extends SessionIT {
 
     assertThat(
             owner.queryForObject(
-                "SELECT count(*) FROM iam.users WHERE username IN ('ghost.role')", Integer.class))
+                "SELECT count(*) FROM iam.users WHERE username IN ('ghost.role.create')",
+                Integer.class))
         .isZero();
   }
 }
