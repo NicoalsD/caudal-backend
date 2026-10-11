@@ -457,17 +457,18 @@ La red (tanques, sectores y válvulas) la gestiona `BOARD_ADMIN` (`NETWORK_MANAG
 
 ### 5.4 `POST /api/v1/sectors`
 
-- **Permiso:** `BOARD_ADMIN`.
-- **Cuerpo:** `code` (texto, 2 a 20, `^[A-Z0-9-]+$`, único en el acueducto; `FieldLimits.SECTOR_CODE`), `name` (2 a 60), `parent_sector_id` (UUID, opcional), `households_count` (entero, mayor o igual a 0, por defecto 0).
+- **Permiso:** `NETWORK_MANAGE` (`BOARD_ADMIN`).
+- **Cuerpo:** `code` (texto, 2 a 20, `^[A-Z0-9-]+$`, único en el acueducto; `FieldLimits.SECTOR_CODE`), `name` (2 a 60), `parent_sector_id` (UUID, opcional, sector del mismo acueducto), `households_count` (entero, mayor o igual a 0, por defecto 0).
 - **Respuesta 201:** sector creado.
-- **Errores:** `409 CONFLICT` (código repetido en el acueducto).
+- **Errores:** `400 VALIDATION_ERROR` (formato o `parent_sector_id` que no es del acueducto), `409 CONFLICT` (código repetido en el acueducto).
 - **Ejemplo:** `{ "code": "SEC-01", "name": "Sector Ejemplo", "households_count": 12 }`
 
 ### 5.5 `PATCH /api/v1/sectors/{id}`
 
-- **Permiso:** `BOARD_ADMIN`.
-- **Cuerpo (todos opcionales):** `name` (2 a 60), `households_count` (mayor o igual a 0), `is_active`. El `code` no cambia (propuesta).
+- **Permiso:** `NETWORK_MANAGE` (`BOARD_ADMIN`).
+- **Cuerpo (todos opcionales):** `name` (2 a 60), `households_count` (mayor o igual a 0), `is_active`. El `code` no cambia.
 - **Respuesta 200:** sector actualizado.
+- **Errores:** `404 NOT_FOUND` (no existe o es de otro acueducto).
 
 ### 5.6 `GET /api/v1/sectors/{id}/valves`
 

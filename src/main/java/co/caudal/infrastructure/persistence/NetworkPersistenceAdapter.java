@@ -101,6 +101,37 @@ public class NetworkPersistenceAdapter implements NetworkPort {
         .list();
   }
 
+  @Override
+  public Optional<SectorView> insertSector(
+      UUID aqueductId, String code, String name, UUID parentSectorId, int householdsCount) {
+    return jdbc.sql(
+            "INSERT INTO org.sectors (aqueduct_id, code, name, parent_sector_id, households_count)"
+                + " VALUES (:aqueduct, :code, :name, :parent, :households)"
+                + " ON CONFLICT (aqueduct_id, code) DO NOTHING"
+                + " RETURNING id, code, name, parent_sector_id, households_count, is_active")
+        .param("aqueduct", aqueductId)
+        .param("code", code)
+        .param("name", name)
+        .param("parent", parentSectorId, java.sql.Types.OTHER)
+        .param("households", householdsCount)
+        .query(NetworkPersistenceAdapter::sector)
+        .optional();
+  }
+
+  @Override
+  public SectorView updateSector(UUID sectorId, String name, int householdsCount, boolean active) {
+    return jdbc.sql(
+            "UPDATE org.sectors SET name = :name, households_count = :households,"
+                + " is_active = :active, updated_at = now() WHERE id = :id"
+                + " RETURNING id, code, name, parent_sector_id, households_count, is_active")
+        .param("name", name)
+        .param("households", householdsCount)
+        .param("active", active)
+        .param("id", sectorId)
+        .query(NetworkPersistenceAdapter::sector)
+        .single();
+  }
+
   private static TankView tank(ResultSet rs, int row) throws SQLException {
     int capacity = rs.getInt("capacity_liters");
     return new TankView(

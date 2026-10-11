@@ -70,4 +70,28 @@ public interface NetworkPort {
    * @return the valves ordered by code
    */
   List<ValveView> valves(UUID sectorId);
+
+  /**
+   * Adds a sector unless its code is taken in the aqueduct.
+   *
+   * @param aqueductId the aqueduct of the session
+   * @param code the code
+   * @param name the name
+   * @param parentSectorId the parent sector, or null
+   * @param householdsCount households it serves
+   * @return the sector, or empty if the code already exists
+   */
+  Optional<SectorView> insertSector(
+      UUID aqueductId, String code, String name, UUID parentSectorId, int householdsCount);
+
+  /**
+   * Saves the changes of a sector.
+   *
+   * @param sectorId the sector
+   * @param name the name
+   * @param householdsCount households it serves
+   * @param active whether it is in use
+   * @return the sector
+   */
+  SectorView updateSector(UUID sectorId, String name, int householdsCount, boolean active);
 }

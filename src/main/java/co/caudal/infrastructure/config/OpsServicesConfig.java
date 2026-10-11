@@ -4,6 +4,7 @@ import co.caudal.application.catalog.GetCatalogUseCase;
 import co.caudal.application.event.DomainEventPublisher;
 import co.caudal.application.network.CreateTankCommandHandler;
 import co.caudal.application.network.ListNetworkUseCase;
+import co.caudal.application.network.SectorCommandHandlers;
 import co.caudal.application.pagination.SignedCursorCodec;
 import co.caudal.application.port.out.CatalogPort;
 import co.caudal.application.port.out.NetworkPort;
@@ -105,5 +106,17 @@ class OpsServicesConfig {
       UnitOfWorkPort unitOfWork,
       Clock clock) {
     return new ActivateRuleSetCommandHandler(ruleSets, network, events, unitOfWork, clock);
+  }
+
+  @Bean
+  SectorCommandHandlers.Create createSectorCommandHandler(
+      NetworkPort network, UnitOfWorkPort unitOfWork) {
+    return new SectorCommandHandlers.Create(network, unitOfWork);
+  }
+
+  @Bean
+  SectorCommandHandlers.Update updateSectorCommandHandler(
+      NetworkPort network, UnitOfWorkPort unitOfWork) {
+    return new SectorCommandHandlers.Update(network, unitOfWork);
   }
 }
