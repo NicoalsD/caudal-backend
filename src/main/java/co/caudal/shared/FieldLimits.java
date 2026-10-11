@@ -246,5 +246,8 @@ public final class FieldLimits {
   /** Maximum forecast horizon accepted by the API, in days. */
   public static final int FORECAST_HORIZON_DAYS_MAX = 3;
 
+  /** Status of an account an administrator may ask for (docs/API.md, section 3.3). */
+  public static final String ACCOUNT_STATUS_PATTERN = "^(ACTIVE|LOCKED|DISABLED)$";
+
   private FieldLimits() {}
 }
