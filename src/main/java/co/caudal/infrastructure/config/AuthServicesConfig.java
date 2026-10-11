@@ -13,11 +13,13 @@ import co.caudal.application.auth.RefreshTokenService;
 import co.caudal.application.auth.ResetPasswordCommandHandler;
 import co.caudal.application.auth.ResetPasswordPorts;
 import co.caudal.application.auth.SessionInvalidator;
+import co.caudal.application.mfa.MfaVerifier;
 import co.caudal.application.port.out.AccessTokenIssuerPort;
 import co.caudal.application.port.out.LoginAccountPort;
 import co.caudal.application.port.out.LoginAttemptPort;
 import co.caudal.application.port.out.MembershipAdminPort;
 import co.caudal.application.port.out.MembershipPort;
+import co.caudal.application.port.out.MfaFactorPort;
 import co.caudal.application.port.out.PasswordHasherPort;
 import co.caudal.application.port.out.PasswordHistoryPort;
 import co.caudal.application.port.out.PasswordResetGrantPort;
@@ -77,6 +79,8 @@ class AuthServicesConfig {
       AccessTokenIssuerPort accessTokens,
       RefreshTokenService refreshTokens,
       SecurityEventPort events,
+      MfaFactorPort mfaFactors,
+      MfaVerifier mfa,
       UnitOfWorkPort unitOfWork,
       LoginProperties login,
       RefreshProperties refresh,
@@ -101,6 +105,8 @@ class AuthServicesConfig {
             accessTokens,
             refreshTokens,
             events,
+            mfaFactors,
+            mfa,
             unitOfWork),
         policy,
         settings,

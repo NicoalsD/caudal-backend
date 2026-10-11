@@ -2,6 +2,7 @@ package co.caudal.infrastructure.security;
 
 import co.caudal.shared.FieldLimits;
 import java.util.Base64;
+import java.util.Set;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -11,9 +12,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *     default value
  * @param keyId id stored next to each ciphertext ({@code MFA_KEY_ID}), to allow rotation
  * @param issuer name shown by the authenticator app
+ * @param allowedRoles roles that may turn MFA on ({@code MFA_ALLOWED_ROLES})
  */
 @ConfigurationProperties(prefix = "caudal.security.mfa")
-public record MfaProperties(String encryptionKey, String keyId, String issuer) {
+public record MfaProperties(
+    String encryptionKey, String keyId, String issuer, Set<String> allowedRoles) {
 
   /**
    * Refuses a missing or badly sized key. The message never includes the key.
@@ -21,6 +24,7 @@ public record MfaProperties(String encryptionKey, String keyId, String issuer) {
    * @throws IllegalArgumentException if the key is not 32 bytes in Base64 or the id is missing
    */
   public MfaProperties {
+    allowedRoles = allowedRoles == null ? Set.of() : Set.copyOf(allowedRoles);
     if (encryptionKey == null || keyId == null || keyId.isBlank() || issuer == null) {
       throw new IllegalArgumentException("MFA_ENCRYPTION_KEY and MFA_KEY_ID are required");
     }

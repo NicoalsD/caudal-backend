@@ -47,6 +47,17 @@ public final class TotpSecret {
   }
 
   /**
+   * Reads a secret typed or scanned as Base32 (upper case, without padding).
+   *
+   * @param base32 the text
+   * @return the secret
+   * @throws IllegalArgumentException if the text is not Base32
+   */
+  public static TotpSecret fromBase32(String base32) {
+    return of(Base32.decode(base32));
+  }
+
+  /**
    * The raw secret, to encrypt it or compute codes.
    *
    * @return a copy of the bytes

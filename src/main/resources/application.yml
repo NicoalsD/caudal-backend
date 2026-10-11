@@ -94,6 +94,7 @@ caudal:
       encryption-key: ${MFA_ENCRYPTION_KEY}
       key-id: ${MFA_KEY_ID}
       issuer: ${MFA_ISSUER:CAUDAL}
+      allowed-roles: ${MFA_ALLOWED_ROLES:BOARD_ADMIN,PROJECT_TEAM}
     # Argon2id (docs/Seguridad.md, section 2.1). The defaults are the canonical values.
     argon2:
       memory-kib: ${ARGON2_MEMORY_KIB:19456}

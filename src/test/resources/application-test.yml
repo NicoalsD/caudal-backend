@@ -40,6 +40,7 @@ caudal:
       encryption-key: dGVzdC1vbmx5LW1mYS1rZXktMzItYnl0ZXMtbG9uZyE=
       key-id: test-key-v1
       issuer: CAUDAL Test
+      allowed-roles: BOARD_ADMIN,PROJECT_TEAM
     refresh:
       ttl-days: 7
       operator-ttl-days: 30

@@ -116,7 +116,9 @@ public class AuthController {
       content = @Content(schema = @Schema(implementation = LoginResponse.class)))
   @ApiResponse(
       responseCode = "401",
-      description = "INVALID_CREDENTIALS: usuario o contraseña incorrectos")
+      description =
+          "INVALID_CREDENTIALS (usuario, contraseña o código MFA incorrectos) o MFA_REQUIRED (la"
+              + " contraseña es correcta y falta el código TOTP)")
   @ApiResponse(responseCode = "429", description = "RATE_LIMITED: demasiados intentos desde la IP")
   @PostMapping("/login")
   public ResponseEntity<LoginResponse> login(
@@ -127,7 +129,8 @@ public class AuthController {
                 request.username(),
                 request.password(),
                 http.getRemoteAddr(),
-                http.getHeader(HttpHeaders.USER_AGENT)));
+                http.getHeader(HttpHeaders.USER_AGENT),
+                request.mfaCode()));
     return ResponseEntity.ok()
         .cacheControl(CacheControl.noStore())
         .header(

@@ -19,6 +19,7 @@ public final class ErrorStatusMapping {
       case VALIDATION_ERROR, CURSOR_INVALID -> HttpStatus.BAD_REQUEST;
       case UNAUTHORIZED,
           INVALID_CREDENTIALS,
+          MFA_REQUIRED,
           SESSION_REVOKED,
           INVALID_SIGNATURE,
           NONCE_REPLAY,

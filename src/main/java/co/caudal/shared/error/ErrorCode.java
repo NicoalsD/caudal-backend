@@ -13,6 +13,9 @@ public enum ErrorCode {
   VALIDATION_ERROR,
   UNAUTHORIZED,
   INVALID_CREDENTIALS,
+
+  /** The password was right and the account has a second factor: a TOTP code is missing. */
+  MFA_REQUIRED,
   SESSION_REVOKED,
   INVALID_SIGNATURE,
   NONCE_REPLAY,

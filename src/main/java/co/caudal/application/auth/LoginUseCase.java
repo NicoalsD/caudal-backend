@@ -1,10 +1,13 @@
 package co.caudal.application.auth;
 
 import co.caudal.application.auth.LoginAttempt.FailureReason;
+import co.caudal.application.mfa.MfaFactor;
+import co.caudal.application.mfa.MfaVerifier;
 import co.caudal.application.port.out.AccessTokenIssuerPort;
 import co.caudal.application.port.out.LoginAccountPort;
 import co.caudal.application.port.out.LoginAttemptPort;
 import co.caudal.application.port.out.MembershipPort;
+import co.caudal.application.port.out.MfaFactorPort;
 import co.caudal.application.port.out.PasswordHasherPort;
 import co.caudal.application.port.out.PrivacyHasherPort;
 import co.caudal.application.port.out.SecurityEventPort;
@@ -53,6 +56,8 @@ public class LoginUseCase {
   private final AccessTokenIssuerPort accessTokens;
   private final RefreshTokenService refreshTokens;
   private final SecurityEventPort events;
+  private final MfaFactorPort mfaFactors;
+  private final MfaVerifier mfa;
   private final UnitOfWorkPort unitOfWork;
   private final LockoutPolicy lockout;
   private final LoginSettings settings;
@@ -76,6 +81,8 @@ public class LoginUseCase {
     this.accessTokens = ports.accessTokens();
     this.refreshTokens = ports.refreshTokens();
     this.events = ports.events();
+    this.mfaFactors = ports.mfaFactors();
+    this.mfa = ports.mfa();
     this.unitOfWork = ports.unitOfWork();
     this.lockout = lockout;
     this.settings = settings;
@@ -97,7 +104,9 @@ public class LoginUseCase {
     Optional<Username> username = Username.tryParse(input.username());
     String usernameHmac = hasher.hmac(boundedUsername(input.username()));
 
-    Step step = unitOfWork.execute(() -> authenticate(username, password, usernameHmac, ipHmac));
+    Step step =
+        unitOfWork.execute(
+            () -> authenticate(username, password, input.mfaCode(), usernameHmac, ipHmac));
     if (step.failure() != null) {
       throw step.failure();
     }
@@ -115,6 +124,7 @@ public class LoginUseCase {
   private Step authenticate(
       Optional<Username> username,
       NormalizedPassword password,
+      String mfaCode,
       String usernameHmac,
       String ipHmac) {
     Instant now = clock.instant();
@@ -145,7 +155,25 @@ public class LoginUseCase {
       return rejectWithoutAccount(password, usernameHmac, ipHmac, reason, account.id());
     }
     if (!passwords.matches(password, account.passwordHash())) {
-      return registerFailure(account, usernameHmac, ipHmac, now);
+      return registerFailure(account, usernameHmac, ipHmac, now, FailureReason.INVALID_CREDENTIALS);
+    }
+    Optional<MfaFactor> factor = mfaFactors.find(account.id()).filter(MfaFactor::confirmed);
+    if (factor.isPresent()) {
+      // Only a person who already proved the password learns that a code is missing.
+      if (mfaCode == null) {
+        return Step.fail(new DomainException(ErrorCode.MFA_REQUIRED));
+      }
+      if (mfa.check(factor.get(), mfaCode, now).isEmpty()) {
+        events.record(
+            new SecurityEvent(
+                SecurityEventType.MFA_FAILED,
+                Severity.MEDIUM,
+                account.id(),
+                null,
+                ipHmac,
+                Map.of()));
+        return registerFailure(account, usernameHmac, ipHmac, now, FailureReason.MFA_FAILED);
+      }
     }
     return Step.authenticated(account);
   }
@@ -162,10 +190,8 @@ public class LoginUseCase {
   }
 
   private Step registerFailure(
-      LoginAccount account, String usernameHmac, String ipHmac, Instant now) {
-    attempts.record(
-        new LoginAttempt(
-            account.id(), usernameHmac, ipHmac, false, FailureReason.INVALID_CREDENTIALS));
+      LoginAccount account, String usernameHmac, String ipHmac, Instant now, FailureReason reason) {
+    attempts.record(new LoginAttempt(account.id(), usernameHmac, ipHmac, false, reason));
     int failures = attempts.countConsecutiveFailures(account.id(), now.minus(settings.window()));
     LockoutDecision decision = lockout.evaluate(failures, account.lockoutLevel(), now);
     accounts.saveFailure(

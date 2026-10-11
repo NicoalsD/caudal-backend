@@ -11,10 +11,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import co.caudal.application.auth.LoginAttempt.FailureReason;
+import co.caudal.application.mfa.MfaFactor;
+import co.caudal.application.mfa.MfaVerifier;
+import co.caudal.application.mfa.SealedSecret;
 import co.caudal.application.port.out.AccessTokenIssuerPort;
 import co.caudal.application.port.out.LoginAccountPort;
 import co.caudal.application.port.out.LoginAttemptPort;
 import co.caudal.application.port.out.MembershipPort;
+import co.caudal.application.port.out.MfaFactorPort;
 import co.caudal.application.port.out.PasswordHasherPort;
 import co.caudal.application.port.out.PrivacyHasherPort;
 import co.caudal.domain.security.SecurityEventType;
@@ -29,6 +33,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -50,6 +55,8 @@ class LoginUseCaseTest {
   private final InMemoryRefreshTokenPort tokenStore = new InMemoryRefreshTokenPort();
   private final Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
   private final DirectUnitOfWork unitOfWork = new DirectUnitOfWork();
+  private final MfaFactorPort mfaFactors = mock(MfaFactorPort.class);
+  private final MfaVerifier mfa = mock(MfaVerifier.class);
 
   private final LoginUseCase useCase =
       new LoginUseCase(
@@ -62,6 +69,8 @@ class LoginUseCaseTest {
               accessTokens,
               new RefreshTokenService(tokenStore, events, unitOfWork, clock),
               events,
+              mfaFactors,
+              mfa,
               unitOfWork),
           new LockoutPolicy(5, Duration.ofMinutes(15), Duration.ofHours(24)),
           new LoginSettings(
@@ -305,5 +314,59 @@ class LoginUseCaseTest {
   void inputToStringDoesNotShowThePassword() {
     assertThat(input("test.operator", "super-secreto-largo").toString())
         .doesNotContain("super-secreto-largo");
+  }
+
+  private void givenConfirmedFactor() {
+    when(mfaFactors.find(USER))
+        .thenReturn(
+            Optional.of(
+                new MfaFactor(
+                    UUID.randomUUID(),
+                    USER,
+                    new SealedSecret(new byte[] {1}, "k1"),
+                    NOW.minusSeconds(3600),
+                    null)));
+  }
+
+  @Test
+  void aConfirmedFactorWithoutCodeAsksForItWithoutRecordingAFailure() {
+    givenWorld(account("ACTIVE", null, 0), true);
+    givenConfirmedFactor();
+
+    assertThatThrownBy(() -> useCase.execute(input("test.operator", "clave-correcta-larga")))
+        .isInstanceOf(DomainException.class)
+        .extracting(failure -> ((DomainException) failure).code())
+        .isEqualTo(ErrorCode.MFA_REQUIRED);
+    verify(attempts, never()).record(any());
+  }
+
+  @Test
+  void aWrongCodeIsAFailedLoginThatCountsForTheLock() {
+    givenWorld(account("ACTIVE", null, 0), true);
+    givenConfirmedFactor();
+    when(mfa.check(any(), eq("000000"), any())).thenReturn(OptionalLong.empty());
+
+    assertThatThrownBy(
+            () ->
+                useCase.execute(
+                    new LoginInput(
+                        "test.operator", "clave-correcta-larga", "203.0.113.9", "JUnit", "000000")))
+        .isInstanceOf(InvalidCredentialsException.class);
+    assertThat(lastAttempt().failureReason()).isEqualTo(FailureReason.MFA_FAILED);
+    assertThat(events.recorded).anyMatch(event -> event.type() == SecurityEventType.MFA_FAILED);
+  }
+
+  @Test
+  void theRightCodeSignsIn() {
+    givenWorld(account("ACTIVE", null, 0), true);
+    givenConfirmedFactor();
+    when(mfa.check(any(), eq("123456"), any())).thenReturn(OptionalLong.of(42));
+
+    LoginResult result =
+        useCase.execute(
+            new LoginInput(
+                "test.operator", "clave-correcta-larga", "203.0.113.9", "JUnit", "123456"));
+
+    assertThat(result.accessToken().value()).isEqualTo("jwt-value");
   }
 }

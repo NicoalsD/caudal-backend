@@ -14,7 +14,7 @@ class AesGcmSecretCipherAdapterTest {
   private static final byte[] SECRET = "12345678901234567890".getBytes(StandardCharsets.US_ASCII);
 
   private final AesGcmSecretCipherAdapter cipher =
-      new AesGcmSecretCipherAdapter(new MfaProperties(KEY, "k1", "CAUDAL"));
+      new AesGcmSecretCipherAdapter(new MfaProperties(KEY, "k1", "CAUDAL", null));
 
   @Test
   void decryptsWhatItEncryptedForTheSameOwner() {
@@ -49,15 +49,15 @@ class AesGcmSecretCipherAdapterTest {
 
   @Test
   void refusesAMissingOrBadlySizedKeyWithoutPrintingIt() {
-    assertThatThrownBy(() -> new MfaProperties(null, "k1", "CAUDAL"))
+    assertThatThrownBy(() -> new MfaProperties(null, "k1", "CAUDAL", null))
         .isInstanceOf(IllegalArgumentException.class);
-    assertThatThrownBy(() -> new MfaProperties(KEY, " ", "CAUDAL"))
+    assertThatThrownBy(() -> new MfaProperties(KEY, " ", "CAUDAL", null))
         .isInstanceOf(IllegalArgumentException.class);
-    assertThatThrownBy(() -> new MfaProperties("bm90IDMyIGJ5dGVz", "k1", "CAUDAL"))
+    assertThatThrownBy(() -> new MfaProperties("bm90IDMyIGJ5dGVz", "k1", "CAUDAL", null))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageNotContaining("bm90");
-    assertThatThrownBy(() -> new MfaProperties("***", "k1", "CAUDAL"))
+    assertThatThrownBy(() -> new MfaProperties("***", "k1", "CAUDAL", null))
         .isInstanceOf(IllegalArgumentException.class);
-    assertThat(new MfaProperties(KEY, "k1", "CAUDAL").toString()).doesNotContain(KEY);
+    assertThat(new MfaProperties(KEY, "k1", "CAUDAL", null).toString()).doesNotContain(KEY);
   }
 }

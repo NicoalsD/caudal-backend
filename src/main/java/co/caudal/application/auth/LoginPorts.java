@@ -1,9 +1,11 @@
 package co.caudal.application.auth;
 
+import co.caudal.application.mfa.MfaVerifier;
 import co.caudal.application.port.out.AccessTokenIssuerPort;
 import co.caudal.application.port.out.LoginAccountPort;
 import co.caudal.application.port.out.LoginAttemptPort;
 import co.caudal.application.port.out.MembershipPort;
+import co.caudal.application.port.out.MfaFactorPort;
 import co.caudal.application.port.out.PasswordHasherPort;
 import co.caudal.application.port.out.PrivacyHasherPort;
 import co.caudal.application.port.out.SecurityEventPort;
@@ -20,6 +22,8 @@ import co.caudal.application.port.out.UnitOfWorkPort;
  * @param accessTokens access token issuer
  * @param refreshTokens refresh token service
  * @param events security events
+ * @param mfaFactors second factors of the accounts
+ * @param mfa checks second factor codes
  * @param unitOfWork transaction boundary
  */
 public record LoginPorts(
@@ -31,4 +35,6 @@ public record LoginPorts(
     AccessTokenIssuerPort accessTokens,
     RefreshTokenService refreshTokens,
     SecurityEventPort events,
+    MfaFactorPort mfaFactors,
+    MfaVerifier mfa,
     UnitOfWorkPort unitOfWork) {}
