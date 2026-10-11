@@ -12,6 +12,8 @@ import co.caudal.domain.schedule.ProposalMemento;
 import co.caudal.domain.schedule.ProposedTurn;
 import co.caudal.domain.schedule.ScheduleProposal;
 import co.caudal.domain.schedule.TurnReason;
+import co.caudal.shared.error.DomainException;
+import co.caudal.shared.error.ErrorCode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -21,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.type.TypeReference;
@@ -33,6 +36,7 @@ public class ProposalPersistenceAdapter implements ProposalPort {
   private static final TypeReference<Map<String, Object>> PARAMS = new TypeReference<>() {};
   private static final TypeReference<List<Map<String, String>>> UNSERVED = new TypeReference<>() {};
   private static final String PENDING_REVIEW = "PENDING_REVIEW";
+  private static final String NO_OVERLAP = "schedule_items_no_overlap";
 
   static final String SUMMARY_COLUMNS =
       "SELECT id, service_date, status, rule_set_id, tank_level_snapshot, tank_band,"
@@ -96,20 +100,7 @@ public class ProposalPersistenceAdapter implements ProposalPort {
    */
   void insertItems(UUID aqueductId, UUID proposalId, List<ProposedTurn> turns) {
     for (ProposedTurn turn : turns) {
-      UUID item =
-          jdbc.sql(
-                  "INSERT INTO ops.schedule_items (aqueduct_id, proposal_id, sector_id, sequence,"
-                      + " start_at, end_at, origin) VALUES (:aqueduct, :proposal, :sector,"
-                      + " :sequence, :start, :end, :origin) RETURNING id")
-              .param("aqueduct", aqueductId)
-              .param("proposal", proposalId)
-              .param("sector", turn.sectorId())
-              .param("sequence", turn.sequence())
-              .param("start", SqlTime.offset(turn.start()), Types.TIMESTAMP_WITH_TIMEZONE)
-              .param("end", SqlTime.offset(turn.end()), Types.TIMESTAMP_WITH_TIMEZONE)
-              .param("origin", turn.origin())
-              .query(UUID.class)
-              .single();
+      UUID item = insertItem(aqueductId, proposalId, turn);
       int order = 0;
       for (TurnReason reason : turn.reasons()) {
         jdbc.sql(
@@ -123,6 +114,33 @@ public class ProposalPersistenceAdapter implements ProposalPort {
             .param("order", order++)
             .update();
       }
+    }
+  }
+
+  /**
+   * Stores one shift. The exclusion {@code schedule_items_no_overlap} refuses two shifts of the
+   * same proposal that overlap; it is answered as {@code SCHEDULE_OVERLAP}.
+   */
+  private UUID insertItem(UUID aqueductId, UUID proposalId, ProposedTurn turn) {
+    try {
+      return jdbc.sql(
+              "INSERT INTO ops.schedule_items (aqueduct_id, proposal_id, sector_id, sequence,"
+                  + " start_at, end_at, origin) VALUES (:aqueduct, :proposal, :sector,"
+                  + " :sequence, :start, :end, :origin) RETURNING id")
+          .param("aqueduct", aqueductId)
+          .param("proposal", proposalId)
+          .param("sector", turn.sectorId())
+          .param("sequence", turn.sequence())
+          .param("start", SqlTime.offset(turn.start()), Types.TIMESTAMP_WITH_TIMEZONE)
+          .param("end", SqlTime.offset(turn.end()), Types.TIMESTAMP_WITH_TIMEZONE)
+          .param("origin", turn.origin())
+          .query(UUID.class)
+          .single();
+    } catch (DataIntegrityViolationException refused) {
+      if (String.valueOf(refused.getMostSpecificCause().getMessage()).contains(NO_OVERLAP)) {
+        throw new DomainException(ErrorCode.SCHEDULE_OVERLAP);
+      }
+      throw refused;
     }
   }
 

@@ -412,4 +412,29 @@ class ScheduleProposalIT extends SessionIT {
         .andExpect(jsonPath("$.error.code").value("INVALID_STATE_TRANSITION"));
     generate(member, TOMORROW).andExpect(status().isCreated());
   }
+
+  @Test
+  void overlappingShiftsAreRefusedByTheDatabase() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    reading(aqueduct, "2.10");
+    Session member = login(account("proposal.overlap", "BOARD_MEMBER", aqueduct));
+    String id = generatedId(member, TOMORROW);
+    String reason = "Se cruzan a propósito para la prueba.";
+
+    decide(
+            member,
+            id,
+            "modify",
+            modify(
+                0,
+                reason,
+                item(null, sectorOf(aqueduct, "ALTO"), at(7), at(9), 1),
+                item(null, sectorOf(aqueduct, "BAJO"), at(8), at(10), 2)))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error.code").value("SCHEDULE_OVERLAP"));
+    mvc.perform(get("/api/v1/schedule-proposals/" + id).header("Authorization", member.bearer()))
+        .andExpect(jsonPath("$.status").value("PENDING_REVIEW"))
+        .andExpect(jsonPath("$.items.length()").value(2))
+        .andExpect(jsonPath("$.snapshot_taken").value(false));
+  }
 }
