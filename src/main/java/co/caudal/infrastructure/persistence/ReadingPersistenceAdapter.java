@@ -213,15 +213,46 @@ public class ReadingPersistenceAdapter implements ReadingPort {
                 + " FROM ops.reading_corrections WHERE reading_id = :reading"
                 + " ORDER BY created_at, id")
         .param("reading", readingId)
-        .query(
-            (rs, row) ->
-                new CorrectionView(
-                    rs.getObject("id", UUID.class),
-                    rs.getObject("reading_id", UUID.class),
-                    rs.getBigDecimal("corrected_gauge_value"),
-                    rs.getString("reason"),
-                    rs.getObject("corrected_by", UUID.class),
-                    SqlTime.instant(rs, "created_at")))
+        .query(ReadingPersistenceAdapter::correction)
         .list();
+  }
+
+  @Override
+  public Optional<UUID> recordedBy(UUID readingId) {
+    return jdbc.sql("SELECT recorded_by FROM ops.readings WHERE id = :id")
+        .param("id", readingId)
+        .query((rs, row) -> rs.getObject("recorded_by", UUID.class))
+        .optional();
+  }
+
+  @Override
+  public CorrectionView insertCorrection(
+      UUID aqueductId,
+      UUID readingId,
+      BigDecimal correctedGaugeValue,
+      String reason,
+      UUID correctedBy) {
+    return jdbc.sql(
+            "INSERT INTO ops.reading_corrections (aqueduct_id, reading_id, corrected_gauge_value,"
+                + " reason, corrected_by) VALUES (:aqueduct, :reading, :value, :reason, :by)"
+                + " RETURNING id, reading_id, corrected_gauge_value, reason, corrected_by,"
+                + " created_at")
+        .param("aqueduct", aqueductId)
+        .param("reading", readingId)
+        .param("value", correctedGaugeValue)
+        .param("reason", reason)
+        .param("by", correctedBy)
+        .query(ReadingPersistenceAdapter::correction)
+        .single();
+  }
+
+  private static CorrectionView correction(ResultSet rs, int row) throws SQLException {
+    return new CorrectionView(
+        rs.getObject("id", UUID.class),
+        rs.getObject("reading_id", UUID.class),
+        rs.getBigDecimal("corrected_gauge_value"),
+        rs.getString("reason"),
+        rs.getObject("corrected_by", UUID.class),
+        SqlTime.instant(rs, "created_at"));
   }
 }

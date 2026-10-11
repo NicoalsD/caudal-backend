@@ -111,4 +111,29 @@ public interface ReadingPort {
    * @return the corrections
    */
   List<CorrectionView> corrections(UUID readingId);
+
+  /**
+   * Who recorded a reading.
+   *
+   * @param readingId the reading
+   * @return the account, or empty for a reading of a sensor or an import
+   */
+  Optional<UUID> recordedBy(UUID readingId);
+
+  /**
+   * Stores a correction; the original reading is never changed.
+   *
+   * @param aqueductId the aqueduct
+   * @param readingId the reading
+   * @param correctedGaugeValue the right value
+   * @param reason why
+   * @param correctedBy who corrects it
+   * @return the correction
+   */
+  CorrectionView insertCorrection(
+      UUID aqueductId,
+      UUID readingId,
+      BigDecimal correctedGaugeValue,
+      String reason,
+      UUID correctedBy);
 }

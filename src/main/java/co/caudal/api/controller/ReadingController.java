@@ -1,7 +1,9 @@
 package co.caudal.api.controller;
 
+import co.caudal.api.dto.request.CorrectReadingRequest;
 import co.caudal.api.dto.request.CreateReadingRequest;
 import co.caudal.api.dto.request.ReadingBatchRequest;
+import co.caudal.api.dto.response.CorrectionResponse;
 import co.caudal.api.dto.response.ReadingBatchResponse;
 import co.caudal.api.dto.response.ReadingCreatedResponse;
 import co.caudal.api.dto.response.ReadingDetailResponse;
@@ -10,6 +12,8 @@ import co.caudal.api.mapper.ReadingMapper;
 import co.caudal.api.security.CallerFactory;
 import co.caudal.application.command.CommandBus;
 import co.caudal.application.reading.BatchResult;
+import co.caudal.application.reading.CorrectReadingCommand;
+import co.caudal.application.reading.CorrectionView;
 import co.caudal.application.reading.CreateReadingBatchCommand;
 import co.caudal.application.reading.CreateReadingCommand;
 import co.caudal.application.reading.GetReadingUseCase;
@@ -56,6 +60,49 @@ public class ReadingController {
     this.commands = commands;
     this.list = list;
     this.get = get;
+  }
+
+  @Operation(
+      summary = "Corregir una lectura",
+      description =
+          "Guarda una corrección nueva; el dato original no cambia y la última corrección da el"
+              + " valor efectivo. El valor debe estar en la regla del tanque y el motivo es"
+              + " obligatorio. La Junta corrige cualquier lectura; el fontanero solo las suyas."
+              + " Requiere el permiso READING_CORRECT.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "201", description = "Corrección creada")
+  @ApiResponse(
+      responseCode = "403",
+      description = "FORBIDDEN: el fontanero corrige una lectura ajena")
+  @ApiResponse(responseCode = "404", description = "NOT_FOUND: la lectura no existe")
+  @ApiResponse(
+      responseCode = "422",
+      description = "GAUGE_OUT_OF_RANGE (fuera de la regla) o REASON_REQUIRED (falta el motivo)")
+  @PostMapping("/{id}/corrections")
+  @PreAuthorize("hasAuthority('READING_CORRECT')")
+  public ResponseEntity<CorrectionResponse> correct(
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID id,
+      @Valid @RequestBody CorrectReadingRequest request,
+      HttpServletRequest http) {
+    CorrectionView correction =
+        commands.dispatch(
+            new CorrectReadingCommand(
+                CallerFactory.from(jwt, http),
+                id,
+                request.correctedGaugeValue(),
+                request.reason()));
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .cacheControl(CacheControl.noStore())
+        .body(
+            new CorrectionResponse(
+                correction.id(),
+                correction.readingId(),
+                correction.correctedGaugeValue(),
+                correction.reason(),
+                correction.correctedBy(),
+                correction.createdAt(),
+                correction.correctedGaugeValue()));
   }
 
   @Operation(

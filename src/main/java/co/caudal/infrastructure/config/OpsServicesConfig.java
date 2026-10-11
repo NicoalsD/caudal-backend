@@ -13,6 +13,7 @@ import co.caudal.application.port.out.ReadingPort;
 import co.caudal.application.port.out.RuleSetPort;
 import co.caudal.application.port.out.SyncBatchPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
+import co.caudal.application.reading.CorrectReadingCommandHandler;
 import co.caudal.application.reading.CreateReadingBatchCommandHandler;
 import co.caudal.application.reading.CreateReadingCommandHandler;
 import co.caudal.application.reading.GetReadingUseCase;
@@ -149,5 +150,11 @@ class OpsServicesConfig {
   @Bean
   GetReadingUseCase getReadingUseCase(ReadingPort readings, UnitOfWorkPort unitOfWork) {
     return new GetReadingUseCase(readings, unitOfWork);
+  }
+
+  @Bean
+  CorrectReadingCommandHandler correctReadingCommandHandler(
+      ReadingPort readings, NetworkPort network, UnitOfWorkPort unitOfWork) {
+    return new CorrectReadingCommandHandler(readings, network, unitOfWork);
   }
 }

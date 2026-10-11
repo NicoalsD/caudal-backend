@@ -628,8 +628,8 @@ Una lectura es una observaci처n del nivel de la regla pintada. Su estatus epist�
 
 - **Permiso:** `READING_CORRECT`. Un `OPERATOR` solo corrige sus propias lecturas.
 - **Cuerpo:** `corrected_gauge_value` (decimal 2, dentro del rango), `reason` (texto, 10 a 500).
-- **Respuesta 201:** la correcci처n con `id` y el valor efectivo nuevo. El dato original no cambia.
-- **Errores:** `422 GAUGE_OUT_OF_RANGE`, `422 REASON_REQUIRED`, `403 FORBIDDEN` (operador sobre lectura ajena), `404 NOT_FOUND`.
+- **Respuesta 201:** la correcci처n (`id`, `reading_id`, `corrected_gauge_value`, `reason`, `corrected_by`, `created_at`) y `effective_gauge_value`. El dato original no cambia.
+- **Errores:** `422 GAUGE_OUT_OF_RANGE` (con `gauge_min`, `gauge_max`, `value`), `422 REASON_REQUIRED` (falta o no tiene 10 a 500 caracteres), `403 FORBIDDEN` (un `OPERATOR` sobre una lectura que no registr처), `404 NOT_FOUND`.
 - **Ejemplo:** `{ "corrected_gauge_value": 2.00, "reason": "El fontanero ley처 mal la regla; se confirm처 con la foto." }`
 
 ## 8. Estado del tanque y pron처stico
