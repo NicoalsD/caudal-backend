@@ -16,6 +16,31 @@ class DocumentGeneratorCreatorTest {
   }
 
   @Test
+  void theMinutesCreatorBuildsAMinutesGenerator() {
+    assertThat(new MinutesGeneratorCreator().generatorFor(new HtmlDocumentFactory()))
+        .isInstanceOf(MinutesGenerator.class);
+  }
+
+  @Test
+  void theAdapterRendersTheMinutesWithSignatures() {
+    byte[] pdf =
+        new DocumentRenderingAdapter()
+            .minutes(
+                new co.caudal.application.minutes.MinutesDocument(
+                    "BORRADOR",
+                    "Acta del acueducto",
+                    "Vereda, 1 al 7 de octubre",
+                    List.of(
+                        new co.caudal.application.minutes.MinutesDocument.DocumentSection(
+                            "Observado", List.of("Lectura 2,10"))),
+                    List.of("Presidente de la Junta")));
+
+    assertThat(new String(pdf, StandardCharsets.US_ASCII))
+        .contains("(BORRADOR) Tj")
+        .contains("(Presidente de la Junta) Tj");
+  }
+
+  @Test
   void theAdapterRendersThePosterAsAPdf() {
     byte[] pdf =
         new DocumentRenderingAdapter()
