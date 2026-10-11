@@ -20,6 +20,8 @@ public final class MinutesBuilder {
   private static final Comparator<MinutesEntry> BY_TIME =
       Comparator.comparing(MinutesEntry::at).thenComparing(MinutesEntry::sourceId);
 
+  private static final SectionClassifier CLASSIFIER = new SectionClassifier();
+
   private LocalDate periodFrom;
   private LocalDate periodTo;
   private final Map<MinutesSection, List<MinutesEntry>> sections =
@@ -55,6 +57,16 @@ public final class MinutesBuilder {
   public MinutesBuilder add(MinutesSection section, MinutesEntry entry) {
     sections.get(Objects.requireNonNull(section, "section")).add(Objects.requireNonNull(entry));
     return this;
+  }
+
+  /**
+   * Adds a record in the section its kind says, through the {@link SectionClassifier}.
+   *
+   * @param record the record
+   * @return this builder
+   */
+  public MinutesBuilder add(EpistemicRecord record) {
+    return add(record.accept(CLASSIFIER), record.entry());
   }
 
   /**
