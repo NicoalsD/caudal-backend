@@ -1,6 +1,7 @@
 package co.caudal.api.error;
 
 import co.caudal.api.filter.RequestIdFilter;
+import co.caudal.shared.error.BodyTooLargeException;
 import co.caudal.shared.error.DomainException;
 import co.caudal.shared.error.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
@@ -104,6 +105,11 @@ public class ApiExceptionHandler {
     MissingRequestHeaderException.class
   })
   ResponseEntity<ErrorResponse> handleBadRequest(Exception ex, HttpServletRequest request) {
+    for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
+      if (cause instanceof BodyTooLargeException) {
+        return build(ErrorCode.PAYLOAD_TOO_LARGE, Map.of(), new Object[0], request);
+      }
+    }
     LOG.debug("Rejected request input: {}", ex.getClass().getSimpleName());
     return build(ErrorCode.VALIDATION_ERROR, Map.of(), new Object[0], request);
   }
