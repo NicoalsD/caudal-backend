@@ -9,6 +9,10 @@ import co.caudal.application.port.out.RuleSetPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.rules.RuleSetView;
 import co.caudal.domain.reading.ReadingRules;
+import co.caudal.domain.reading.validation.ReadingCandidate;
+import co.caudal.domain.reading.validation.ReadingCandidate.ReadingLimits;
+import co.caudal.domain.reading.validation.ReadingValidationChain;
+import co.caudal.domain.reading.validation.ReadingValidationHandler;
 import co.caudal.shared.FieldLimits;
 import co.caudal.shared.error.DomainException;
 import co.caudal.shared.error.ErrorCode;
@@ -46,6 +50,7 @@ public class CreateReadingCommandHandler
   private final CatalogPort catalogs;
   private final UnitOfWorkPort unitOfWork;
   private final Clock clock;
+  private final ReadingValidationHandler chain = ReadingValidationChain.standard();
 
   /**
    * Creates the handler.
@@ -91,19 +96,12 @@ public class CreateReadingCommandHandler
     RuleSetView rules =
         ruleSets.findActive().orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
     BigDecimal value = command.gaugeValue();
-    if (!ReadingRules.isWithinGauge(value, tank.gaugeMin(), tank.gaugeMax())) {
-      throw new DomainException(
-          ErrorCode.GAUGE_OUT_OF_RANGE,
-          Map.of(
-              "gauge_min", tank.gaugeMin().toPlainString(),
-              "gauge_max", tank.gaugeMax().toPlainString(),
-              "value", value.toPlainString()));
-    }
+    Instant now = clock.instant();
+    ReadingValidationChain.run(chain, candidate(command, tank, rules, now));
     Instant observedAt = command.observedAt();
     if (observedAt == null) {
       throw new DomainException(ErrorCode.MISSING_TIMESTAMP);
     }
-    Instant now = clock.instant();
     if (ReadingRules.isInFuture(observedAt, now)) {
       throw new DomainException(ErrorCode.FUTURE_TIMESTAMP);
     }
@@ -136,6 +134,19 @@ public class CreateReadingCommandHandler
       readings.insertIssue(command.caller().aqueductId(), reading.id(), issue);
     }
     return new RecordedReading(readings.findById(reading.id()).orElse(reading), issues, false);
+  }
+
+  private static ReadingCandidate candidate(
+      CreateReadingCommand command, TankView tank, RuleSetView rules, Instant now) {
+    return new ReadingCandidate(
+        command.gaugeValue(),
+        command.observedAt(),
+        now,
+        tank.gaugeMin(),
+        tank.gaugeMax(),
+        new ReadingLimits(
+            rules.maxBackdateDays(), rules.duplicateWindowMinutes(), rules.maxLevelChangePerHour()),
+        false);
   }
 
   private List<IssueView> flags(
