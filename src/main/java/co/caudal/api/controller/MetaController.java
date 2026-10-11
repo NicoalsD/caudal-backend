@@ -47,6 +47,13 @@ public class MetaController {
 
   private static Map<String, Map<String, Object>> build() {
     Map<String, Map<String, Object>> c = new LinkedHashMap<>();
+    accounts(c);
+    network(c);
+    others(c);
+    return Collections.unmodifiableMap(c);
+  }
+
+  private static void accounts(Map<String, Map<String, Object>> c) {
     c.put(
         "username",
         Map.of(
@@ -97,6 +104,9 @@ public class MetaController {
     c.put(
         "reading.note",
         Map.of(MIN, 0, MAX, FieldLimits.NOTE_MAX, "max_lines", FieldLimits.NOTE_MAX_LINES));
+  }
+
+  private static void network(Map<String, Map<String, Object>> c) {
     c.put(
         "reading.gauge_value",
         Map.of(
@@ -144,6 +154,9 @@ public class MetaController {
             FieldLimits.AQUEDUCT_SLUG_MAX,
             PATTERN,
             FieldLimits.AQUEDUCT_SLUG_PATTERN));
+  }
+
+  private static void others(Map<String, Map<String, Object>> c) {
     c.put(
         "page.limit",
         Map.of(
@@ -164,6 +177,5 @@ public class MetaController {
             FieldLimits.FORECAST_HORIZON_DAYS_MAX));
     c.put("text", Map.of(MIN, 0, MAX, FieldLimits.TEXT_GLOBAL_MAX));
     c.put("body.bytes", Map.of(MIN, 0, MAX, FieldLimits.BODY_MAX_BYTES));
-    return Collections.unmodifiableMap(c);
   }
 }
