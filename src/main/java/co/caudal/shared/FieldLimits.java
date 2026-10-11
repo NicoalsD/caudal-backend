@@ -305,5 +305,8 @@ public final class FieldLimits {
   /** A SHA-256 in lower or upper case hexadecimal. */
   public static final String SHA256_HEX_PATTERN = "^[0-9a-fA-F]{64}$";
 
+  /** Changes between days the simple estimate needs before it gives a range. */
+  public static final int FORECAST_BASELINE_MIN_CHANGES = 3;
+
   private FieldLimits() {}
 }
