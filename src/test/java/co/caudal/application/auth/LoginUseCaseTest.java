@@ -33,7 +33,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -344,7 +343,7 @@ class LoginUseCaseTest {
   void aWrongCodeIsAFailedLoginThatCountsForTheLock() {
     givenWorld(account("ACTIVE", null, 0), true);
     givenConfirmedFactor();
-    when(mfa.check(any(), eq("000000"), any())).thenReturn(OptionalLong.empty());
+    when(mfa.verifyLogin(any(), eq("000000"), any())).thenReturn(false);
 
     assertThatThrownBy(
             () ->
@@ -360,7 +359,7 @@ class LoginUseCaseTest {
   void theRightCodeSignsIn() {
     givenWorld(account("ACTIVE", null, 0), true);
     givenConfirmedFactor();
-    when(mfa.check(any(), eq("123456"), any())).thenReturn(OptionalLong.of(42));
+    when(mfa.verifyLogin(any(), eq("123456"), any())).thenReturn(true);
 
     LoginResult result =
         useCase.execute(

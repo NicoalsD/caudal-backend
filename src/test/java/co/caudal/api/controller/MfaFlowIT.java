@@ -64,7 +64,9 @@ class MfaFlowIT extends SessionIT {
     TotpSecret secret = enroll(session);
     long step = Totp.stepAt(Instant.now());
 
-    confirm(session, Totp.codeAt(secret, step)).andExpect(status().isNoContent());
+    confirm(session, Totp.codeAt(secret, step))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.recovery_codes.length()").value(10));
     assertThat(
             owner.queryForObject(
                 "SELECT confirmed_at IS NOT NULL FROM iam.mfa_factors WHERE user_id = ?",
@@ -104,8 +106,7 @@ class MfaFlowIT extends SessionIT {
     Account admin = account("mfa.hidden", "BOARD_ADMIN");
     Session session = login(admin);
     TotpSecret secret = enroll(session);
-    confirm(session, Totp.codeAt(secret, Totp.stepAt(Instant.now())))
-        .andExpect(status().isNoContent());
+    confirm(session, Totp.codeAt(secret, Totp.stepAt(Instant.now()))).andExpect(status().isOk());
 
     mvc.perform(
             post("/api/v1/auth/login")
@@ -126,7 +127,7 @@ class MfaFlowIT extends SessionIT {
     confirm(session, Totp.codeAt(first, step))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
-    confirm(session, Totp.codeAt(second, step)).andExpect(status().isNoContent());
+    confirm(session, Totp.codeAt(second, step)).andExpect(status().isOk());
     mvc.perform(post("/api/v1/auth/mfa/enroll").header("Authorization", session.bearer()))
         .andExpect(status().isConflict());
     confirm(session, Totp.codeAt(second, step + 1)).andExpect(status().isConflict());
@@ -142,5 +143,32 @@ class MfaFlowIT extends SessionIT {
     confirm(admin, "123456").andExpect(status().isNotFound());
     confirm(admin, "12345").andExpect(status().isBadRequest());
     mvc.perform(post("/api/v1/auth/mfa/enroll")).andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void aRecoveryCodeSignsInOnceAndOnlyItsHashIsStored() throws Exception {
+    Account admin = account("mfa.recovery", "BOARD_ADMIN");
+    Session session = login(admin);
+    TotpSecret secret = enroll(session);
+    String body =
+        confirm(session, Totp.codeAt(secret, Totp.stepAt(Instant.now())))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    String code = body.replaceAll(".*\"recovery_codes\":\\[\"([A-Z0-9-]+)\".*", "$1");
+
+    assertThat(
+            owner.queryForObject(
+                "SELECT count(*) FROM iam.mfa_recovery_codes WHERE user_id = ?"
+                    + " AND code_hash = encode(sha256(convert_to(?, 'UTF8')), 'hex')",
+                Integer.class,
+                admin.userId(),
+                code.replace("-", "")))
+        .isEqualTo(1);
+    loginWith("mfa.recovery", code.toLowerCase(java.util.Locale.ROOT)).andExpect(status().isOk());
+    loginWith("mfa.recovery", code)
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.error.code").value("INVALID_CREDENTIALS"));
   }
 }

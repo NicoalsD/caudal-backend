@@ -28,11 +28,12 @@ public record LoginRequest(
         String password,
     @Schema(
             description =
-                "Código TOTP de 6 dígitos; solo si la cuenta tiene MFA activo (si falta, la API"
-                    + " responde 401 MFA_REQUIRED después de verificar la contraseña).",
+                "Código TOTP de 6 dígitos o un código de respaldo (ABCD-EFGH-JKMN); solo si la"
+                    + " cuenta tiene MFA activo (si falta, la API responde 401 MFA_REQUIRED después"
+                    + " de verificar la contraseña).",
             example = "123456",
             nullable = true)
-        @Size(max = FieldLimits.TOTP_DIGITS)
+        @Size(max = FieldLimits.RESET_CODE_INPUT_MAX)
         String mfaCode) {
 
   @Override

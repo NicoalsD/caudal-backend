@@ -163,7 +163,7 @@ public class LoginUseCase {
       if (mfaCode == null) {
         return Step.fail(new DomainException(ErrorCode.MFA_REQUIRED));
       }
-      if (mfa.check(factor.get(), mfaCode, now).isEmpty()) {
+      if (!mfa.verifyLogin(factor.get(), mfaCode, now)) {
         events.record(
             new SecurityEvent(
                 SecurityEventType.MFA_FAILED,

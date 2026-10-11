@@ -235,7 +235,7 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 |---|---|---|---|
 | `username` | texto | Sí | 3 a 32, `^[a-z0-9][a-z0-9._-]{1,30}[a-z0-9]$`, se normaliza a minúsculas (`FieldLimits.USERNAME`) |
 | `password` | texto | Sí | 12 a 128, NFKC (`FieldLimits.PASSWORD`) |
-| `mfa_code` | texto | Si la cuenta tiene MFA activo | 6 dígitos (`FieldLimits.TOTP_CODE_PATTERN`) |
+| `mfa_code` | texto | Si la cuenta tiene MFA activo | 6 dígitos (`FieldLimits.TOTP_CODE_PATTERN`) o un código de respaldo |
 
 - **Respuesta 200:** `access_token` (texto), `token_type` (`Bearer`), `expires_in` (900), `user` (`id`, `username`, `full_name`, `role`, `aqueduct_id`, `must_change_password`). Cookie `Set-Cookie` con el refresh token.
 - **Errores:** `401 INVALID_CREDENTIALS` (siempre con el mismo mensaje, aunque la cuenta esté bloqueada o desactivada, y también con un `mfa_code` incorrecto o ya usado), `401 MFA_REQUIRED` (la contraseña es correcta y la cuenta tiene MFA activo, pero falta `mfa_code`), `429 RATE_LIMITED`.
@@ -312,8 +312,8 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 - **Permiso:** autenticado, solo roles de `MFA_ALLOWED_ROLES` (por defecto `BOARD_ADMIN` y `PROJECT_TEAM`). Otro rol responde `403 FORBIDDEN`.
 - **TOTP:** RFC 6238 con HMAC-SHA1, 6 dígitos y pasos de 30 segundos; se acepta un paso de desfase hacia cada lado. Un código no sirve dos veces (`last_used_step`).
 - **`POST /auth/mfa/enroll`:** sin cuerpo. Genera un secreto de 20 bytes, lo guarda cifrado con AES-256-GCM (clave `MFA_ENCRYPTION_KEY`, id `MFA_KEY_ID`, ligado a la cuenta) y responde `201` con `secret` (Base32) y `otpauth_uri` (para el QR), una sola vez. Repetirla reemplaza un factor pendiente. `409 CONFLICT` con `details.reason = MFA_ALREADY_ACTIVE` si ya está activo.
-- **`POST /auth/mfa/confirm`:** cuerpo `code` (6 dígitos). Activa el factor pendiente y responde `204`. Errores: `400 VALIDATION_ERROR` (código incorrecto), `404 NOT_FOUND` (no hay enrolamiento pendiente), `409 CONFLICT` (ya activo).
-- **Login:** con MFA activo, `POST /auth/login` pide `mfa_code` (sección 2.1).
+- **`POST /auth/mfa/confirm`:** cuerpo `code` (6 dígitos). Activa el factor pendiente y responde `200` con `recovery_codes`: 10 códigos de respaldo de un solo uso (`ABCD-EFGH-JKMN`), que se muestran una sola vez; solo se guarda su SHA-256 en `iam.mfa_recovery_codes`. Errores: `400 VALIDATION_ERROR` (código incorrecto), `404 NOT_FOUND` (no hay enrolamiento pendiente), `409 CONFLICT` (ya activo).
+- **Login:** con MFA activo, `POST /auth/login` pide `mfa_code` (sección 2.1): un código TOTP o uno de respaldo, que queda usado (`used_at`).
 
 ### 2.9 `POST /api/v1/auth/switch-aqueduct`
 

@@ -1,11 +1,13 @@
 package co.caudal.api.controller;
 
 import co.caudal.api.dto.request.ConfirmMfaRequest;
+import co.caudal.api.dto.response.MfaConfirmationResponse;
 import co.caudal.api.dto.response.MfaEnrollmentResponse;
 import co.caudal.api.security.CallerFactory;
 import co.caudal.application.command.CommandBus;
 import co.caudal.application.mfa.ConfirmMfaCommand;
 import co.caudal.application.mfa.EnrollMfaCommand;
+import co.caudal.application.mfa.MfaConfirmation;
 import co.caudal.application.mfa.MfaEnrollment;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -60,19 +62,24 @@ public class MfaController {
   @Operation(
       summary = "Confirmar MFA con el primer código",
       description =
-          "Verifica un código de la aplicación contra el factor pendiente y lo activa. Desde"
-              + " entonces el login pide mfa_code. Un código ya usado no vuelve a servir.")
+          "Verifica un código de la aplicación contra el factor pendiente y lo activa. Responde"
+              + " 10 códigos de respaldo de un solo uso, que se muestran una sola vez (solo se"
+              + " guarda su SHA-256). Desde entonces el login pide mfa_code: un código TOTP o uno"
+              + " de respaldo. Ningún código sirve dos veces.")
   @SecurityRequirement(name = "bearerAuth")
-  @ApiResponse(responseCode = "204", description = "MFA activo")
+  @ApiResponse(responseCode = "200", description = "MFA activo con sus códigos de respaldo")
   @ApiResponse(responseCode = "400", description = "VALIDATION_ERROR: el código no es válido")
   @ApiResponse(responseCode = "404", description = "NOT_FOUND: no hay un enrolamiento pendiente")
   @ApiResponse(responseCode = "409", description = "CONFLICT: MFA ya está activo")
   @PostMapping("/confirm")
-  public ResponseEntity<Void> confirm(
+  public ResponseEntity<MfaConfirmationResponse> confirm(
       @AuthenticationPrincipal Jwt jwt,
       @Valid @RequestBody ConfirmMfaRequest request,
       HttpServletRequest http) {
-    commands.dispatch(new ConfirmMfaCommand(CallerFactory.from(jwt, http), request.code()));
-    return ResponseEntity.noContent().build();
+    MfaConfirmation confirmation =
+        commands.dispatch(new ConfirmMfaCommand(CallerFactory.from(jwt, http), request.code()));
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.noStore())
+        .body(new MfaConfirmationResponse(confirmation.recoveryCodes()));
   }
 }

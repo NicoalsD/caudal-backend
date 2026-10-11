@@ -5,6 +5,7 @@ import co.caudal.application.mfa.EnrollMfaCommandHandler;
 import co.caudal.application.mfa.MfaSettings;
 import co.caudal.application.mfa.MfaVerifier;
 import co.caudal.application.port.out.MfaFactorPort;
+import co.caudal.application.port.out.MfaRecoveryCodePort;
 import co.caudal.application.port.out.SecretCipherPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.port.out.UserAccountPort;
@@ -23,8 +24,9 @@ class MfaServicesConfig {
   }
 
   @Bean
-  MfaVerifier mfaVerifier(MfaFactorPort factors, SecretCipherPort cipher) {
-    return new MfaVerifier(factors, cipher);
+  MfaVerifier mfaVerifier(
+      MfaFactorPort factors, MfaRecoveryCodePort recoveryCodes, SecretCipherPort cipher) {
+    return new MfaVerifier(factors, recoveryCodes, cipher);
   }
 
   @Bean
@@ -39,7 +41,11 @@ class MfaServicesConfig {
 
   @Bean
   ConfirmMfaCommandHandler confirmMfaCommandHandler(
-      MfaFactorPort factors, MfaVerifier verifier, UnitOfWorkPort unitOfWork, Clock clock) {
-    return new ConfirmMfaCommandHandler(factors, verifier, unitOfWork, clock);
+      MfaFactorPort factors,
+      MfaRecoveryCodePort recoveryCodes,
+      MfaVerifier verifier,
+      UnitOfWorkPort unitOfWork,
+      Clock clock) {
+    return new ConfirmMfaCommandHandler(factors, recoveryCodes, verifier, unitOfWork, clock);
   }
 }

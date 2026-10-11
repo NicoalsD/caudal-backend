@@ -2,15 +2,15 @@ package co.caudal.application.mfa;
 
 import co.caudal.application.auth.Caller;
 import co.caudal.application.command.Command;
-import co.caudal.application.command.Done;
 
 /**
- * Proves that the authenticator app works and turns the factor on (HU-06).
+ * Proves that the authenticator app works, turns the factor on and issues the recovery codes
+ * (HU-06).
  *
  * @param caller the person
  * @param code the code shown by the app
  */
-public record ConfirmMfaCommand(Caller caller, String code) implements Command<Done> {
+public record ConfirmMfaCommand(Caller caller, String code) implements Command<MfaConfirmation> {
 
   @Override
   public String toString() {

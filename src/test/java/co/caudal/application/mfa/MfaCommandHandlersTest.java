@@ -11,19 +11,21 @@ import static org.mockito.Mockito.when;
 
 import co.caudal.application.auth.Caller;
 import co.caudal.application.auth.LoginAccount;
-import co.caudal.application.command.Done;
 import co.caudal.application.port.out.MfaFactorPort;
+import co.caudal.application.port.out.MfaRecoveryCodePort;
 import co.caudal.application.port.out.SecretCipherPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.port.out.UserAccountPort;
 import co.caudal.domain.mfa.Totp;
 import co.caudal.domain.mfa.TotpSecret;
+import co.caudal.domain.user.ResetCode;
 import co.caudal.shared.error.DomainException;
 import co.caudal.shared.error.ErrorCode;
 import co.caudal.shared.error.FieldValidationException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -44,7 +46,8 @@ class MfaCommandHandlersTest {
   private final SecretCipherPort cipher = mock(SecretCipherPort.class);
   private final UserAccountPort accounts = mock(UserAccountPort.class);
   private final UnitOfWorkPort unitOfWork = mock(UnitOfWorkPort.class);
-  private final MfaVerifier verifier = new MfaVerifier(factors, cipher);
+  private final MfaRecoveryCodePort recoveryCodes = mock(MfaRecoveryCodePort.class);
+  private final MfaVerifier verifier = new MfaVerifier(factors, recoveryCodes, cipher);
   private final EnrollMfaCommandHandler enroll =
       new EnrollMfaCommandHandler(
           factors,
@@ -53,7 +56,8 @@ class MfaCommandHandlersTest {
           new MfaSettings("CAUDAL", Set.of("BOARD_ADMIN", "PROJECT_TEAM")),
           unitOfWork);
   private final ConfirmMfaCommandHandler confirm =
-      new ConfirmMfaCommandHandler(factors, verifier, unitOfWork, Clock.fixed(NOW, ZoneOffset.UTC));
+      new ConfirmMfaCommandHandler(
+          factors, recoveryCodes, verifier, unitOfWork, Clock.fixed(NOW, ZoneOffset.UTC));
 
   @BeforeEach
   @SuppressWarnings("unchecked")
@@ -109,10 +113,17 @@ class MfaCommandHandlersTest {
     when(factors.find(USER)).thenReturn(Optional.of(factor(null, null)));
     long step = Totp.stepAt(NOW);
 
-    assertThat(confirm.handle(new ConfirmMfaCommand(ADMIN, Totp.codeAt(SECRET, step))))
-        .isEqualTo(Done.DONE);
+    MfaConfirmation confirmation =
+        confirm.handle(new ConfirmMfaCommand(ADMIN, Totp.codeAt(SECRET, step)));
 
     verify(factors).confirm(FACTOR, NOW, step);
+    assertThat(confirmation.recoveryCodes()).hasSize(10).doesNotHaveDuplicates();
+    assertThat(confirmation.toString()).doesNotContain(confirmation.recoveryCodes().getFirst());
+    List<String> hashes =
+        confirmation.recoveryCodes().stream()
+            .map(code -> ResetCode.parse(code).orElseThrow().hash())
+            .toList();
+    verify(recoveryCodes).insertAll(USER, hashes);
     assertThat(new ConfirmMfaCommand(ADMIN, "123456").toString()).doesNotContain("123456");
     assertThat(confirm.commandType()).isEqualTo(ConfirmMfaCommand.class);
   }
@@ -143,5 +154,24 @@ class MfaCommandHandlersTest {
     assertThat(verifier.check(factor(NOW, null), code, NOW)).hasValue(step);
     assertThat(verifier.check(factor(NOW, null), code, NOW)).isEmpty();
     assertThat(verifier.check(factor(NOW, step), code, NOW)).isEmpty();
+  }
+
+  @Test
+  void aRecoveryCodeWorksAtLoginOnlyOnce() {
+    ResetCode code = ResetCode.generate();
+    when(recoveryCodes.consume(USER, code.hash(), NOW)).thenReturn(true, false);
+
+    assertThat(verifier.verifyLogin(factor(NOW, null), code.display(), NOW)).isTrue();
+    assertThat(verifier.verifyLogin(factor(NOW, null), code.display(), NOW)).isFalse();
+    assertThat(verifier.verifyLogin(factor(NOW, null), "not a code", NOW)).isFalse();
+    assertThat(verifier.verifyLogin(factor(NOW, null), null, NOW)).isFalse();
+  }
+
+  @Test
+  void aTotpCodeWorksAtLogin() {
+    long step = Totp.stepAt(NOW);
+    when(factors.markUsed(FACTOR, step)).thenReturn(true);
+
+    assertThat(verifier.verifyLogin(factor(NOW, null), Totp.codeAt(SECRET, step), NOW)).isTrue();
   }
 }
