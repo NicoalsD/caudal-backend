@@ -10,6 +10,7 @@ import co.caudal.application.port.out.RuleSetPort;
 import co.caudal.application.port.out.ScheduleHistoryPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.schedule.GenerateProposalCommandHandler;
+import co.caudal.application.schedule.GetProposalUseCase;
 import co.caudal.application.schedule.ListProposalsUseCase;
 import java.time.Clock;
 import org.springframework.context.annotation.Bean;
@@ -44,5 +45,11 @@ class ScheduleServicesConfig {
   ListProposalsUseCase listProposalsUseCase(
       ProposalPort proposals, SignedCursorCodec cursors, UnitOfWorkPort unitOfWork) {
     return new ListProposalsUseCase(proposals, cursors, unitOfWork);
+  }
+
+  @Bean
+  GetProposalUseCase getProposalUseCase(
+      ProposalPort proposals, AqueductPort aqueducts, UnitOfWorkPort unitOfWork, Clock clock) {
+    return new GetProposalUseCase(proposals, aqueducts, unitOfWork, clock);
   }
 }

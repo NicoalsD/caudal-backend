@@ -211,4 +211,29 @@ class ScheduleProposalIT extends SessionIT {
     mvc.perform(get("/api/v1/schedule-proposals").header("Authorization", operator.bearer()))
         .andExpect(status().isForbidden());
   }
+
+  @Test
+  void aProposalIsReadWithItsReasonsAndHiddenFromOtherAqueducts() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    reading(aqueduct, "2.10");
+    Session member = login(account("proposal.get", "BOARD_MEMBER", aqueduct));
+    Session operator = login(account("proposal.get.op", "OPERATOR", aqueduct));
+    Session stranger = login(account("proposal.get.other", "BOARD_MEMBER", newAqueductWithRules()));
+    String body = generate(member, TOMORROW).andReturn().getResponse().getContentAsString();
+    String id = JsonPath.read(body, "$.id");
+
+    mvc.perform(get("/api/v1/schedule-proposals/" + id).header("Authorization", member.bearer()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(id))
+        .andExpect(jsonPath("$.items[0].reasons[0].text").isNotEmpty())
+        .andExpect(jsonPath("$.decisions.length()").value(0))
+        .andExpect(jsonPath("$.snapshot_taken").value(false));
+    mvc.perform(get("/api/v1/schedule-proposals/" + id).header("Authorization", stranger.bearer()))
+        .andExpect(status().isNotFound());
+    mvc.perform(get("/api/v1/schedule-proposals/" + id).header("Authorization", operator.bearer()))
+        .andExpect(status().isForbidden());
+    mvc.perform(
+            get("/api/v1/schedule-proposals/not-a-uuid").header("Authorization", member.bearer()))
+        .andExpect(status().isBadRequest());
+  }
 }

@@ -9,6 +9,7 @@ import co.caudal.api.security.CallerFactory;
 import co.caudal.application.command.CommandBus;
 import co.caudal.application.pagination.Page;
 import co.caudal.application.schedule.GenerateProposalCommand;
+import co.caudal.application.schedule.GetProposalUseCase;
 import co.caudal.application.schedule.ListProposalsUseCase;
 import co.caudal.application.schedule.ProposalDetail;
 import co.caudal.application.schedule.ProposalSummary;
@@ -23,6 +24,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import java.time.LocalDate;
+import java.util.UUID;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +32,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -44,10 +47,31 @@ public class ScheduleProposalController {
 
   private final CommandBus commands;
   private final ListProposalsUseCase list;
+  private final GetProposalUseCase get;
 
-  ScheduleProposalController(CommandBus commands, ListProposalsUseCase list) {
+  ScheduleProposalController(
+      CommandBus commands, ListProposalsUseCase list, GetProposalUseCase get) {
     this.commands = commands;
     this.list = list;
+    this.get = get;
+  }
+
+  @Operation(
+      summary = "Ver una propuesta de turnos",
+      description =
+          "La propuesta completa: turnos con sus motivos en texto, sectores sin turno, historial"
+              + " de decisiones de la Junta y si se guardó la versión original antes de un"
+              + " cambio. Requiere el permiso PROPOSAL_VIEW.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "200", description = "La propuesta")
+  @ApiResponse(responseCode = "404", description = "NOT_FOUND: la propuesta no existe")
+  @GetMapping("/{id}")
+  @PreAuthorize("hasAuthority('PROPOSAL_VIEW')")
+  public ResponseEntity<ProposalResponse> get(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id, HttpServletRequest http) {
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.noStore())
+        .body(ScheduleMapper.toResponse(get.execute(CallerFactory.from(jwt, http), id)));
   }
 
   @Operation(
