@@ -1,6 +1,7 @@
 package co.caudal.infrastructure.config;
 
 import co.caudal.application.catalog.GetCatalogUseCase;
+import co.caudal.application.event.DomainEventPublisher;
 import co.caudal.application.network.CreateTankCommandHandler;
 import co.caudal.application.network.ListNetworkUseCase;
 import co.caudal.application.pagination.SignedCursorCodec;
@@ -98,7 +99,11 @@ class OpsServicesConfig {
 
   @Bean
   ActivateRuleSetCommandHandler activateRuleSetCommandHandler(
-      RuleSetPort ruleSets, NetworkPort network, UnitOfWorkPort unitOfWork, Clock clock) {
-    return new ActivateRuleSetCommandHandler(ruleSets, network, unitOfWork, clock);
+      RuleSetPort ruleSets,
+      NetworkPort network,
+      DomainEventPublisher events,
+      UnitOfWorkPort unitOfWork,
+      Clock clock) {
+    return new ActivateRuleSetCommandHandler(ruleSets, network, events, unitOfWork, clock);
   }
 }

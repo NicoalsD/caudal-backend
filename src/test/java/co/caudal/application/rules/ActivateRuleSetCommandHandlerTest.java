@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import co.caudal.application.auth.Caller;
+import co.caudal.application.event.DomainEventPublisher;
 import co.caudal.application.network.SectorView;
 import co.caudal.application.network.TankView;
 import co.caudal.application.network.ValveView;
@@ -17,6 +18,7 @@ import co.caudal.application.port.out.NetworkPort;
 import co.caudal.application.port.out.RuleSetPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.rules.RuleSetView.BandView;
+import co.caudal.domain.event.RuleSetActivated;
 import co.caudal.shared.error.DomainException;
 import co.caudal.shared.error.ErrorCode;
 import java.math.BigDecimal;
@@ -44,9 +46,10 @@ class ActivateRuleSetCommandHandlerTest {
   private final RuleSetPort ruleSets = mock(RuleSetPort.class);
   private final NetworkPort network = mock(NetworkPort.class);
   private final UnitOfWorkPort unitOfWork = mock(UnitOfWorkPort.class);
+  private final DomainEventPublisher events = mock(DomainEventPublisher.class);
   private final ActivateRuleSetCommandHandler handler =
       new ActivateRuleSetCommandHandler(
-          ruleSets, network, unitOfWork, Clock.fixed(NOW, ZoneOffset.UTC));
+          ruleSets, network, events, unitOfWork, Clock.fixed(NOW, ZoneOffset.UTC));
 
   @BeforeEach
   @SuppressWarnings("unchecked")
@@ -92,6 +95,10 @@ class ActivateRuleSetCommandHandlerTest {
     InOrder order = inOrder(ruleSets);
     order.verify(ruleSets).supersede(ACTIVE, NOW);
     order.verify(ruleSets).activate(DRAFT, NOW, ADMIN.userId(), REASON);
+    verify(events)
+        .publish(
+            new RuleSetActivated(
+                ADMIN.aqueductId(), DRAFT, 4, ACTIVE, ADMIN.userId(), REASON, NOW));
     assertThat(handler.commandType()).isEqualTo(ActivateRuleSetCommand.class);
   }
 
@@ -116,6 +123,7 @@ class ActivateRuleSetCommandHandlerTest {
             });
     verify(ruleSets, never()).supersede(any(), any());
     verify(ruleSets, never()).activate(any(), any(), any(), any());
+    verify(events, never()).publish(any());
   }
 
   @Test

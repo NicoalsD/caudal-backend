@@ -222,6 +222,16 @@ class RuleSetVersionsIT extends SessionIT {
     call(session, "/" + old)
         .andExpect(jsonPath("$.status").value("SUPERSEDED"))
         .andExpect(jsonPath("$.valid_to").isNotEmpty());
+    java.util.Map<String, Object> audit =
+        owner.queryForMap(
+            "SELECT action, entity_id, after_state->>'change_reason' AS reason,"
+                + " (after_state->>'version')::int AS version FROM audit.audit_log"
+                + " WHERE aqueduct_id = ? AND action = 'RULESET_ACTIVATED'",
+            aqueduct);
+    org.assertj.core.api.Assertions.assertThat(audit)
+        .containsEntry("entity_id", draft.toString())
+        .containsEntry("reason", "Se aprueba la reserva de 1,20 en la reunión.")
+        .containsEntry("version", 2);
     activate(session, draft, "Otra vez la misma versión activa.")
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.error.code").value("INVALID_STATE_TRANSITION"));

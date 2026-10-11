@@ -1,12 +1,14 @@
 package co.caudal.application.rules;
 
 import co.caudal.application.command.CommandHandler;
+import co.caudal.application.event.DomainEventPublisher;
 import co.caudal.application.network.SectorView;
 import co.caudal.application.network.TankView;
 import co.caudal.application.network.ValveView;
 import co.caudal.application.port.out.NetworkPort;
 import co.caudal.application.port.out.RuleSetPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
+import co.caudal.domain.event.RuleSetActivated;
 import co.caudal.domain.rules.ChangeReason;
 import co.caudal.domain.rules.RuleSet;
 import co.caudal.domain.rules.RuleSetValidator;
@@ -26,7 +28,9 @@ import java.util.stream.Collectors;
 /**
  * Activates a draft in one transaction (docs/Reglas-de-negocio.md, section 1.2): it validates the
  * version against the tanks and valves of the aqueduct, marks the active one {@code SUPERSEDED}
- * with {@code valid_to} now, and puts the draft in {@code ACTIVE} from now with who and why.
+ * with {@code valid_to} now, puts the draft in {@code ACTIVE} from now with who and why, and
+ * publishes {@link RuleSetActivated} so the subscribers (the audit log) react in the same
+ * transaction.
  *
  * @pattern P13 Command
  */
@@ -35,6 +39,7 @@ public class ActivateRuleSetCommandHandler
 
   private final RuleSetPort ruleSets;
   private final NetworkPort network;
+  private final DomainEventPublisher events;
   private final UnitOfWorkPort unitOfWork;
   private final Clock clock;
 
@@ -43,13 +48,19 @@ public class ActivateRuleSetCommandHandler
    *
    * @param ruleSets versions of the rules
    * @param network tanks, sectors and valves
+   * @param events publishes {@code RuleSetActivated}
    * @param unitOfWork transaction boundary
    * @param clock source of time
    */
   public ActivateRuleSetCommandHandler(
-      RuleSetPort ruleSets, NetworkPort network, UnitOfWorkPort unitOfWork, Clock clock) {
+      RuleSetPort ruleSets,
+      NetworkPort network,
+      DomainEventPublisher events,
+      UnitOfWorkPort unitOfWork,
+      Clock clock) {
     this.ruleSets = ruleSets;
     this.network = network;
+    this.events = events;
     this.unitOfWork = unitOfWork;
     this.clock = clock;
   }
@@ -76,8 +87,20 @@ public class ActivateRuleSetCommandHandler
           ErrorCode.RULE_SET_INVALID, Map.of("violations", describe(violations)));
     }
     Instant now = clock.instant();
-    ruleSets.findActive().ifPresent(active -> ruleSets.supersede(active.id(), now));
+    UUID superseded = ruleSets.findActive().map(RuleSetView::id).orElse(null);
+    if (superseded != null) {
+      ruleSets.supersede(superseded, now);
+    }
     ruleSets.activate(command.ruleSetId(), now, command.caller().userId(), reason.value());
+    events.publish(
+        new RuleSetActivated(
+            command.caller().aqueductId(),
+            command.ruleSetId(),
+            draft.version(),
+            superseded,
+            command.caller().userId(),
+            reason.value(),
+            now));
     return ruleSets.findDetail(command.ruleSetId()).orElseThrow();
   }
 
