@@ -14,7 +14,9 @@ public final class ReadingValidationChain {
    * @return the first link
    */
   public static ReadingValidationHandler standard() {
-    return new GaugeRangeHandler();
+    ReadingValidationHandler first = new GaugeRangeHandler();
+    first.linkWith(new TimestampHandler()).linkWith(new AgeHandler());
+    return first;
   }
 
   /**

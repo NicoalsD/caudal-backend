@@ -99,16 +99,6 @@ public class CreateReadingCommandHandler
     Instant now = clock.instant();
     ReadingValidationChain.run(chain, candidate(command, tank, rules, now));
     Instant observedAt = command.observedAt();
-    if (observedAt == null) {
-      throw new DomainException(ErrorCode.MISSING_TIMESTAMP);
-    }
-    if (ReadingRules.isInFuture(observedAt, now)) {
-      throw new DomainException(ErrorCode.FUTURE_TIMESTAMP);
-    }
-    if (ReadingRules.isTooOld(observedAt, now, rules.maxBackdateDays())) {
-      throw new DomainException(
-          ErrorCode.TOO_OLD, Map.of("max_backdate_days", rules.maxBackdateDays()));
-    }
     if (!catalogs.isActiveCode(
         WATER_APPEARANCE, command.waterAppearanceCode(), command.caller().aqueductId())) {
       throw new FieldValidationException("water_appearance_code", "FIELD_VALUE_NOT_ALLOWED");

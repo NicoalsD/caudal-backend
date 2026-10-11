@@ -64,4 +64,21 @@ class ReadingCreationIT extends SessionIT {
                 "SELECT count(*) FROM ops.readings WHERE id = ?", Integer.class, id))
         .isZero();
   }
+
+  @Test
+  void aMissingFutureOrOldMomentIsRejected() throws Exception {
+    UUID tank = newTank(demoAqueduct());
+    Session session = login(account("create.moment", "OPERATOR", demoAqueduct()));
+
+    record(session, UUID.randomUUID(), tank, "2.10", null)
+        .andExpect(status().isUnprocessableContent())
+        .andExpect(jsonPath("$.error.code").value("MISSING_TIMESTAMP"));
+    record(session, UUID.randomUUID(), tank, "2.10", NOW.plus(1, ChronoUnit.HOURS))
+        .andExpect(status().isUnprocessableContent())
+        .andExpect(jsonPath("$.error.code").value("FUTURE_TIMESTAMP"));
+    record(session, UUID.randomUUID(), tank, "2.10", NOW.minus(20, ChronoUnit.DAYS))
+        .andExpect(status().isUnprocessableContent())
+        .andExpect(jsonPath("$.error.code").value("TOO_OLD"))
+        .andExpect(jsonPath("$.error.details.max_backdate_days").value(7));
+  }
 }

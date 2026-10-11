@@ -82,4 +82,56 @@ class ReadingValidationHandlerTest {
       }
     };
   }
+
+  @Test
+  void aMissingOrFutureMomentIsRejected() {
+    ReadingValidationHandler chain = ReadingValidationChain.standard();
+
+    assertThatThrownBy(() -> ReadingValidationChain.run(chain, candidate("1.00", null)))
+        .extracting(ReadingValidationHandlerTest::codeOf)
+        .isEqualTo(ErrorCode.MISSING_TIMESTAMP);
+    assertThatThrownBy(
+            () -> ReadingValidationChain.run(chain, candidate("1.00", NOW.plusSeconds(301))))
+        .extracting(ReadingValidationHandlerTest::codeOf)
+        .isEqualTo(ErrorCode.FUTURE_TIMESTAMP);
+    assertThat(ReadingValidationChain.run(chain, candidate("1.00", NOW.plusSeconds(300))))
+        .isEmpty();
+  }
+
+  @Test
+  void anOldReadingIsRejectedUnlessItIsDemoHistory() {
+    ReadingValidationHandler chain = ReadingValidationChain.standard();
+    Instant eightDaysAgo = NOW.minusSeconds(8L * 24 * 3600);
+
+    assertThatThrownBy(() -> ReadingValidationChain.run(chain, candidate("1.00", eightDaysAgo)))
+        .satisfies(
+            failure -> {
+              assertThat(codeOf(failure)).isEqualTo(ErrorCode.TOO_OLD);
+              assertThat(((DomainException) failure).details())
+                  .containsEntry("max_backdate_days", 7);
+            });
+    ReadingCandidate history =
+        new ReadingCandidate(
+            BigDecimal.ONE,
+            eightDaysAgo,
+            NOW,
+            BigDecimal.ZERO,
+            new BigDecimal("5.00"),
+            LIMITS,
+            true);
+    assertThat(ReadingValidationChain.run(chain, history)).isEmpty();
+    assertThat(
+            ReadingValidationChain.run(chain, candidate("1.00", NOW.minusSeconds(7L * 24 * 3600))))
+        .isEmpty();
+  }
+
+  @Test
+  void theRangeIsJudgedBeforeTheMoment() {
+    assertThatThrownBy(
+            () ->
+                ReadingValidationChain.run(
+                    ReadingValidationChain.standard(), candidate("9.00", null)))
+        .extracting(ReadingValidationHandlerTest::codeOf)
+        .isEqualTo(ErrorCode.GAUGE_OUT_OF_RANGE);
+  }
 }
