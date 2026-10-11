@@ -13,6 +13,7 @@ import co.caudal.application.reading.CreateReadingCommandHandler;
 import co.caudal.application.reading.ListReadingsUseCase;
 import co.caudal.application.reading.ReadingCursor;
 import co.caudal.application.rules.GetCurrentRuleSetUseCase;
+import co.caudal.application.rules.GetRuleSetUseCase;
 import co.caudal.application.rules.ListRuleSetsUseCase;
 import java.time.Clock;
 import org.springframework.context.annotation.Bean;
@@ -73,5 +74,10 @@ class OpsServicesConfig {
   ListRuleSetsUseCase listRuleSetsUseCase(
       RuleSetPort ruleSets, SignedCursorCodec cursors, UnitOfWorkPort unitOfWork) {
     return new ListRuleSetsUseCase(ruleSets, cursors, unitOfWork);
+  }
+
+  @Bean
+  GetRuleSetUseCase getRuleSetUseCase(RuleSetPort ruleSets, UnitOfWorkPort unitOfWork) {
+    return new GetRuleSetUseCase(ruleSets, unitOfWork);
   }
 }

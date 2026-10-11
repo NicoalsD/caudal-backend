@@ -1,6 +1,7 @@
 package co.caudal.infrastructure.persistence;
 
 import co.caudal.application.port.out.RuleSetPort;
+import co.caudal.application.rules.RuleSetDetail;
 import co.caudal.application.rules.RuleSetSummary;
 import co.caudal.application.rules.RuleSetView;
 import co.caudal.application.rules.RuleSetView.BandView;
@@ -49,6 +50,31 @@ public class RuleSetPersistenceAdapter implements RuleSetPort {
         .query(this::head)
         .optional()
         .map(this::withChildren);
+  }
+
+  @Override
+  public Optional<RuleSetDetail> findDetail(UUID id) {
+    return findById(id)
+        .flatMap(
+            rules ->
+                jdbc.sql(
+                        "SELECT status, based_on_rule_set_id, valid_to, change_reason, created_by,"
+                            + " created_at, activated_by, activated_at FROM org.rule_sets"
+                            + " WHERE id = :id")
+                    .param("id", id)
+                    .query(
+                        (rs, row) ->
+                            new RuleSetDetail(
+                                rules,
+                                rs.getString("status"),
+                                rs.getObject("based_on_rule_set_id", UUID.class),
+                                SqlTime.instant(rs, "valid_to"),
+                                rs.getString("change_reason"),
+                                rs.getObject("created_by", UUID.class),
+                                SqlTime.instant(rs, "created_at"),
+                                rs.getObject("activated_by", UUID.class),
+                                SqlTime.instant(rs, "activated_at")))
+                    .optional());
   }
 
   @Override

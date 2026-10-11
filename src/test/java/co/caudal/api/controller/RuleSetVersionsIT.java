@@ -38,4 +38,28 @@ class RuleSetVersionsIT extends SessionIT {
 
     call(session, "").andExpect(status().isForbidden());
   }
+
+  @Test
+  void showsAVersionWithItsHistoryAndHidesOtherAqueducts() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    Session session = login(account("rules.detail", "OPERATOR", aqueduct));
+    UUID id =
+        owner.queryForObject(
+            "SELECT id FROM org.rule_sets WHERE aqueduct_id = ?", UUID.class, aqueduct);
+    UUID foreign =
+        owner.queryForObject(
+            "SELECT id FROM org.rule_sets WHERE aqueduct_id = ?",
+            UUID.class,
+            newAqueductWithRules());
+
+    call(session, "/" + id)
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("ACTIVE"))
+        .andExpect(jsonPath("$.change_reason").value("Versión inicial de prueba."))
+        .andExpect(jsonPath("$.bands.length()").value(3))
+        .andExpect(jsonPath("$.valve_order.length()").value(2))
+        .andExpect(jsonPath("$.activated_by").isNotEmpty());
+    call(session, "/" + foreign).andExpect(status().isNotFound());
+    call(session, "/" + UUID.randomUUID()).andExpect(status().isNotFound());
+  }
 }

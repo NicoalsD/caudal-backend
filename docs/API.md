@@ -526,8 +526,9 @@ Las reglas se leen en la app offline para validar lecturas, así que `GET /rule-
 
 ### 6.3 `GET /api/v1/rule-sets/{id}`
 
-- **Permiso:** igual que 6.2.
-- **Respuesta:** la versión completa, como 6.1, incluidos `change_reason`, `created_by` y `activated_by`.
+- **Permiso:** `RULESET_VIEW`.
+- **Respuesta:** la versión completa, como 6.1 (sin `gauge` ni `server_time`), más `status`, `based_on_rule_set_id`, `valid_to`, `change_reason`, `created_by`, `created_at`, `activated_by` y `activated_at`.
+- **Errores:** `404 NOT_FOUND` (no existe o es de otro acueducto).
 
 ### 6.4 `POST /api/v1/rule-sets`
 

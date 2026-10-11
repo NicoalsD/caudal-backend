@@ -1,5 +1,6 @@
 package co.caudal.application.port.out;
 
+import co.caudal.application.rules.RuleSetDetail;
 import co.caudal.application.rules.RuleSetSummary;
 import co.caudal.application.rules.RuleSetView;
 import java.util.List;
@@ -36,4 +37,12 @@ public interface RuleSetPort {
    * @return the versions
    */
   List<RuleSetSummary> list(String status, Integer beforeVersion, int limit);
+
+  /**
+   * Finds a version of the aqueduct of the session with its history data.
+   *
+   * @param id the version
+   * @return the version, or empty
+   */
+  Optional<RuleSetDetail> findDetail(UUID id);
 }
