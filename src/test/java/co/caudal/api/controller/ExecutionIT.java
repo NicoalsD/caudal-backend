@@ -1,5 +1,6 @@
 package co.caudal.api.controller;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -127,6 +128,65 @@ class ExecutionIT extends PublishedScheduleIT {
     String proposal = approvedProposal(member);
 
     execute(admin, items(proposal).getFirst(), "{\"status\":\"COMPLETED\"}")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error.code").value("INVALID_STATE_TRANSITION"));
+  }
+
+  ResultActions close(Session session, String body) throws Exception {
+    return mvc.perform(
+        post("/api/v1/days/" + TOMORROW + "/closure")
+            .header("Authorization", session.bearer())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body));
+  }
+
+  @Test
+  void aPublishedDayClosesOnceAndThenTakesNoExecutions() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    reading(aqueduct, "2.10");
+    Session member = login(account("close.member", "BOARD_MEMBER", aqueduct));
+    Session operator = login(account("close.operator", "OPERATOR", aqueduct));
+    String proposal = JsonPath.read(publishedSchedule(member), "$.proposal_id");
+    List<UUID> shifts = items(proposal);
+    execute(operator, shifts.getFirst(), "{\"status\":\"COMPLETED\"}")
+        .andExpect(status().isCreated());
+
+    close(member, "{}").andExpect(status().isForbidden());
+    close(operator, "{\"notes\":\"Día sin novedades mayores.\"}")
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.service_date").value(TOMORROW.toString()))
+        .andExpect(jsonPath("$.notes").value("Día sin novedades mayores."))
+        .andExpect(jsonPath("$.closed_by").value(operator.userId().toString()));
+    close(operator, "{}")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error.code").value("CONFLICT"));
+    org.assertj.core.api.Assertions.assertThat(
+            owner.queryForObject(
+                "SELECT status FROM ops.schedule_proposals WHERE id = ?::uuid",
+                String.class,
+                proposal))
+        .isEqualTo("CLOSED");
+    execute(operator, shifts.get(1), "{\"status\":\"COMPLETED\"}")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error.code").value("INVALID_STATE_TRANSITION"));
+    mvc.perform(
+            get("/api/v1/days/" + TOMORROW + "/closure").header("Authorization", operator.bearer()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.executions.length()").value(1))
+        .andExpect(jsonPath("$.executions[0].status").value("COMPLETED"));
+    mvc.perform(
+            get("/api/v1/days/" + TOMORROW.plusDays(1) + "/closure")
+                .header("Authorization", operator.bearer()))
+        .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void aDayWithoutPublishedScheduleDoesNotClose() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    reading(aqueduct, "2.10");
+    approvedProposal(login(account("close.approved", "BOARD_MEMBER", aqueduct)));
+
+    close(login(account("close.approved.op", "OPERATOR", aqueduct)), "{}")
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.error.code").value("INVALID_STATE_TRANSITION"));
   }
