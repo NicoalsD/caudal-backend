@@ -1,0 +1,107 @@
+package co.caudal.application.publication;
+
+import co.caudal.application.aqueduct.AqueductRef;
+import co.caudal.application.command.CommandHandler;
+import co.caudal.application.network.SectorView;
+import co.caudal.application.port.out.AqueductPort;
+import co.caudal.application.port.out.NetworkPort;
+import co.caudal.application.port.out.ProposalPort;
+import co.caudal.application.port.out.PublicationPort;
+import co.caudal.application.port.out.UnitOfWorkPort;
+import co.caudal.application.schedule.ProposalDetail;
+import co.caudal.domain.schedule.ProposalState;
+import co.caudal.shared.error.DomainException;
+import co.caudal.shared.error.ErrorCode;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+/**
+ * Publishes an approved proposal: it moves it to {@code PUBLISHED} if nobody changed it since the
+ * member saw it, and keeps an append-only publication with the message to share. The message has
+ * only sectors and hours (docs/Reglas-de-negocio.md, section 13).
+ *
+ * @pattern P13 Command
+ */
+public class PublishScheduleCommandHandler
+    implements CommandHandler<PublishScheduleCommand, PublicationView> {
+
+  private final ProposalPort proposals;
+  private final PublicationPort publications;
+  private final NetworkPort network;
+  private final AqueductPort aqueducts;
+  private final UnitOfWorkPort unitOfWork;
+  private final Clock clock;
+
+  /**
+   * Creates the handler.
+   *
+   * @param proposals proposals
+   * @param publications publications
+   * @param network sector names
+   * @param aqueducts name and time zone
+   * @param unitOfWork transaction boundary
+   * @param clock source of time
+   */
+  public PublishScheduleCommandHandler(
+      ProposalPort proposals,
+      PublicationPort publications,
+      NetworkPort network,
+      AqueductPort aqueducts,
+      UnitOfWorkPort unitOfWork,
+      Clock clock) {
+    this.proposals = proposals;
+    this.publications = publications;
+    this.network = network;
+    this.aqueducts = aqueducts;
+    this.unitOfWork = unitOfWork;
+    this.clock = clock;
+  }
+
+  @Override
+  public PublicationView handle(PublishScheduleCommand command) {
+    return unitOfWork.executeAs(
+        command.caller().scope(),
+        () -> {
+          AqueductRef aqueduct =
+              aqueducts
+                  .findById(command.caller().aqueductId())
+                  .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+          ZoneId zone = ZoneId.of(aqueduct.timezone());
+          ProposalDetail current =
+              proposals
+                  .find(command.proposalId(), LocalDate.ofInstant(clock.instant(), zone))
+                  .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+          if (current.summary().lockVersion() != command.lockVersion()) {
+            throw new DomainException(ErrorCode.CONFLICT);
+          }
+          ProposalState next = ProposalState.of(current.summary().status()).publish();
+          String text =
+              ScheduleTexts.whatsapp(
+                  aqueduct.name(), current.summary().serviceDate(), zone, lines(current));
+          if (!proposals.transition(command.proposalId(), command.lockVersion(), next.code())) {
+            throw new DomainException(ErrorCode.CONFLICT);
+          }
+          return publications.insert(
+              aqueduct.id(), command.proposalId(), command.caller().userId(), text, null);
+        });
+  }
+
+  /** The shifts with the names of their sectors, in their order. */
+  List<ScheduleLine> lines(ProposalDetail proposal) {
+    Map<UUID, String> names =
+        network.sectors().stream().collect(Collectors.toMap(SectorView::id, SectorView::name));
+    return proposal.items().stream()
+        .map(i -> new ScheduleLine(names.get(i.sectorId()), i.startAt(), i.endAt()))
+        .toList();
+  }
+
+  @Override
+  public Class<PublishScheduleCommand> commandType() {
+    return PublishScheduleCommand.class;
+  }
+}
