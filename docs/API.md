@@ -397,7 +397,7 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 ### 4.1 `GET /api/v1/meta/constraints`
 
 - **Permiso:** público.
-- **Respuesta:** los límites de `FieldLimits` que el frontend usa para armar sus esquemas Zod. Cada campo: `min`, `max`, `pattern` (si aplica).
+- **Respuesta:** los límites de `FieldLimits` que el frontend usa para armar sus esquemas Zod. Cada campo: `min`, `max`, `pattern` (si aplica) y topes propios (`max_lines`, `integer_digits`, `fraction_digits`, `default`). Campos: `username`, `password`, `person_name`, `place_name`, `sector.code`, `valve.code`, `valve.location_hint`, `reading.note`, `reading.gauge_value`, `reason`, `incident.description`, `catalog.code`, `tracking_code`, `reset_code`, `mfa_code`, `aqueduct.slug`, `page.limit`, `list.items`, `rule_set.bands`, `forecast.horizon_days`, `text`, `body.bytes`. Se puede guardar en caché una hora (`Cache-Control: max-age=3600, public`). Los parámetros de negocio no están aquí: viven en las reglas (`GET /rule-sets/current`).
 - **Ejemplo:**
 
 ```json

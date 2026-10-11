@@ -46,6 +46,7 @@ public class SecurityConfig {
     "/api/v1/auth/reset-password",
     "/api/v1/public/**",
     "/api/v1/catalogs/*",
+    "/api/v1/meta/constraints",
     "/actuator/health",
     "/actuator/health/**",
     "/v3/api-docs",
