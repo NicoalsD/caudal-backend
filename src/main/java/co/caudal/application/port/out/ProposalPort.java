@@ -49,4 +49,26 @@ public interface ProposalPort {
    * @return the proposals without their shifts
    */
   List<ProposalSummary> list(LocalDate from, LocalDate to, String status, UUID beforeId, int limit);
+
+  /**
+   * Moves a proposal to another status if nobody changed it meanwhile, and bumps its version.
+   *
+   * @param id the proposal
+   * @param lockVersion the version the person saw
+   * @param status the new status
+   * @return true if it changed, false if the version no longer matches
+   */
+  boolean transition(UUID id, int lockVersion, String status);
+
+  /**
+   * Stores a decision of the Board.
+   *
+   * @param aqueductId the aqueduct
+   * @param proposalId the proposal
+   * @param decision APPROVED, APPROVED_WITH_CHANGES or REJECTED
+   * @param reason the reason, or null to approve
+   * @param decidedBy who decided
+   */
+  void insertDecision(
+      UUID aqueductId, UUID proposalId, String decision, String reason, UUID decidedBy);
 }

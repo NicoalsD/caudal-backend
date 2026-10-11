@@ -1,5 +1,6 @@
 package co.caudal.api.controller;
 
+import co.caudal.api.dto.request.ApproveProposalRequest;
 import co.caudal.api.dto.request.GenerateProposalRequest;
 import co.caudal.api.dto.response.PageResponse;
 import co.caudal.api.dto.response.ProposalResponse;
@@ -8,6 +9,7 @@ import co.caudal.api.mapper.ScheduleMapper;
 import co.caudal.api.security.CallerFactory;
 import co.caudal.application.command.CommandBus;
 import co.caudal.application.pagination.Page;
+import co.caudal.application.schedule.ApproveProposalCommand;
 import co.caudal.application.schedule.GenerateProposalCommand;
 import co.caudal.application.schedule.GetProposalUseCase;
 import co.caudal.application.schedule.ListProposalsUseCase;
@@ -127,6 +129,33 @@ public class ScheduleProposalController {
         commands.dispatch(
             new GenerateProposalCommand(CallerFactory.from(jwt, http), request.serviceDate()));
     return ResponseEntity.status(HttpStatus.CREATED)
+        .cacheControl(CacheControl.noStore())
+        .body(ScheduleMapper.toResponse(proposal));
+  }
+
+  @Operation(
+      summary = "Aprobar una propuesta",
+      description =
+          "Aprueba una propuesta en PENDING_REVIEW tal como está. Exige el lock_version que vio"
+              + " el miembro: si otro la cambió antes, responde CONFLICT. Requiere el permiso"
+              + " PROPOSAL_DECIDE.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "200", description = "Propuesta aprobada")
+  @ApiResponse(responseCode = "404", description = "NOT_FOUND: la propuesta no existe")
+  @ApiResponse(
+      responseCode = "409",
+      description = "CONFLICT (lock_version distinto) o INVALID_STATE_TRANSITION")
+  @PostMapping("/{id}/approve")
+  @PreAuthorize("hasAuthority('PROPOSAL_DECIDE')")
+  public ResponseEntity<ProposalResponse> approve(
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID id,
+      @Valid @RequestBody ApproveProposalRequest request,
+      HttpServletRequest http) {
+    ProposalDetail proposal =
+        commands.dispatch(
+            new ApproveProposalCommand(CallerFactory.from(jwt, http), id, request.lockVersion()));
+    return ResponseEntity.ok()
         .cacheControl(CacheControl.noStore())
         .body(ScheduleMapper.toResponse(proposal));
   }

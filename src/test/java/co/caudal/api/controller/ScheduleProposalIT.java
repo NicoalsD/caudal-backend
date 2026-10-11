@@ -67,6 +67,19 @@ class ScheduleProposalIT extends SessionIT {
             .content("{\"service_date\":\"" + day + "\"}"));
   }
 
+  String generatedId(Session session, LocalDate day) throws Exception {
+    return JsonPath.read(
+        generate(session, day).andReturn().getResponse().getContentAsString(), "$.id");
+  }
+
+  ResultActions decide(Session session, String id, String action, String body) throws Exception {
+    return mvc.perform(
+        post("/api/v1/schedule-proposals/" + id + "/" + action)
+            .header("Authorization", session.bearer())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body));
+  }
+
   @Test
   void aLowTankGivesExplainedShiftsPendingReviewAndOnlyOncePerDay() throws Exception {
     UUID aqueduct = newAqueductWithRules();
@@ -235,5 +248,31 @@ class ScheduleProposalIT extends SessionIT {
     mvc.perform(
             get("/api/v1/schedule-proposals/not-a-uuid").header("Authorization", member.bearer()))
         .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void theBoardApprovesOnceWithTheVersionItSaw() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    reading(aqueduct, "2.10");
+    Session member = login(account("proposal.approve", "BOARD_MEMBER", aqueduct));
+    Session operator = login(account("proposal.approve.op", "OPERATOR", aqueduct));
+    String id = generatedId(member, TOMORROW);
+
+    decide(operator, id, "approve", "{\"lock_version\":0}").andExpect(status().isForbidden());
+    decide(member, id, "approve", "{\"lock_version\":3}")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error.code").value("CONFLICT"));
+    decide(member, id, "approve", "{}").andExpect(status().isBadRequest());
+    decide(member, id, "approve", "{\"lock_version\":0}")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("APPROVED"))
+        .andExpect(jsonPath("$.lock_version").value(1))
+        .andExpect(jsonPath("$.decisions[0].decision").value("APPROVED"))
+        .andExpect(jsonPath("$.decisions[0].reason").doesNotExist());
+    decide(member, id, "approve", "{\"lock_version\":1}")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error.code").value("INVALID_STATE_TRANSITION"));
+    decide(member, UUID.randomUUID().toString(), "approve", "{\"lock_version\":0}")
+        .andExpect(status().isNotFound());
   }
 }

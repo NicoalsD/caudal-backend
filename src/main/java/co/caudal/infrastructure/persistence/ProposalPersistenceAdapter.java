@@ -164,6 +164,32 @@ public class ProposalPersistenceAdapter implements ProposalPort {
         .list();
   }
 
+  @Override
+  public boolean transition(UUID id, int lockVersion, String status) {
+    return jdbc.sql(
+                "UPDATE ops.schedule_proposals SET status = :status, lock_version = lock_version"
+                    + " + 1 WHERE id = :id AND lock_version = :lock")
+            .param("status", status)
+            .param("id", id)
+            .param("lock", lockVersion)
+            .update()
+        == 1;
+  }
+
+  @Override
+  public void insertDecision(
+      UUID aqueductId, UUID proposalId, String decision, String reason, UUID decidedBy) {
+    jdbc.sql(
+            "INSERT INTO ops.proposal_decisions (aqueduct_id, proposal_id, decision, reason,"
+                + " decided_by) VALUES (:aqueduct, :proposal, :decision, :reason, :by)")
+        .param("aqueduct", aqueductId)
+        .param("proposal", proposalId)
+        .param("decision", decision)
+        .param("reason", reason, Types.VARCHAR)
+        .param("by", decidedBy)
+        .update();
+  }
+
   static ProposalSummary summary(ResultSet rs, int row) throws SQLException {
     return new ProposalSummary(
         rs.getObject("id", UUID.class),
