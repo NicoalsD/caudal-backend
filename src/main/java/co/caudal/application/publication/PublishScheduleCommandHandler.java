@@ -89,8 +89,13 @@ public class PublishScheduleCommandHandler
           }
           ProposalState next = ProposalState.of(current.summary().status()).publish();
           String text =
-              ScheduleTexts.whatsapp(
-                  aqueduct.name(), current.summary().serviceDate(), zone, lines(current));
+              new ScheduleNotice(
+                      new WhatsAppChannel(),
+                      aqueduct.name(),
+                      current.summary().serviceDate(),
+                      zone,
+                      lines(current))
+                  .publish();
           if (!proposals.transition(command.proposalId(), command.lockVersion(), next.code())) {
             throw new DomainException(ErrorCode.CONFLICT);
           }

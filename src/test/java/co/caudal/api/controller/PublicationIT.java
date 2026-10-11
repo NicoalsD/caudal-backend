@@ -36,8 +36,9 @@ class PublicationIT extends PublishedScheduleIT {
     String text = JsonPath.read(body, "$.whatsapp_text");
     assertThat(text)
         .contains("Horario de agua de")
-        .contains("- Sector ALTO: de ")
-        .contains("- Sector BAJO: de ")
+        .startsWith("*Horario de agua de")
+        .contains("\n- Sector ALTO: de ")
+        .contains("\n- Sector BAJO: de ")
         .doesNotContain("publish.member")
         .doesNotContain("2.10");
     decide(member, id, "publish", "{\"lock_version\":2}")
@@ -108,6 +109,16 @@ class PublicationIT extends PublishedScheduleIT {
         .doesNotContain("reasons")
         .doesNotContain("tank");
 
+    String text =
+        mvc.perform(get("/api/v1/public/" + slug + "/schedule/whatsapp-text?date=" + TOMORROW))
+            .andExpect(status().isOk())
+            .andExpect(
+                org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                    .contentTypeCompatibleWith("text/plain"))
+            .andReturn()
+            .getResponse()
+            .getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+    assertThat(text).startsWith("*Horario de agua de").contains("\n- Sector ALTO: de ");
     mvc.perform(get("/api/v1/public/" + slug + "/schedule?date=" + TOMORROW.plusDays(1)))
         .andExpect(status().isNotFound());
     mvc.perform(get("/api/v1/public/no-existe/schedule")).andExpect(status().isNotFound());

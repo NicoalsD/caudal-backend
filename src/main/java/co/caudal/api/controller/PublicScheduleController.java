@@ -65,4 +65,23 @@ public class PublicScheduleController {
         .cacheControl(CacheControl.maxAge(MAX_AGE).cachePublic())
         .body(toResponse(found, null));
   }
+
+  @Operation(
+      summary = "Texto de WhatsApp del horario",
+      description =
+          "El mensaje que se guardó al publicar el horario del día, listo para compartir. Solo"
+              + " lleva sectores y horas. No requiere sesión.")
+  @ApiResponse(responseCode = "200", description = "El mensaje en texto plano")
+  @ApiResponse(responseCode = "404", description = "NOT_FOUND")
+  @GetMapping(value = "/schedule/whatsapp-text", produces = "text/plain;charset=UTF-8")
+  public ResponseEntity<String> whatsappText(
+      @PathVariable
+          @Size(min = FieldLimits.AQUEDUCT_SLUG_MIN, max = FieldLimits.AQUEDUCT_SLUG_MAX)
+          @Pattern(regexp = FieldLimits.AQUEDUCT_SLUG_PATTERN)
+          String aqueductSlug,
+      @RequestParam(required = false) LocalDate date) {
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.maxAge(MAX_AGE).cachePublic())
+        .body(schedule.execute(aqueductSlug, date).whatsappText());
+  }
 }
