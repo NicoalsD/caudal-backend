@@ -540,10 +540,10 @@ Las reglas se leen en la app offline para validar lecturas, así que `GET /rule-
 
 ### 6.5 `PATCH /api/v1/rule-sets/{id}`
 
-- **Permiso:** `RULESET_EDIT`.
-- **Cuerpo (todos opcionales, solo en `DRAFT`):** escalares de la sección 6.1 (`reserve_level`, `max_daily_service_hours`, etc.), y listas que reemplazan a las actuales: `bands` (hasta 10 elementos), `sectors`, `valve_order`, `operating_windows` (hasta 100).
-- **Respuesta 200:** borrador actualizado con `lock_version` (propuesta).
-- **Errores:** `409 RULE_SET_IMMUTABLE` (no es `DRAFT`), `400 VALIDATION_ERROR` (rangos), `422 RULE_SET_INVALID` (solo al activar).
+- **Permiso:** `RULESET_DRAFT`.
+- **Cuerpo (todos opcionales, solo en `DRAFT`):** `change_reason`, escalares de la sección 6.1 (`reserve_level`, `max_daily_service_hours`, etc.), y listas que reemplazan a las actuales: `bands` (1 a 10 elementos; `priority_only` es falso si no llega), `sectors` (`is_included` verdadero y `is_priority` falso si no llegan), `valve_order`, `operating_windows` (hasta 100).
+- **Respuesta 200:** borrador actualizado, con la forma de 6.3.
+- **Errores:** `409 RULE_SET_IMMUTABLE` (no es `DRAFT`), `400 VALIDATION_ERROR` (rangos y valores de enumeraciones), `422 RULE_SET_INVALID` con `details.constraint` cuando la base de datos rechaza el cambio (bandas solapadas `rule_level_bands_no_overlap`, sector o válvula de otro acueducto, orden repetido). La cobertura del rango del tanque se valida al activar (6.6).
 - **Ejemplo:** `{ "reserve_level": 1.20 }`
 
 ### 6.6 `POST /api/v1/rule-sets/{id}/activate`

@@ -10,13 +10,19 @@ import co.caudal.application.rules.RuleSetView.ValveOrderView;
 import co.caudal.application.rules.RuleSetView.WindowView;
 import co.caudal.domain.rules.RuleSet;
 import co.caudal.domain.rules.RuleSet.Parameters;
+import co.caudal.shared.error.DomainException;
+import co.caudal.shared.error.ErrorCode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 
@@ -30,6 +36,9 @@ public class RuleSetPersistenceAdapter implements RuleSetPort {
           + " max_level_change_per_hour, stale_reading_hours, max_backdate_days,"
           + " forecast_horizon_days, forecast_context_days, trend_threshold_per_day"
           + " FROM org.rule_sets WHERE ";
+
+  /** The name PostgreSQL puts in a constraint error, only letters, digits and underscores. */
+  private static final Pattern CONSTRAINT_NAME = Pattern.compile("constraint \"([a-z0-9_]+)\"");
 
   private final JdbcClient jdbc;
 
@@ -129,6 +138,73 @@ public class RuleSetPersistenceAdapter implements RuleSetPort {
             .single();
     insertChildren(id, draft);
     return id;
+  }
+
+  @Override
+  public void updateDraft(UUID ruleSetId, Parameters p, String changeReason) {
+    refusedAsInvalid(
+        () ->
+            jdbc.sql(
+                    "UPDATE org.rule_sets SET reserve_level = :reserve, reserve_policy = :policy,"
+                        + " max_daily_service_hours = :maxDaily, min_shift_hours = :minShift,"
+                        + " max_shift_hours = :maxShift, allocation_strategy = :strategy,"
+                        + " duplicate_window_minutes = :duplicate, max_level_change_per_hour ="
+                        + " :jump, stale_reading_hours = :stale, max_backdate_days = :backdate,"
+                        + " forecast_horizon_days = :horizon, forecast_context_days = :context,"
+                        + " trend_threshold_per_day = :trend, change_reason = :reason"
+                        + " WHERE id = :id AND status = 'DRAFT'")
+                .param("reserve", p.reserveLevel())
+                .param("policy", p.reservePolicy())
+                .param("maxDaily", p.maxDailyServiceHours())
+                .param("minShift", p.minShiftHours())
+                .param("maxShift", p.maxShiftHours())
+                .param("strategy", p.allocationStrategy())
+                .param("duplicate", p.duplicateWindowMinutes())
+                .param("jump", p.maxLevelChangePerHour())
+                .param("stale", p.staleReadingHours())
+                .param("backdate", p.maxBackdateDays())
+                .param("horizon", p.forecastHorizonDays())
+                .param("context", p.forecastContextDays())
+                .param("trend", p.trendThresholdPerDay())
+                .param("reason", changeReason)
+                .param("id", ruleSetId)
+                .update());
+  }
+
+  @Override
+  public void replaceChildren(UUID ruleSetId, RuleSet rules) {
+    refusedAsInvalid(
+        () -> {
+          for (String table :
+              List.of(
+                  "org.rule_level_bands",
+                  "org.rule_sector_settings",
+                  "org.rule_valve_orders",
+                  "org.rule_operating_windows")) {
+            // The table names come from the fixed list above, never from the request.
+            jdbc.sql("DELETE FROM " + table + " WHERE rule_set_id = :id")
+                .param("id", ruleSetId)
+                .update();
+          }
+          insertChildren(ruleSetId, rules);
+          return null;
+        });
+  }
+
+  /** Turns a value the database refuses into {@code RULE_SET_INVALID} with the constraint. */
+  private static <T> T refusedAsInvalid(java.util.function.Supplier<T> work) {
+    try {
+      return work.get();
+    } catch (DataIntegrityViolationException refused) {
+      throw new DomainException(
+          ErrorCode.RULE_SET_INVALID, Map.of("constraint", constraintOf(refused)));
+    }
+  }
+
+  private static String constraintOf(DataIntegrityViolationException refused) {
+    String message = String.valueOf(refused.getMostSpecificCause().getMessage());
+    Matcher named = CONSTRAINT_NAME.matcher(message);
+    return named.find() ? named.group(1) : "unknown";
   }
 
   private void insertChildren(UUID ruleSetId, RuleSet rules) {

@@ -1,6 +1,7 @@
 package co.caudal.api.controller;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -107,5 +108,85 @@ class RuleSetVersionsIT extends SessionIT {
         .andExpect(status().isBadRequest());
     createDraft(login(account("rules.operator", "OPERATOR", aqueduct)), "{}")
         .andExpect(status().isForbidden());
+  }
+
+  private ResultActions patchRules(Session session, UUID id, String body) throws Exception {
+    return mvc.perform(
+        patch("/api/v1/rule-sets/" + id)
+            .header("Authorization", session.bearer())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body));
+  }
+
+  private UUID draftOf(Session session) throws Exception {
+    String body =
+        createDraft(session, "{}")
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    return UUID.fromString(body.replaceAll(".*?\"id\":\"([^\"]+)\".*", "$1"));
+  }
+
+  @Test
+  void editsTheScalarsAndReplacesTheBandsOfTheDraft() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    Session session = login(account("rules.patch", "BOARD_MEMBER", aqueduct));
+    UUID draft = draftOf(session);
+
+    patchRules(
+            session,
+            draft,
+            "{\"reserve_level\":1.20,\"change_reason\":\"Sube la reserva por la sequía.\","
+                + "\"bands\":[{\"band\":\"CRITICAL\",\"min_level\":0,\"max_level\":2,"
+                + "\"daily_service_hours\":2,\"priority_only\":true},{\"band\":\"HIGH\","
+                + "\"min_level\":2,\"max_level\":5,\"daily_service_hours\":12}]}")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.reserve_level").value(1.20))
+        .andExpect(jsonPath("$.change_reason").value("Sube la reserva por la sequía."))
+        .andExpect(jsonPath("$.bands.length()").value(2))
+        .andExpect(jsonPath("$.sectors.length()").value(2))
+        .andExpect(jsonPath("$.max_shift_hours").value(4.00));
+  }
+
+  @Test
+  void overlappingBandsAreInvalidAndTheDraftKeepsItsBands() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    Session session = login(account("rules.overlap", "BOARD_ADMIN", aqueduct));
+    UUID draft = draftOf(session);
+
+    patchRules(
+            session,
+            draft,
+            "{\"bands\":[{\"band\":\"LOW\",\"min_level\":0,\"max_level\":3.6,"
+                + "\"daily_service_hours\":8},{\"band\":\"HIGH\",\"min_level\":3.5,"
+                + "\"max_level\":5,\"daily_service_hours\":16}]}")
+        .andExpect(status().isUnprocessableContent())
+        .andExpect(jsonPath("$.error.code").value("RULE_SET_INVALID"))
+        .andExpect(jsonPath("$.error.details.constraint").value("rule_level_bands_no_overlap"));
+    call(session, "/" + draft).andExpect(jsonPath("$.bands.length()").value(3));
+  }
+
+  @Test
+  void anActiveVersionIsImmutableAndBadValuesAreRejected() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    Session session = login(account("rules.immutable", "BOARD_ADMIN", aqueduct));
+    UUID active =
+        owner.queryForObject(
+            "SELECT id FROM org.rule_sets WHERE aqueduct_id = ?", UUID.class, aqueduct);
+
+    patchRules(session, active, "{\"reserve_level\":2}")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error.code").value("RULE_SET_IMMUTABLE"));
+    UUID draft = draftOf(session);
+    patchRules(session, draft, "{\"forecast_horizon_days\":9}").andExpect(status().isBadRequest());
+    patchRules(session, draft, "{\"reserve_policy\":\"PANIC\"}").andExpect(status().isBadRequest());
+    patchRules(session, draft, "{\"bands\":[]}").andExpect(status().isBadRequest());
+    patchRules(
+            session,
+            draft,
+            "{\"sectors\":[{\"sector_id\":\"" + UUID.randomUUID() + "\",\"is_included\":true}]}")
+        .andExpect(status().isUnprocessableContent());
+    patchRules(session, UUID.randomUUID(), "{}").andExpect(status().isNotFound());
   }
 }

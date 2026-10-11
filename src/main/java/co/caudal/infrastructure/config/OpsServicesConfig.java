@@ -16,6 +16,7 @@ import co.caudal.application.rules.CreateRuleSetDraftCommandHandler;
 import co.caudal.application.rules.GetCurrentRuleSetUseCase;
 import co.caudal.application.rules.GetRuleSetUseCase;
 import co.caudal.application.rules.ListRuleSetsUseCase;
+import co.caudal.application.rules.UpdateRuleSetDraftCommandHandler;
 import java.time.Clock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -86,5 +87,11 @@ class OpsServicesConfig {
   CreateRuleSetDraftCommandHandler createRuleSetDraftCommandHandler(
       RuleSetPort ruleSets, UnitOfWorkPort unitOfWork) {
     return new CreateRuleSetDraftCommandHandler(ruleSets, unitOfWork);
+  }
+
+  @Bean
+  UpdateRuleSetDraftCommandHandler updateRuleSetDraftCommandHandler(
+      RuleSetPort ruleSets, UnitOfWorkPort unitOfWork) {
+    return new UpdateRuleSetDraftCommandHandler(ruleSets, unitOfWork);
   }
 }

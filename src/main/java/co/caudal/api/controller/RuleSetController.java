@@ -1,6 +1,7 @@
 package co.caudal.api.controller;
 
 import co.caudal.api.dto.request.CreateRuleSetDraftRequest;
+import co.caudal.api.dto.request.UpdateRuleSetRequest;
 import co.caudal.api.dto.response.PageResponse;
 import co.caudal.api.dto.response.RuleSetResponse;
 import co.caudal.api.dto.response.RuleSetSummaryResponse;
@@ -15,6 +16,7 @@ import co.caudal.application.rules.GetRuleSetUseCase;
 import co.caudal.application.rules.ListRuleSetsUseCase;
 import co.caudal.application.rules.RuleSetDetail;
 import co.caudal.application.rules.RuleSetSummary;
+import co.caudal.application.rules.UpdateRuleSetDraftCommand;
 import co.caudal.shared.FieldLimits;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -33,6 +35,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -86,6 +89,40 @@ public class RuleSetController {
         commands.dispatch(
             new CreateRuleSetDraftCommand(CallerFactory.from(jwt, http), request.changeReason()));
     return ResponseEntity.status(HttpStatus.CREATED)
+        .cacheControl(CacheControl.noStore())
+        .body(RuleSetMapper.toResponse(draft));
+  }
+
+  @Operation(
+      summary = "Editar un borrador de reglas",
+      description =
+          "Cambia los parámetros de un borrador y reemplaza las listas que lleguen (bands hasta"
+              + " 10, sectors, valve_order y operating_windows hasta 100). Solo una versión en"
+              + " DRAFT cambia: otra responde 409 RULE_SET_IMMUTABLE. Las bandas que se solapan o"
+              + " un sector o válvula de otro acueducto responden 422 RULE_SET_INVALID con la"
+              + " restricción en details. La cobertura del tanque se valida al activar."
+              + " Requiere el permiso RULESET_DRAFT.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "200", description = "Borrador actualizado")
+  @ApiResponse(
+      responseCode = "400",
+      description = "VALIDATION_ERROR: algún valor está fuera de rango")
+  @ApiResponse(responseCode = "403", description = "FORBIDDEN: falta el permiso RULESET_DRAFT")
+  @ApiResponse(responseCode = "404", description = "NOT_FOUND: la versión no existe")
+  @ApiResponse(responseCode = "409", description = "RULE_SET_IMMUTABLE: no es un borrador")
+  @ApiResponse(responseCode = "422", description = "RULE_SET_INVALID: la base de datos lo rechaza")
+  @PatchMapping("/{id}")
+  @PreAuthorize("hasAuthority('RULESET_DRAFT')")
+  public ResponseEntity<RuleSetVersionResponse> updateDraft(
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID id,
+      @Valid @RequestBody UpdateRuleSetRequest request,
+      HttpServletRequest http) {
+    RuleSetDetail draft =
+        commands.dispatch(
+            new UpdateRuleSetDraftCommand(
+                CallerFactory.from(jwt, http), id, RuleSetMapper.toChanges(request)));
+    return ResponseEntity.ok()
         .cacheControl(CacheControl.noStore())
         .body(RuleSetMapper.toResponse(draft));
   }

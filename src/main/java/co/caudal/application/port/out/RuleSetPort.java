@@ -71,4 +71,25 @@ public interface RuleSetPort {
    * @return the id of the new version
    */
   UUID insertDraft(UUID aqueductId, RuleSet draft, UUID createdBy, String changeReason);
+
+  /**
+   * Saves the scalar parameters and the reason of a draft.
+   *
+   * @param ruleSetId the draft
+   * @param parameters the parameters
+   * @param changeReason the reason, or null
+   * @throws co.caudal.shared.error.DomainException with {@code RULE_SET_INVALID} if the database
+   *     refuses a value
+   */
+  void updateDraft(UUID ruleSetId, RuleSet.Parameters parameters, String changeReason);
+
+  /**
+   * Replaces the bands, sector settings, valve order and windows of a draft.
+   *
+   * @param ruleSetId the draft
+   * @param rules the version with the new children
+   * @throws co.caudal.shared.error.DomainException with {@code RULE_SET_INVALID} if the database
+   *     refuses them (overlapping bands, a sector or valve of another aqueduct, a repeated order)
+   */
+  void replaceChildren(UUID ruleSetId, RuleSet rules);
 }

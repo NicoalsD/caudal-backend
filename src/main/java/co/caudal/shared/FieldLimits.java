@@ -273,5 +273,22 @@ public final class FieldLimits {
   /** Status of a version of the rules (docs/Reglas-de-negocio.md, section 1). */
   public static final String RULE_SET_STATUS_PATTERN = "^(DRAFT|ACTIVE|SUPERSEDED|DISCARDED)$";
 
+  /** Level bands of a version of the rules (HIGH, LOW and CRITICAL fit with room to spare). */
+  public static final int RULE_BANDS_MAX = 10;
+
+  /** Band codes of a version of the rules. */
+  public static final String RULE_BAND_PATTERN = "^(HIGH|LOW|CRITICAL)$";
+
+  /** Reserve policies of a version of the rules. */
+  public static final String RESERVE_POLICY_PATTERN =
+      "^(NONE|REDUCE_TO_CRITICAL_BAND|PRIORITY_ONLY)$";
+
+  /** Shift allocation strategies of a version of the rules. */
+  public static final String ALLOCATION_STRATEGY_PATTERN =
+      "^(PRIORITY_THEN_LONGEST_WAIT|EQUAL_SPLIT)$";
+
+  /** Integer digits of an hour amount ({@code numeric(4,2)}). */
+  public static final int HOURS_INTEGER_DIGITS_MAX = 2;
+
   private FieldLimits() {}
 }
