@@ -1,6 +1,6 @@
 package co.caudal.application.auth;
 
-import co.caudal.application.command.Command;
+import co.caudal.application.command.AuditableCommand;
 import co.caudal.application.command.Done;
 import java.util.Objects;
 
@@ -12,7 +12,7 @@ import java.util.Objects;
  * @param newPassword the new password, as typed
  */
 public record ChangePasswordCommand(Caller caller, String currentPassword, String newPassword)
-    implements Command<Done> {
+    implements AuditableCommand<Done> {
 
   /** Validates the parts. */
   public ChangePasswordCommand {
@@ -24,5 +24,15 @@ public record ChangePasswordCommand(Caller caller, String currentPassword, Strin
   @Override
   public String toString() {
     return "ChangePasswordCommand[REDACTED]";
+  }
+
+  @Override
+  public String auditEntityType() {
+    return "user";
+  }
+
+  @Override
+  public String auditEntityId(Done result) {
+    return caller.userId().toString();
   }
 }

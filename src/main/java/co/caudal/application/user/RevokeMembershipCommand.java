@@ -1,7 +1,7 @@
 package co.caudal.application.user;
 
 import co.caudal.application.auth.Caller;
-import co.caudal.application.command.Command;
+import co.caudal.application.command.AuditableCommand;
 import co.caudal.application.command.Done;
 import java.util.UUID;
 
@@ -11,4 +11,16 @@ import java.util.UUID;
  * @param caller the administrator
  * @param membershipId the membership
  */
-public record RevokeMembershipCommand(Caller caller, UUID membershipId) implements Command<Done> {}
+public record RevokeMembershipCommand(Caller caller, UUID membershipId)
+    implements AuditableCommand<Done> {
+
+  @Override
+  public String auditEntityType() {
+    return "membership";
+  }
+
+  @Override
+  public String auditEntityId(Done result) {
+    return membershipId.toString();
+  }
+}

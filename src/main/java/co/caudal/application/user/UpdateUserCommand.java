@@ -1,7 +1,7 @@
 package co.caudal.application.user;
 
 import co.caudal.application.auth.Caller;
-import co.caudal.application.command.Command;
+import co.caudal.application.command.AuditableCommand;
 import java.util.UUID;
 
 /**
@@ -13,4 +13,15 @@ import java.util.UUID;
  * @param status the new status, or null to keep it
  */
 public record UpdateUserCommand(Caller caller, UUID userId, String fullName, String status)
-    implements Command<ManagedUser> {}
+    implements AuditableCommand<ManagedUser> {
+
+  @Override
+  public String auditEntityType() {
+    return "user";
+  }
+
+  @Override
+  public String auditEntityId(ManagedUser result) {
+    return userId.toString();
+  }
+}

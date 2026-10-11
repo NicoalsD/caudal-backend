@@ -1,7 +1,7 @@
 package co.caudal.application.user;
 
 import co.caudal.application.auth.Caller;
-import co.caudal.application.command.Command;
+import co.caudal.application.command.AuditableCommand;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -22,4 +22,15 @@ public record GrantMembershipCommand(
     String roleCode,
     Instant validFrom,
     Instant validTo)
-    implements Command<MembershipView> {}
+    implements AuditableCommand<MembershipView> {
+
+  @Override
+  public String auditEntityType() {
+    return "membership";
+  }
+
+  @Override
+  public String auditEntityId(MembershipView result) {
+    return result.id().toString();
+  }
+}
