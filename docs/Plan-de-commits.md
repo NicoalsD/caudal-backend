@@ -219,19 +219,19 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| B142 | `feat: agrega estados de ProposalState` | `Drako2305` | HU-20, HU-22 | P18 | [ ] |
-| B143 | `feat: construye propuestas con ScheduleProposalBuilder` | `Drako2305` | HU-18 | P04 | [ ] |
-| B144 | `feat: itera sectores con SectorTurnIterator` | `Drako2305` | HU-18 | P14 | [ ] |
-| B145 | `feat: asigna turnos con TurnAllocationStrategy` | `Drako2305` | HU-18, HU-19 | P19 | [ ] |
-| B146 | `feat: recorta turnos por reserva y ventana operativa` | `Drako2305` | HU-19 | P19 | [ ] |
-| B147 | `feat: explica turnos con schedule_item_reasons` | `Drako2305` | HU-18 | P22 | [ ] |
-| B148 | `feat: implementa POST /api/v1/schedule-proposals` | `Drako2305` | HU-18 | P04 | [ ] |
-| B149 | `feat: implementa GET /api/v1/schedule-proposals` | `Drako2305` | HU-18 | - | [ ] |
-| B150 | `feat: implementa GET /api/v1/schedule-proposals/{id}` | `Drako2305` | HU-18 | - | [ ] |
-| B151 | `feat: agrega CommandBus y ApproveProposalCommand` | `Drako2305` | HU-20 | P13 | [ ] |
-| B152 | `feat: guarda ProposalMemento antes de modificar` | `Drako2305` | HU-21 | P16 | [ ] |
-| B153 | `feat: procesa ModifyProposalCommand y RejectProposalCommand` | `Drako2305` | HU-21, HU-22 | P13 | [ ] |
-| B154 | `feat: rechaza solapes con exclusión tstzrange` | `Drako2305` | HU-19 | - | [ ] |
+| B142 | `feat: agrega estados de ProposalState` | `Drako2305` | HU-20, HU-22 | P18 | [x] |
+| B143 | `feat: construye propuestas con ScheduleProposalBuilder` | `Drako2305` | HU-18 | P04 | [x] |
+| B144 | `feat: itera sectores con SectorTurnIterator` | `Drako2305` | HU-18 | P14 | [x] |
+| B145 | `feat: asigna turnos con TurnAllocationStrategy` | `Drako2305` | HU-18, HU-19 | P19 | [x] |
+| B146 | `feat: recorta turnos por reserva y ventana operativa` | `Drako2305` | HU-19 | P19 | [x] |
+| B147 | `feat: explica turnos con schedule_item_reasons` | `Drako2305` | HU-18 | P22 | [x] |
+| B148 | `feat: implementa POST /api/v1/schedule-proposals` | `Drako2305` | HU-18 | P04 | [x] |
+| B149 | `feat: implementa GET /api/v1/schedule-proposals` | `Drako2305` | HU-18 | - | [x] |
+| B150 | `feat: implementa GET /api/v1/schedule-proposals/{id}` | `Drako2305` | HU-18 | - | [x] |
+| B151 | `feat: agrega CommandBus y ApproveProposalCommand` | `Drako2305` | HU-20 | P13 | [x] |
+| B152 | `feat: guarda ProposalMemento antes de modificar` | `Drako2305` | HU-21 | P16 | [x] |
+| B153 | `feat: procesa ModifyProposalCommand y RejectProposalCommand` | `Drako2305` | HU-21, HU-22 | P13 | [x] |
+| B154 | `feat: rechaza solapes con exclusión tstzrange` | `Drako2305` | HU-19 | - | [x] |
 
 ### Fase 8: Publicación y reportes de daño
 
