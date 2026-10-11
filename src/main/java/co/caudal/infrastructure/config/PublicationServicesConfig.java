@@ -8,6 +8,7 @@ import co.caudal.application.port.out.ProposalPort;
 import co.caudal.application.port.out.PublicSchedulePort;
 import co.caudal.application.port.out.PublicationPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
+import co.caudal.application.publication.GetPublicScheduleUseCase;
 import co.caudal.application.publication.PublishScheduleCommandHandler;
 import co.caudal.application.publication.SchedulePublicationAuditor;
 import co.caudal.infrastructure.persistence.PublicSchedulePersistenceAdapter;
@@ -42,5 +43,14 @@ class PublicationServicesConfig {
   @Bean
   PublicSchedulePort publicSchedulePort(JdbcClient jdbc) {
     return new PublicScheduleProxy(new PublicSchedulePersistenceAdapter(jdbc));
+  }
+
+  @Bean
+  GetPublicScheduleUseCase getPublicScheduleUseCase(
+      AqueductPort aqueducts,
+      PublicSchedulePort schedules,
+      UnitOfWorkPort unitOfWork,
+      Clock clock) {
+    return new GetPublicScheduleUseCase(aqueducts, schedules, unitOfWork, clock);
   }
 }

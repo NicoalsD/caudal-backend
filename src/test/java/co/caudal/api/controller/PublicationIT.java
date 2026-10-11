@@ -1,6 +1,7 @@
 package co.caudal.api.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -75,5 +76,54 @@ class PublicationIT extends PublishedScheduleIT {
     decide(member, JsonPath.read(body, "$.id"), "publish", "{\"lock_version\":0}")
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.error.code").value("INVALID_STATE_TRANSITION"));
+  }
+
+  String slugOf(UUID aqueduct) {
+    return owner.queryForObject(
+        "SELECT slug FROM org.aqueducts WHERE id = ?", String.class, aqueduct);
+  }
+
+  @Test
+  void anyoneSeesThePublishedScheduleWithoutPersonalData() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    reading(aqueduct, "2.10");
+    Session member = login(account("public.member", "BOARD_MEMBER", aqueduct));
+    String publication = JsonPath.read(publishedSchedule(member), "$.id");
+    String slug = slugOf(aqueduct);
+
+    String body =
+        mvc.perform(get("/api/v1/public/" + slug + "/schedule?date=" + TOMORROW))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.service_date").value(TOMORROW.toString()))
+            .andExpect(jsonPath("$.publication.id").value(publication))
+            .andExpect(jsonPath("$.items.length()").value(2))
+            .andExpect(jsonPath("$.items[0].sector_name").value("Sector ALTO"))
+            .andExpect(jsonPath("$.items[0].start_at").isNotEmpty())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    assertThat(body)
+        .doesNotContain("published_by")
+        .doesNotContain(member.userId().toString())
+        .doesNotContain("reasons")
+        .doesNotContain("tank");
+
+    mvc.perform(get("/api/v1/public/" + slug + "/schedule?date=" + TOMORROW.plusDays(1)))
+        .andExpect(status().isNotFound());
+    mvc.perform(get("/api/v1/public/no-existe/schedule")).andExpect(status().isNotFound());
+    mvc.perform(get("/api/v1/public/NO_VALIDO/schedule")).andExpect(status().isBadRequest());
+    owner.update("UPDATE org.aqueducts SET public_page_enabled = false WHERE id = ?", aqueduct);
+    mvc.perform(get("/api/v1/public/" + slug + "/schedule?date=" + TOMORROW))
+        .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void anApprovedButUnpublishedScheduleIsNotPublic() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    reading(aqueduct, "2.10");
+    approvedProposal(login(account("public.approved", "BOARD_MEMBER", aqueduct)));
+
+    mvc.perform(get("/api/v1/public/" + slugOf(aqueduct) + "/schedule?date=" + TOMORROW))
+        .andExpect(status().isNotFound());
   }
 }
