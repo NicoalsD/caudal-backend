@@ -24,12 +24,16 @@ class DamageReportIT extends SessionIT {
   }
 
   static String body(String category, String description, String extra) {
+    return body(category, description, OffsetDateTime.now().minusMinutes(1), extra);
+  }
+
+  static String body(String category, String description, OffsetDateTime started, String extra) {
     return "{\"category_code\":\""
         + category
         + "\",\"description\":\""
         + description
         + "\",\"form_started_at\":\""
-        + OffsetDateTime.now().minusMinutes(1)
+        + started
         + "\""
         + extra
         + "}";
@@ -98,10 +102,10 @@ class DamageReportIT extends SessionIT {
   void badReportsAreRefused() throws Exception {
     String slug = slugOf(newAqueductWithRules());
 
-    report(slug, body("NOT_A_CATEGORY", "Hay agua saliendo del tubo.", ""), "203.0.113.11")
+    report(slug, body("NOT_A_CATEGORY", "Hay agua saliendo del tubo.", ""), "203.0.113.21")
         .andExpect(status().isBadRequest());
-    report(slug, body("LEAK", "corto", ""), "203.0.113.11").andExpect(status().isBadRequest());
-    report(slug, body("LEAK", "Hay agua saliendo\u202e del tubo.", ""), "203.0.113.11")
+    report(slug, body("LEAK", "corto", ""), "203.0.113.22").andExpect(status().isBadRequest());
+    report(slug, body("LEAK", "Hay agua saliendo\u202e del tubo.", ""), "203.0.113.23")
         .andExpect(status().isBadRequest())
         .andExpect(
             jsonPath("$.error.details.fields[0].code").value("FIELD_CHARACTERS_NOT_ALLOWED"));
@@ -111,11 +115,72 @@ class DamageReportIT extends SessionIT {
                 "LEAK",
                 "Hay agua saliendo del tubo.",
                 ",\"sector_id\":\"" + UUID.randomUUID() + "\""),
-            "203.0.113.11")
+            "203.0.113.24")
         .andExpect(status().isBadRequest());
-    report(slug, body("LEAK", "Hay agua saliendo del tubo.", ",\"name\":\"Ana\""), "203.0.113.11")
+    report(slug, body("LEAK", "Hay agua saliendo del tubo.", ",\"name\":\"Ana\""), "203.0.113.25")
         .andExpect(status().isBadRequest());
-    report("no-existe", body("LEAK", "Hay agua saliendo del tubo.", ""), "203.0.113.11")
+    report("no-existe", body("LEAK", "Hay agua saliendo del tubo.", ""), "203.0.113.26")
         .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void aFilledHiddenFieldLooksAcceptedButStoresNothing() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+
+    report(
+            slugOf(aqueduct),
+            body("LEAK", "Hay agua saliendo del tubo.", ",\"website\":\"http://spam.example\""),
+            "203.0.113.40")
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.status").value("REPORTED"))
+        .andExpect(jsonPath("$.tracking_code").isNotEmpty());
+
+    assertThat(
+            owner.queryForObject(
+                "SELECT count(*) FROM ops.incidents WHERE aqueduct_id = ?",
+                Integer.class,
+                aqueduct))
+        .isZero();
+    assertThat(
+            owner.queryForObject(
+                "SELECT count(*) FROM iam.security_events WHERE aqueduct_id = ? AND type ="
+                    + " 'HONEYPOT_TRIGGERED'",
+                Integer.class,
+                aqueduct))
+        .isEqualTo(1);
+  }
+
+  @Test
+  void aFormSentTooFastOrWithoutItsStartIsRefused() throws Exception {
+    String slug = slugOf(newAqueductWithRules());
+
+    report(
+            slug,
+            body("LEAK", "Hay agua saliendo del tubo.", OffsetDateTime.now(), ""),
+            "203.0.113.50")
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error.details.fields[0].field").value("form_started_at"));
+    report(
+            slug,
+            "{\"category_code\":\"LEAK\",\"description\":\"Hay agua saliendo del tubo.\"}",
+            "203.0.113.51")
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void anAddressSendsAtMostThreeReportsPerHour() throws Exception {
+    String slug = slugOf(newAqueductWithRules());
+    String valid = body("LEAK", "Hay agua saliendo del tubo.", "");
+
+    for (int i = 0; i < 3; i++) {
+      report(slug, valid, "203.0.113.60").andExpect(status().isCreated());
+    }
+    report(slug, valid, "203.0.113.60")
+        .andExpect(status().isTooManyRequests())
+        .andExpect(jsonPath("$.error.code").value("RATE_LIMITED"))
+        .andExpect(
+            org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                .exists("Retry-After"));
+    report(slug, valid, "203.0.113.61").andExpect(status().isCreated());
   }
 }

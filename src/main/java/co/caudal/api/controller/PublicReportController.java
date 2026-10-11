@@ -36,10 +36,12 @@ public class PublicReportController {
       summary = "Reportar un daño",
       description =
           "Cualquier persona reporta un daño sin iniciar sesión y sin datos personales. Responde"
-              + " un código de seguimiento que se muestra una sola vez.")
+              + " un código de seguimiento que se muestra una sola vez. Límite de reportes por IP y"
+              + " hora, tiempo mínimo de llenado y campo oculto website que debe llegar vacío.")
   @ApiResponse(responseCode = "201", description = "Reporte recibido")
   @ApiResponse(responseCode = "400", description = "VALIDATION_ERROR")
   @ApiResponse(responseCode = "404", description = "NOT_FOUND: el acueducto no existe")
+  @ApiResponse(responseCode = "429", description = "RATE_LIMITED: demasiados reportes")
   @PostMapping("/api/v1/public/{aqueductSlug}/damage-reports")
   public ResponseEntity<DamageReportResponse> report(
       @PathVariable
@@ -56,7 +58,9 @@ public class PublicReportController {
                 request.sectorId(),
                 request.description(),
                 request.locationHint(),
-                http.getRemoteAddr()));
+                http.getRemoteAddr(),
+                request.website(),
+                request.formStartedAt().toInstant()));
     return ResponseEntity.status(HttpStatus.CREATED)
         .cacheControl(CacheControl.noStore())
         .body(

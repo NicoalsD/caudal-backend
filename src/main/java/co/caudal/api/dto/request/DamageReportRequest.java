@@ -38,5 +38,8 @@ public record DamageReportRequest(
     @Schema(description = "Campo oculto; debe llegar vacío.", nullable = true)
         @Size(max = FieldLimits.TEXT_GLOBAL_MAX)
         String website,
-    @Schema(description = "Cuándo se abrió el formulario.", example = "2026-10-09T09:00:00-05:00")
+    @Schema(
+            description = "Cuándo se abrió el formulario; al menos 3 s antes del envío.",
+            example = "2026-10-09T09:00:00-05:00")
+        @NotNull
         OffsetDateTime formStartedAt) {}
