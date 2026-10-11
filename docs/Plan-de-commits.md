@@ -237,16 +237,16 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| B155 | `feat: implementa PublishScheduleCommand` | `NicoalsD` | HU-23 | P13 | [ ] |
-| B156 | `feat: publica SchedulePublished al confirmar horario` | `NicoalsD` | HU-23 | P17 | [ ] |
-| B157 | `feat: implementa PublicScheduleProxy sin datos personales` | `NicoalsD` | HU-24 | P11 | [ ] |
-| B158 | `feat: expone GET /api/v1/public/{aqueductSlug}/schedule` | `NicoalsD` | HU-24 | P11 | [ ] |
-| B159 | `feat: genera avisos con Notice y PublicationChannel` | `NicoalsD` | HU-25 | P07 | [ ] |
-| B160 | `feat: crea cartel con DocumentGeneratorCreator y DocumentFactory` | `NicoalsD` | HU-26 | P02, P03 | [ ] |
-| B161 | `feat: agrega marca demo a página, WhatsApp y cartel` | `NicoalsD` | HU-39 | P22 | [ ] |
-| B162 | `feat: recibe POST /api/v1/public/{aqueductSlug}/damage-reports` | `NicoalsD` | HU-27 | P13 | [ ] |
-| B163 | `feat: protege formulario público con honeypot y tasa` | `NicoalsD` | HU-27 | - | [ ] |
-| B164 | `feat: consulta seguimiento público por trackingCode` | `NicoalsD` | HU-27 | P18 | [ ] |
+| B155 | `feat: implementa PublishScheduleCommand` | `NicoalsD` | HU-23 | P13 | [x] |
+| B156 | `feat: publica SchedulePublished al confirmar horario` | `NicoalsD` | HU-23 | P17 | [x] |
+| B157 | `feat: implementa PublicScheduleProxy sin datos personales` | `NicoalsD` | HU-24 | P11 | [x] |
+| B158 | `feat: expone GET /api/v1/public/{aqueductSlug}/schedule` | `NicoalsD` | HU-24 | P11 | [x] |
+| B159 | `feat: genera avisos con Notice y PublicationChannel` | `NicoalsD` | HU-25 | P07 | [x] |
+| B160 | `feat: crea cartel con DocumentGeneratorCreator y DocumentFactory` | `NicoalsD` | HU-26 | P02, P03 | [x] |
+| B161 | `feat: agrega marca demo a página, WhatsApp y cartel` | `NicoalsD` | HU-39 | P22 | [x] |
+| B162 | `feat: recibe POST /api/v1/public/{aqueductSlug}/damage-reports` | `NicoalsD` | HU-27 | P13 | [x] |
+| B163 | `feat: protege formulario público con honeypot y tasa` | `NicoalsD` | HU-27 | - | [x] |
+| B164 | `feat: consulta seguimiento público por trackingCode` | `NicoalsD` | HU-27 | P18 | [x] |
 
 ### Fase 9: Cierre y actas
 
