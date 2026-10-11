@@ -4,18 +4,22 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import co.caudal.application.auth.Caller;
+import co.caudal.application.command.Done;
 import co.caudal.application.port.out.MembershipAdminPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
+import co.caudal.application.port.out.UserAccountPort;
 import co.caudal.shared.error.DomainException;
 import co.caudal.shared.error.ErrorCode;
 import co.caudal.shared.error.FieldValidationException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,10 +35,13 @@ class MembershipCommandHandlersTest {
   private static final Caller CALLER = new Caller(ADMIN, AQUEDUCT, "BOARD_ADMIN", "127.0.0.1");
 
   private final MembershipAdminPort memberships = mock(MembershipAdminPort.class);
+  private final UserAccountPort accounts = mock(UserAccountPort.class);
   private final UnitOfWorkPort unitOfWork = mock(UnitOfWorkPort.class);
   private final Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
   private final GrantMembershipCommandHandler grant =
       new GrantMembershipCommandHandler(memberships, unitOfWork, clock);
+  private final RevokeMembershipCommandHandler revoke =
+      new RevokeMembershipCommandHandler(memberships, accounts, unitOfWork, clock);
 
   @BeforeEach
   @SuppressWarnings("unchecked")
@@ -102,5 +109,46 @@ class MembershipCommandHandlersTest {
                     new GrantMembershipCommand(CALLER, USER, AQUEDUCT, "BOARD_MEMBER", null, null)))
         .extracting(MembershipCommandHandlersTest::codeOf)
         .isEqualTo(ErrorCode.CONFLICT);
+  }
+
+  private void givenMembership(UUID user, Instant validTo) {
+    when(memberships.find(AQUEDUCT, MEMBERSHIP))
+        .thenReturn(
+            Optional.of(
+                new MembershipView(
+                    MEMBERSHIP, user, AQUEDUCT, "OPERATOR", NOW.minusSeconds(60), validTo, ADMIN)));
+  }
+
+  @Test
+  void revokingClosesTheMembershipAndRaisesTheTokenVersion() {
+    givenMembership(USER, null);
+
+    assertThat(revoke.handle(new RevokeMembershipCommand(CALLER, MEMBERSHIP))).isEqualTo(Done.DONE);
+
+    verify(memberships).close(MEMBERSHIP, NOW);
+    verify(accounts).incrementTokenVersion(USER);
+    assertThat(revoke.commandType()).isEqualTo(RevokeMembershipCommand.class);
+  }
+
+  @Test
+  void revokingAnEndedMembershipChangesNothing() {
+    givenMembership(USER, NOW.minusSeconds(1));
+
+    revoke.handle(new RevokeMembershipCommand(CALLER, MEMBERSHIP));
+
+    verify(memberships, never()).close(any(), any());
+    verify(accounts, never()).incrementTokenVersion(any());
+  }
+
+  @Test
+  void anAdministratorCannotEndTheirOwnMembershipNorOneOutsideTheAqueduct() {
+    givenMembership(ADMIN, null);
+    assertThatThrownBy(() -> revoke.handle(new RevokeMembershipCommand(CALLER, MEMBERSHIP)))
+        .extracting(MembershipCommandHandlersTest::codeOf)
+        .isEqualTo(ErrorCode.CONFLICT);
+
+    assertThatThrownBy(() -> revoke.handle(new RevokeMembershipCommand(CALLER, UUID.randomUUID())))
+        .extracting(MembershipCommandHandlersTest::codeOf)
+        .isEqualTo(ErrorCode.NOT_FOUND);
   }
 }

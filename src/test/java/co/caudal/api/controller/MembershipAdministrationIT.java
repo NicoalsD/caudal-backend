@@ -1,5 +1,7 @@
 package co.caudal.api.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -32,7 +34,7 @@ class MembershipAdministrationIT extends SessionIT {
   }
 
   @Test
-  void grantsAndListsARole() throws Exception {
+  void grantsListsAndRevokesARole() throws Exception {
     Account admin = account("memb.admin", "BOARD_ADMIN");
     Account outsider = account("memb.newcomer", "OPERATOR");
     Session session = login(admin);
@@ -54,6 +56,27 @@ class MembershipAdministrationIT extends SessionIT {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items.length()").value(1))
         .andExpect(jsonPath("$.items[0].id").value(id));
+
+    Integer versionBefore =
+        owner.queryForObject(
+            "SELECT token_version FROM iam.users WHERE id = ?", Integer.class, outsider.userId());
+    mvc.perform(delete("/api/v1/memberships/" + id).header("Authorization", session.bearer()))
+        .andExpect(status().isNoContent());
+    mvc.perform(delete("/api/v1/memberships/" + id).header("Authorization", session.bearer()))
+        .andExpect(status().isNoContent());
+
+    assertThat(
+            owner.queryForObject(
+                "SELECT valid_to IS NOT NULL FROM iam.memberships WHERE id = ?::uuid",
+                Boolean.class,
+                id))
+        .isTrue();
+    assertThat(
+            owner.queryForObject(
+                "SELECT token_version FROM iam.users WHERE id = ?",
+                Integer.class,
+                outsider.userId()))
+        .isEqualTo(versionBefore + 1);
   }
 
   @Test
@@ -81,6 +104,9 @@ class MembershipAdministrationIT extends SessionIT {
     Account admin = account("memb.iso.admin", "BOARD_ADMIN");
     Account stranger = account("memb.iso.stranger", "OPERATOR");
     Session session = login(admin);
+    UUID foreignMembership =
+        owner.queryForObject(
+            "SELECT id FROM iam.memberships WHERE user_id = ?", UUID.class, stranger.userId());
 
     grant(session, stranger.userId(), stranger.aqueductId(), "").andExpect(status().isForbidden());
     mvc.perform(
@@ -88,9 +114,27 @@ class MembershipAdministrationIT extends SessionIT {
                 .header("Authorization", session.bearer()))
         .andExpect(status().isForbidden());
     mvc.perform(
+            delete("/api/v1/memberships/" + foreignMembership)
+                .header("Authorization", session.bearer()))
+        .andExpect(status().isNotFound());
+    mvc.perform(
             get("/api/v1/memberships?user_id=" + stranger.userId())
                 .header("Authorization", session.bearer()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items.length()").value(0));
+  }
+
+  @Test
+  void anAdministratorCannotEndTheirOwnMembershipAndAnOperatorCannotManage() throws Exception {
+    Account admin = account("memb.self.admin", "BOARD_ADMIN");
+    Account operator = account("memb.self.op", "OPERATOR", admin.aqueductId());
+    UUID own =
+        owner.queryForObject(
+            "SELECT id FROM iam.memberships WHERE user_id = ?", UUID.class, admin.userId());
+
+    mvc.perform(delete("/api/v1/memberships/" + own).header("Authorization", login(admin).bearer()))
+        .andExpect(status().isConflict());
+    mvc.perform(get("/api/v1/memberships").header("Authorization", login(operator).bearer()))
+        .andExpect(status().isForbidden());
   }
 }

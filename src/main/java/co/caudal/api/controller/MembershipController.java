@@ -10,6 +10,7 @@ import co.caudal.application.pagination.Page;
 import co.caudal.application.user.GrantMembershipCommand;
 import co.caudal.application.user.ListMembershipsUseCase;
 import co.caudal.application.user.MembershipView;
+import co.caudal.application.user.RevokeMembershipCommand;
 import co.caudal.shared.FieldLimits;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -26,7 +27,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -116,5 +119,27 @@ public class MembershipController {
     return ResponseEntity.status(HttpStatus.CREATED)
         .cacheControl(CacheControl.noStore())
         .body(UserMapper.toResponse(membership));
+  }
+
+  @Operation(
+      summary = "Terminar una membresía",
+      description =
+          "No borra la fila, porque la auditoría la referencia: fija valid_to en ahora e"
+              + " incrementa token_version de la cuenta. Terminar una membresía ya terminada no"
+              + " cambia nada. Un administrador no puede terminar su propia membresía vigente."
+              + " Requiere el permiso USER_MANAGE.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "204", description = "Membresía terminada")
+  @ApiResponse(responseCode = "403", description = "FORBIDDEN: falta el permiso")
+  @ApiResponse(
+      responseCode = "404",
+      description = "NOT_FOUND: la membresía no existe o es de otro acueducto")
+  @ApiResponse(responseCode = "409", description = "CONFLICT: la propia membresía")
+  @DeleteMapping("/{id}")
+  @PreAuthorize("hasAuthority('USER_MANAGE')")
+  public ResponseEntity<Void> revoke(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id, HttpServletRequest http) {
+    commands.dispatch(new RevokeMembershipCommand(CallerFactory.from(jwt, http), id));
+    return ResponseEntity.noContent().build();
   }
 }
