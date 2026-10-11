@@ -54,4 +54,14 @@ public class PasswordResetGrantPersistenceAdapter implements PasswordResetGrantP
             .update()
         == 1;
   }
+
+  @Override
+  public int revokeOpen(UUID userId, Instant now) {
+    return jdbc.sql(
+            "UPDATE iam.password_reset_grants SET revoked_at = :now WHERE user_id = :user"
+                + " AND used_at IS NULL AND revoked_at IS NULL")
+        .param("now", Timestamp.from(now))
+        .param("user", userId)
+        .update();
+  }
 }

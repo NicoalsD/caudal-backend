@@ -36,4 +36,13 @@ public interface PasswordResetGrantPort {
    * @return true if this call used it; false if it was no longer available (a concurrent use)
    */
   boolean markUsed(UUID grantId, Instant now);
+
+  /**
+   * Revokes the codes of an account that were neither used nor revoked.
+   *
+   * @param userId the account
+   * @param now moment of the revocation
+   * @return how many codes were revoked
+   */
+  int revokeOpen(UUID userId, Instant now);
 }

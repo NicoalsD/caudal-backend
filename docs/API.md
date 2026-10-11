@@ -368,8 +368,8 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 
 - **Permiso:** `USER_MANAGE`.
 - **Cuerpo:** `reason` (texto, 10 a 500, `FieldLimits.REASON`).
-- **Respuesta 201:** `id`, `code` (se muestra una sola vez), `expires_at`. Solo se guarda el hash SHA-256 del código.
-- **Errores:** `422 REASON_REQUIRED`.
+- **Respuesta 201:** `id`, `code` (se muestra una sola vez), `expires_at`. Solo se guarda el hash SHA-256 del código. Los códigos anteriores de la cuenta que no se usaron quedan revocados (`revoked_at`), así solo sirve el último.
+- **Errores:** `422 REASON_REQUIRED`, `404 NOT_FOUND` (la cuenta no existe o no tiene membresía en el acueducto), `409 INVALID_STATE_TRANSITION` (cuenta `DISABLED`).
 - **Ejemplo:** `{ "code": "ABCD-2345", "expires_at": "2026-10-09T10:00:00-05:00" }` (valores ficticios)
 
 ### 3.5 `GET /api/v1/memberships`
