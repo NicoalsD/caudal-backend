@@ -127,6 +127,19 @@ public class ProposalPersistenceAdapter implements ProposalPort {
   }
 
   @Override
+  public void replaceItems(UUID aqueductId, UUID proposalId, List<ProposedTurn> turns) {
+    jdbc.sql(
+            "DELETE FROM ops.schedule_item_reasons WHERE item_id IN (SELECT id FROM"
+                + " ops.schedule_items WHERE proposal_id = :proposal)")
+        .param("proposal", proposalId)
+        .update();
+    jdbc.sql("DELETE FROM ops.schedule_items WHERE proposal_id = :proposal")
+        .param("proposal", proposalId)
+        .update();
+    insertItems(aqueductId, proposalId, turns);
+  }
+
+  @Override
   public Optional<ProposalDetail> find(UUID id, LocalDate today) {
     return jdbc.sql(SUMMARY_COLUMNS + " WHERE id = :id")
         .param("id", id)

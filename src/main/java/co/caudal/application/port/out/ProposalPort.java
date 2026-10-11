@@ -3,6 +3,7 @@ package co.caudal.application.port.out;
 import co.caudal.application.schedule.ProposalDetail;
 import co.caudal.application.schedule.ProposalSummary;
 import co.caudal.domain.schedule.ProposalMemento;
+import co.caudal.domain.schedule.ProposedTurn;
 import co.caudal.domain.schedule.ScheduleProposal;
 import java.time.LocalDate;
 import java.util.List;
@@ -80,4 +81,13 @@ public interface ProposalPort {
    * @param memento the snapshot
    */
   void saveSnapshot(UUID aqueductId, ProposalMemento memento);
+
+  /**
+   * Replaces every shift of a proposal pending review, with their reasons.
+   *
+   * @param aqueductId the aqueduct
+   * @param proposalId the proposal
+   * @param turns the new shifts
+   */
+  void replaceItems(UUID aqueductId, UUID proposalId, List<ProposedTurn> turns);
 }

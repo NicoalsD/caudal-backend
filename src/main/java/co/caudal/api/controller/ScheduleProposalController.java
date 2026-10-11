@@ -2,6 +2,8 @@ package co.caudal.api.controller;
 
 import co.caudal.api.dto.request.ApproveProposalRequest;
 import co.caudal.api.dto.request.GenerateProposalRequest;
+import co.caudal.api.dto.request.ModifyProposalRequest;
+import co.caudal.api.dto.request.RejectProposalRequest;
 import co.caudal.api.dto.response.PageResponse;
 import co.caudal.api.dto.response.ProposalResponse;
 import co.caudal.api.dto.response.ProposalSummaryResponse;
@@ -13,8 +15,11 @@ import co.caudal.application.schedule.ApproveProposalCommand;
 import co.caudal.application.schedule.GenerateProposalCommand;
 import co.caudal.application.schedule.GetProposalUseCase;
 import co.caudal.application.schedule.ListProposalsUseCase;
+import co.caudal.application.schedule.ModifiedItem;
+import co.caudal.application.schedule.ModifyProposalCommand;
 import co.caudal.application.schedule.ProposalDetail;
 import co.caudal.application.schedule.ProposalSummary;
+import co.caudal.application.schedule.RejectProposalCommand;
 import co.caudal.shared.FieldLimits;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -155,6 +160,80 @@ public class ScheduleProposalController {
     ProposalDetail proposal =
         commands.dispatch(
             new ApproveProposalCommand(CallerFactory.from(jwt, http), id, request.lockVersion()));
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.noStore())
+        .body(ScheduleMapper.toResponse(proposal));
+  }
+
+  @Operation(
+      summary = "Modificar y aprobar una propuesta",
+      description =
+          "La Junta deja la lista completa de turnos con un motivo de 10 a 500 caracteres. Se"
+              + " valida la duración de cada turno, el horario de operación y las horas"
+              + " disponibles. Antes del primer cambio se guarda la propuesta original. Los turnos"
+              + " cambiados quedan MODIFIED y los nuevos ADDED, con el motivo de la Junta. La"
+              + " propuesta pasa a APPROVED_WITH_CHANGES. Requiere el permiso PROPOSAL_DECIDE.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "200", description = "Propuesta aprobada con cambios")
+  @ApiResponse(responseCode = "404", description = "NOT_FOUND: la propuesta no existe")
+  @ApiResponse(
+      responseCode = "409",
+      description = "CONFLICT, INVALID_STATE_TRANSITION o SCHEDULE_OVERLAP")
+  @ApiResponse(
+      responseCode = "422",
+      description =
+          "REASON_REQUIRED, HOURS_EXCEEDED, SHIFT_LENGTH_INVALID u OUTSIDE_OPERATING_WINDOW")
+  @PostMapping("/{id}/modify")
+  @PreAuthorize("hasAuthority('PROPOSAL_DECIDE')")
+  public ResponseEntity<ProposalResponse> modify(
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID id,
+      @Valid @RequestBody ModifyProposalRequest request,
+      HttpServletRequest http) {
+    ProposalDetail proposal =
+        commands.dispatch(
+            new ModifyProposalCommand(
+                CallerFactory.from(jwt, http),
+                id,
+                request.lockVersion(),
+                request.reason(),
+                request.items().stream()
+                    .map(
+                        i ->
+                            new ModifiedItem(
+                                i.id(),
+                                i.sectorId(),
+                                i.startAt().toInstant(),
+                                i.endAt().toInstant(),
+                                i.sequence()))
+                    .toList()));
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.noStore())
+        .body(ScheduleMapper.toResponse(proposal));
+  }
+
+  @Operation(
+      summary = "Rechazar una propuesta",
+      description =
+          "Rechaza una propuesta en PENDING_REVIEW con un motivo de 10 a 500 caracteres. Es un"
+              + " estado final: para el mismo día se genera otra propuesta. Requiere el permiso"
+              + " PROPOSAL_DECIDE.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "200", description = "Propuesta rechazada")
+  @ApiResponse(responseCode = "404", description = "NOT_FOUND: la propuesta no existe")
+  @ApiResponse(responseCode = "409", description = "CONFLICT o INVALID_STATE_TRANSITION")
+  @ApiResponse(responseCode = "422", description = "REASON_REQUIRED: falta el motivo")
+  @PostMapping("/{id}/reject")
+  @PreAuthorize("hasAuthority('PROPOSAL_DECIDE')")
+  public ResponseEntity<ProposalResponse> reject(
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID id,
+      @Valid @RequestBody RejectProposalRequest request,
+      HttpServletRequest http) {
+    ProposalDetail proposal =
+        commands.dispatch(
+            new RejectProposalCommand(
+                CallerFactory.from(jwt, http), id, request.lockVersion(), request.reason()));
     return ResponseEntity.ok()
         .cacheControl(CacheControl.noStore())
         .body(ScheduleMapper.toResponse(proposal));

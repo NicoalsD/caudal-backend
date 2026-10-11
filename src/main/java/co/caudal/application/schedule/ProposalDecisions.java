@@ -110,13 +110,21 @@ public class ProposalDecisions {
             clock.instant()));
   }
 
+  /**
+   * The time zone of the aqueduct of the caller.
+   *
+   * @param caller who decides
+   * @return the zone
+   */
+  ZoneId zone(Caller caller) {
+    return aqueducts
+        .findById(caller.aqueductId())
+        .map(AqueductRef::timezone)
+        .map(ZoneId::of)
+        .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+  }
+
   private LocalDate today(Caller caller) {
-    ZoneId zone =
-        aqueducts
-            .findById(caller.aqueductId())
-            .map(AqueductRef::timezone)
-            .map(ZoneId::of)
-            .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
-    return LocalDate.ofInstant(clock.instant(), zone);
+    return LocalDate.ofInstant(clock.instant(), zone(caller));
   }
 }

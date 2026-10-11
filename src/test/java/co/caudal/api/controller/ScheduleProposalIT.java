@@ -275,4 +275,141 @@ class ScheduleProposalIT extends SessionIT {
     decide(member, UUID.randomUUID().toString(), "approve", "{\"lock_version\":0}")
         .andExpect(status().isNotFound());
   }
+
+  static String at(int hour) {
+    return TOMORROW
+        .atTime(hour, 0)
+        .atZone(ZoneId.of("America/Bogota"))
+        .toOffsetDateTime()
+        .toString();
+  }
+
+  static String item(String id, UUID sector, String start, String end, int sequence) {
+    return "{\"id\":"
+        + (id == null ? "null" : "\"" + id + "\"")
+        + ",\"sector_id\":\""
+        + sector
+        + "\",\"start_at\":\""
+        + start
+        + "\",\"end_at\":\""
+        + end
+        + "\",\"sequence\":"
+        + sequence
+        + "}";
+  }
+
+  static String modify(int lock, String reason, String... items) {
+    return "{\"lock_version\":"
+        + lock
+        + ",\"reason\":\""
+        + reason
+        + "\",\"items\":["
+        + String.join(",", items)
+        + "]}";
+  }
+
+  @Test
+  void theBoardChangesShiftsWithAReasonAndTheOriginalIsKept() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    reading(aqueduct, "2.10");
+    Session member = login(account("proposal.modify", "BOARD_MEMBER", aqueduct));
+    String body = generate(member, TOMORROW).andReturn().getResponse().getContentAsString();
+    String id = JsonPath.read(body, "$.id");
+    String altoId = JsonPath.read(body, "$.items[0].id");
+    String altoStart = JsonPath.read(body, "$.items[0].start_at");
+    String altoEnd = JsonPath.read(body, "$.items[0].end_at");
+    String bajoId = JsonPath.read(body, "$.items[1].id");
+    UUID alto = sectorOf(aqueduct, "ALTO");
+    UUID bajo = sectorOf(aqueduct, "BAJO");
+    String reason = "La escuela tiene clase especial en la tarde.";
+    String keep = item(altoId, alto, altoStart, altoEnd, 1);
+
+    decide(member, id, "modify", modify(0, "corto", keep))
+        .andExpect(status().isUnprocessableContent())
+        .andExpect(jsonPath("$.error.code").value("REASON_REQUIRED"));
+    decide(member, id, "modify", modify(0, reason, keep, item(null, bajo, at(14), at(19), 2)))
+        .andExpect(status().isUnprocessableContent())
+        .andExpect(jsonPath("$.error.code").value("SHIFT_LENGTH_INVALID"));
+    decide(member, id, "modify", modify(0, reason, keep, item(null, bajo, at(3), at(6), 2)))
+        .andExpect(status().isUnprocessableContent())
+        .andExpect(jsonPath("$.error.code").value("OUTSIDE_OPERATING_WINDOW"));
+    decide(
+            member,
+            id,
+            "modify",
+            modify(
+                0,
+                reason,
+                keep,
+                item(bajoId, bajo, at(14), at(18), 2),
+                item(null, alto, at(18), at(20), 3)))
+        .andExpect(status().isUnprocessableContent())
+        .andExpect(jsonPath("$.error.code").value("HOURS_EXCEEDED"));
+    decide(
+            member,
+            id,
+            "modify",
+            modify(0, reason, keep, item(UUID.randomUUID().toString(), bajo, at(14), at(17), 2)))
+        .andExpect(status().isBadRequest());
+
+    decide(
+            member,
+            id,
+            "modify",
+            modify(
+                0,
+                reason,
+                keep,
+                item(bajoId, bajo, at(14), at(17), 2),
+                item(null, alto, at(18), at(19), 3)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("APPROVED_WITH_CHANGES"))
+        .andExpect(jsonPath("$.lock_version").value(1))
+        .andExpect(jsonPath("$.snapshot_taken").value(true))
+        .andExpect(jsonPath("$.items.length()").value(3))
+        .andExpect(jsonPath("$.items[0].origin").value("PROPOSED"))
+        .andExpect(jsonPath("$.items[1].origin").value("MODIFIED"))
+        .andExpect(jsonPath("$.items[1].reasons[-1].code").value("BOARD_CHANGE"))
+        .andExpect(
+            jsonPath("$.items[1].reasons[-1].text").value("La Junta cambió este turno: " + reason))
+        .andExpect(jsonPath("$.items[2].origin").value("ADDED"))
+        .andExpect(jsonPath("$.items[2].reasons.length()").value(1))
+        .andExpect(jsonPath("$.decisions[0].decision").value("APPROVED_WITH_CHANGES"))
+        .andExpect(jsonPath("$.decisions[0].reason").value(reason));
+    org.assertj.core.api.Assertions.assertThat(
+            owner.queryForObject(
+                "SELECT jsonb_array_length(snapshot -> 'items') FROM ops.proposal_snapshots"
+                    + " WHERE proposal_id = ?::uuid",
+                Integer.class,
+                id))
+        .isEqualTo(2);
+    decide(member, id, "reject", "{\"lock_version\":1,\"reason\":\"" + reason + "\"}")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error.code").value("INVALID_STATE_TRANSITION"));
+  }
+
+  @Test
+  void aRejectedProposalNeedsAReasonAndFreesTheDay() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    reading(aqueduct, "2.10");
+    Session member = login(account("proposal.reject", "BOARD_MEMBER", aqueduct));
+    String id = generatedId(member, TOMORROW);
+    String reason = "El nivel bajó en la tarde; se genera otra.";
+
+    decide(member, id, "reject", "{\"lock_version\":0}")
+        .andExpect(status().isUnprocessableContent())
+        .andExpect(jsonPath("$.error.code").value("REASON_REQUIRED"));
+    decide(member, id, "reject", "{\"lock_version\":0,\"reason\":\"" + reason + "\"}")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("REJECTED"))
+        .andExpect(jsonPath("$.decisions[0].reason").value(reason));
+    decide(
+            member,
+            id,
+            "modify",
+            modify(1, reason, item(null, sectorOf(aqueduct, "ALTO"), at(7), at(9), 1)))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error.code").value("INVALID_STATE_TRANSITION"));
+    generate(member, TOMORROW).andExpect(status().isCreated());
+  }
 }

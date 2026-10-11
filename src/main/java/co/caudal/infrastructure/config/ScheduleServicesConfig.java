@@ -13,7 +13,9 @@ import co.caudal.application.schedule.ApproveProposalCommandHandler;
 import co.caudal.application.schedule.GenerateProposalCommandHandler;
 import co.caudal.application.schedule.GetProposalUseCase;
 import co.caudal.application.schedule.ListProposalsUseCase;
+import co.caudal.application.schedule.ModifyProposalCommandHandler;
 import co.caudal.application.schedule.ProposalDecisions;
+import co.caudal.application.schedule.RejectProposalCommandHandler;
 import java.time.Clock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -64,5 +66,21 @@ class ScheduleServicesConfig {
   ApproveProposalCommandHandler approveProposalCommandHandler(
       ProposalDecisions decisions, UnitOfWorkPort unitOfWork) {
     return new ApproveProposalCommandHandler(decisions, unitOfWork);
+  }
+
+  @Bean
+  ModifyProposalCommandHandler modifyProposalCommandHandler(
+      ProposalDecisions decisions,
+      RuleSetPort ruleSets,
+      NetworkPort network,
+      ProposalPort proposals,
+      UnitOfWorkPort unitOfWork) {
+    return new ModifyProposalCommandHandler(decisions, ruleSets, network, proposals, unitOfWork);
+  }
+
+  @Bean
+  RejectProposalCommandHandler rejectProposalCommandHandler(
+      ProposalDecisions decisions, UnitOfWorkPort unitOfWork) {
+    return new RejectProposalCommandHandler(decisions, unitOfWork);
   }
 }

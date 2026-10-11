@@ -102,7 +102,7 @@ public record DailyHours(
   public record ReserveGuard(BigDecimal p10, BigDecimal reserveLevel, String policy) {}
 
   /** The window of a weekday wins over the windows of every day; the earliest one is used. */
-  private static Optional<OperatingWindow> windowOf(List<OperatingWindow> windows, DayOfWeek day) {
+  static Optional<OperatingWindow> windowOf(List<OperatingWindow> windows, DayOfWeek day) {
     Comparator<OperatingWindow> earliest = Comparator.comparing(OperatingWindow::start);
     Optional<OperatingWindow> specific =
         windows.stream()
