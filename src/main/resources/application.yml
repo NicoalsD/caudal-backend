@@ -89,6 +89,11 @@ caudal:
     # Key that hides IP addresses and typed usernames in the database. No default value.
     privacy:
       ip-hmac-key: ${IP_HMAC_KEY}
+    # AES-256-GCM key of the TOTP secrets (docs/Seguridad.md, section 2.4). No default value.
+    mfa:
+      encryption-key: ${MFA_ENCRYPTION_KEY}
+      key-id: ${MFA_KEY_ID}
+      issuer: ${MFA_ISSUER:CAUDAL}
     # Argon2id (docs/Seguridad.md, section 2.1). The defaults are the canonical values.
     argon2:
       memory-kib: ${ARGON2_MEMORY_KIB:19456}

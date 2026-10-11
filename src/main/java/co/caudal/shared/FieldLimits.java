@@ -249,5 +249,26 @@ public final class FieldLimits {
   /** Status of an account an administrator may ask for (docs/API.md, section 3.3). */
   public static final String ACCOUNT_STATUS_PATTERN = "^(ACTIVE|LOCKED|DISABLED)$";
 
+  /** Digits of a TOTP code (RFC 6238; docs/Seguridad.md, section 2.4). */
+  public static final int TOTP_DIGITS = 6;
+
+  /** Length of a TOTP step, in seconds (RFC 6238). */
+  public static final int TOTP_STEP_SECONDS = 30;
+
+  /** Steps before and after the current one that a TOTP code may come from (clock drift). */
+  public static final int TOTP_ALLOWED_DRIFT_STEPS = 1;
+
+  /** Bytes of a new TOTP secret (160 bits, the size of the HMAC-SHA1 output). */
+  public static final int TOTP_SECRET_BYTES = 20;
+
+  /** Pattern of a TOTP code typed by a person. */
+  public static final String TOTP_CODE_PATTERN = "^[0-9]{6}$";
+
+  /** Recovery codes issued when MFA is confirmed. */
+  public static final int MFA_RECOVERY_CODES = 10;
+
+  /** Bytes of the AES-256-GCM key that encrypts TOTP secrets. */
+  public static final int MFA_ENCRYPTION_KEY_BYTES = 32;
+
   private FieldLimits() {}
 }

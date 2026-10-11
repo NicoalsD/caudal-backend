@@ -36,6 +36,10 @@ caudal:
       ttl-minutes: 60
     privacy:
       ip-hmac-key: test-only-ip-hmac-key-with-at-least-32-bytes
+    mfa:
+      encryption-key: dGVzdC1vbmx5LW1mYS1rZXktMzItYnl0ZXMtbG9uZyE=
+      key-id: test-key-v1
+      issuer: CAUDAL Test
     refresh:
       ttl-days: 7
       operator-ttl-days: 30
