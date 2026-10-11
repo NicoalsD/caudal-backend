@@ -252,15 +252,15 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| B165 | `feat: registra POST /api/v1/schedule-items/{id}/execution` | `NicoalsD` | HU-29 | P13 | [ ] |
-| B166 | `feat: implementa POST /api/v1/days/{date}/closure` | `NicoalsD` | HU-29 | P13 | [ ] |
-| B167 | `feat: impide cierres repetidos en ops.day_closures` | `NicoalsD` | HU-29 | P18 | [ ] |
-| B168 | `feat: construye actas con MinutesBuilder` | `NicoalsD` | HU-30 | P04 | [ ] |
-| B169 | `feat: clasifica secciones con MinutesSectionVisitor` | `NicoalsD` | HU-30 | P21 | [ ] |
-| B170 | `feat: genera documentos con DocumentGenerator` | `NicoalsD` | HU-30 | P20 | [ ] |
-| B171 | `feat: implementa POST /api/v1/minutes` | `NicoalsD` | HU-30 | P04 | [ ] |
-| B172 | `feat: finaliza acta con POST /api/v1/minutes/{id}/finalize` | `NicoalsD` | HU-30 | P13 | [ ] |
-| B173 | `feat: crea PDF final y guarda pdf_sha256` | `NicoalsD` | HU-30 | P02 | [ ] |
+| B165 | `feat: registra POST /api/v1/schedule-items/{id}/execution` | `NicoalsD` | HU-29 | P13 | [x] |
+| B166 | `feat: implementa POST /api/v1/days/{date}/closure` | `NicoalsD` | HU-29 | P13 | [x] |
+| B167 | `feat: impide cierres repetidos en ops.day_closures` | `NicoalsD` | HU-29 | P18 | [x] |
+| B168 | `feat: construye actas con MinutesBuilder` | `NicoalsD` | HU-30 | P04 | [x] |
+| B169 | `feat: clasifica secciones con MinutesSectionVisitor` | `NicoalsD` | HU-30 | P21 | [x] |
+| B170 | `feat: genera documentos con DocumentGenerator` | `NicoalsD` | HU-30 | P20 | [x] |
+| B171 | `feat: implementa POST /api/v1/minutes` | `NicoalsD` | HU-30 | P04 | [x] |
+| B172 | `feat: finaliza acta con POST /api/v1/minutes/{id}/finalize` | `NicoalsD` | HU-30 | P13 | [x] |
+| B173 | `feat: crea PDF final y guarda pdf_sha256` | `NicoalsD` | HU-30 | P02 | [x] |
 
 ### Fase 10: Evaluación IA
 
