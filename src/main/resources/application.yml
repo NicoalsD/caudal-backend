@@ -61,6 +61,10 @@ caudal:
     service-token: ${IA_SERVICE_TOKEN:}
     connect-timeout-ms: ${IA_CONNECT_TIMEOUT_MS:2000}
     read-timeout-ms: ${IA_READ_TIMEOUT_MS:10000}
+    circuit-breaker:
+      failure-threshold: ${CIRCUIT_BREAKER_FAILURE_THRESHOLD:5}
+      open-seconds: ${CIRCUIT_BREAKER_OPEN_SECONDS:60}
+      half-open-calls: ${CIRCUIT_BREAKER_HALF_OPEN_CALLS:2}
   security:
     # Access token (JWT HS256). Secret, issuer and audience have no default: without them the
     # application does not start.
