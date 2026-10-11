@@ -1,8 +1,11 @@
 # gitleaks: reglas por defecto más excepciones revisadas.
-# Los marcadores de .env.example ("cambia-esto-...") no son secretos.
+# - Los marcadores de .env.example ("cambia-esto-...") no son secretos.
+# - El secreto de los vectores de prueba de la RFC 6238 (apéndice B) es público.
+# - Las claves del perfil de pruebas solo existen dentro de Testcontainers.
 [extend]
 useDefault = true
 
 [allowlist]
-description = "Marcadores de ejemplo sin valor real"
-regexes = ['''cambia-esto-[a-z0-9-]+''']
+description = "Marcadores de ejemplo, vectores de la RFC 6238 y claves del perfil de pruebas"
+regexes = ['''cambia-esto-[a-z0-9-]+''', '''GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ''']
+paths = ['''src/test/resources/application-test\.yml''']
