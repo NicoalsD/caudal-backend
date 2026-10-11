@@ -91,13 +91,13 @@ public class ReadingPersistenceAdapter implements ReadingPort {
   }
 
   @Override
-  public boolean insert(UUID aqueductId, ReadingView r, UUID recordedBy) {
+  public boolean insert(UUID aqueductId, ReadingView r, UUID recordedBy, UUID syncBatchId) {
     return jdbc.sql(
                 "INSERT INTO ops.readings (id, aqueduct_id, tank_id, gauge_value,"
                     + " water_appearance_code, damage_noticed, note, observed_at, received_at,"
-                    + " source, recorded_by, rule_set_id, validation_status) VALUES (:id,"
-                    + " :aqueduct, :tank, :value, :appearance, :damage, :note, :observed,"
-                    + " :received, :source, :user, :ruleSet, :status)"
+                    + " source, recorded_by, rule_set_id, validation_status, sync_batch_id)"
+                    + " VALUES (:id, :aqueduct, :tank, :value, :appearance, :damage, :note,"
+                    + " :observed, :received, :source, :user, :ruleSet, :status, :batch)"
                     + " ON CONFLICT (id) DO NOTHING")
             .param("id", r.id())
             .param("aqueduct", aqueductId)
@@ -112,6 +112,7 @@ public class ReadingPersistenceAdapter implements ReadingPort {
             .param("user", recordedBy)
             .param("ruleSet", r.ruleSetId())
             .param("status", r.validationStatus())
+            .param("batch", syncBatchId, java.sql.Types.OTHER)
             .update()
         > 0;
   }

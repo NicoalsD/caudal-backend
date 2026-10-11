@@ -1,11 +1,15 @@
 package co.caudal.api.controller;
 
 import co.caudal.api.dto.request.CreateReadingRequest;
+import co.caudal.api.dto.request.ReadingBatchRequest;
+import co.caudal.api.dto.response.ReadingBatchResponse;
 import co.caudal.api.dto.response.ReadingCreatedResponse;
 import co.caudal.api.dto.response.ReadingPageResponse;
 import co.caudal.api.mapper.ReadingMapper;
 import co.caudal.api.security.CallerFactory;
 import co.caudal.application.command.CommandBus;
+import co.caudal.application.reading.BatchResult;
+import co.caudal.application.reading.CreateReadingBatchCommand;
 import co.caudal.application.reading.CreateReadingCommand;
 import co.caudal.application.reading.ListReadingsUseCase;
 import co.caudal.application.reading.ReadingFilter;
@@ -87,6 +91,40 @@ public class ReadingController {
     return ResponseEntity.status(recorded.replay() ? HttpStatus.OK : HttpStatus.CREATED)
         .cacheControl(CacheControl.noStore())
         .body(ReadingMapper.toResponse(recorded));
+  }
+
+  @Operation(
+      summary = "Sincronizar la cola offline",
+      description =
+          "Recibe de 1 a 100 lecturas pendientes de la app. Cada una se valida por separado con"
+              + " las mismas reglas de POST /readings: una rechazada no cancela el lote y su"
+              + " resultado trae el código del error. Se guardan en el orden en que se observaron"
+              + " y los resultados vuelven en el orden del envío. El lote es idempotente por"
+              + " sync_batch_id: reenviarlo responde lo mismo sin guardar nada; reusar el id con"
+              + " otras lecturas responde 409. Requiere el permiso READING_CREATE.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "200", description = "Resultado por lectura")
+  @ApiResponse(
+      responseCode = "400",
+      description = "VALIDATION_ERROR: formato, más de 100 lecturas o ids repetidos en el lote")
+  @ApiResponse(
+      responseCode = "409",
+      description = "CONFLICT: sync_batch_id usado con otro contenido")
+  @PostMapping("/batch")
+  @PreAuthorize("hasAuthority('READING_CREATE')")
+  public ResponseEntity<ReadingBatchResponse> batch(
+      @AuthenticationPrincipal Jwt jwt,
+      @Valid @RequestBody ReadingBatchRequest request,
+      HttpServletRequest http) {
+    BatchResult result =
+        commands.dispatch(
+            new CreateReadingBatchCommand(
+                CallerFactory.from(jwt, http),
+                request.syncBatchId(),
+                request.readings().stream().map(ReadingMapper::toInput).toList()));
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.noStore())
+        .body(ReadingMapper.toResponse(result));
   }
 
   @Operation(

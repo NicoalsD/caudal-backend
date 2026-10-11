@@ -11,10 +11,13 @@ import co.caudal.application.port.out.CatalogPort;
 import co.caudal.application.port.out.NetworkPort;
 import co.caudal.application.port.out.ReadingPort;
 import co.caudal.application.port.out.RuleSetPort;
+import co.caudal.application.port.out.SyncBatchPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
+import co.caudal.application.reading.CreateReadingBatchCommandHandler;
 import co.caudal.application.reading.CreateReadingCommandHandler;
 import co.caudal.application.reading.ListReadingsUseCase;
 import co.caudal.application.reading.ReadingCursor;
+import co.caudal.application.reading.ReadingRecorder;
 import co.caudal.application.rules.ActivateRuleSetCommandHandler;
 import co.caudal.application.rules.CreateRuleSetDraftCommandHandler;
 import co.caudal.application.rules.GetCurrentRuleSetUseCase;
@@ -54,15 +57,15 @@ class OpsServicesConfig {
   // A Spring bean method lists its collaborators; grouping them would only hide the wiring.
   @SuppressWarnings("checkstyle:ParameterNumber")
   @Bean
+  ReadingRecorder readingRecorder(
+      NetworkPort network, ReadingPort readings, CatalogPort catalogs, Clock clock) {
+    return new ReadingRecorder(network, readings, catalogs, clock);
+  }
+
+  @Bean
   CreateReadingCommandHandler createReadingCommandHandler(
-      NetworkPort network,
-      RuleSetPort ruleSets,
-      ReadingPort readings,
-      CatalogPort catalogs,
-      UnitOfWorkPort unitOfWork,
-      Clock clock) {
-    return new CreateReadingCommandHandler(
-        network, ruleSets, readings, catalogs, unitOfWork, clock);
+      RuleSetPort ruleSets, ReadingRecorder recorder, UnitOfWorkPort unitOfWork) {
+    return new CreateReadingCommandHandler(ruleSets, recorder, unitOfWork);
   }
 
   @Bean
@@ -131,5 +134,14 @@ class OpsServicesConfig {
   ValveCommandHandlers.Update updateValveCommandHandler(
       NetworkPort network, UnitOfWorkPort unitOfWork) {
     return new ValveCommandHandlers.Update(network, unitOfWork);
+  }
+
+  @Bean
+  CreateReadingBatchCommandHandler createReadingBatchCommandHandler(
+      RuleSetPort ruleSets,
+      SyncBatchPort batches,
+      ReadingRecorder recorder,
+      UnitOfWorkPort unitOfWork) {
+    return new CreateReadingBatchCommandHandler(ruleSets, batches, recorder, unitOfWork);
   }
 }

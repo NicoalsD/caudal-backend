@@ -61,9 +61,10 @@ public interface ReadingPort {
    * @param aqueductId the aqueduct
    * @param reading the reading
    * @param recordedBy the account
+   * @param syncBatchId the offline batch it came in, or null
    * @return true if stored, false if the id already existed
    */
-  boolean insert(UUID aqueductId, ReadingView reading, UUID recordedBy);
+  boolean insert(UUID aqueductId, ReadingView reading, UUID recordedBy, UUID syncBatchId);
 
   /**
    * Stores an issue of a reading.
