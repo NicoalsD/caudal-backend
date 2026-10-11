@@ -290,5 +290,11 @@ public final class FieldLimits {
   /** Integer digits of an hour amount ({@code numeric(4,2)}). */
   public static final int HOURS_INTEGER_DIGITS_MAX = 2;
 
+  /** Positions a valve takes when its device loses control. */
+  public static final String FAIL_SAFE_POSITION_PATTERN = "^(KEEP|OPEN|CLOSED)$";
+
+  /** A single line of text: no line breaks. */
+  public static final String SINGLE_LINE_PATTERN = "^[^\\r\\n]*$";
+
   private FieldLimits() {}
 }

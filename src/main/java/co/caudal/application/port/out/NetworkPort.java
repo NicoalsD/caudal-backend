@@ -94,4 +94,39 @@ public interface NetworkPort {
    * @return the sector
    */
   SectorView updateSector(UUID sectorId, String name, int householdsCount, boolean active);
+
+  /**
+   * Finds a valve of a sector of the aqueduct of the session.
+   *
+   * @param valveId the valve
+   * @return the valve, or empty
+   */
+  Optional<ValveView> valve(UUID valveId);
+
+  /**
+   * Adds a valve unless its code is taken in the sector.
+   *
+   * @param sectorId the sector
+   * @param code the code
+   * @param name the name
+   * @param locationHint where to find it, or null
+   * @param motorized whether a device can move it
+   * @param failSafePosition position when control is lost
+   * @return the valve, or empty if the code already exists in the sector
+   */
+  Optional<ValveView> insertValve(
+      UUID sectorId,
+      String code,
+      String name,
+      String locationHint,
+      boolean motorized,
+      String failSafePosition);
+
+  /**
+   * Saves the changes of a valve.
+   *
+   * @param valve the valve with its new values
+   * @return the valve
+   */
+  ValveView updateValve(ValveView valve);
 }

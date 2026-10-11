@@ -1,6 +1,7 @@
 package co.caudal.api.controller;
 
 import co.caudal.api.dto.request.CreateSectorRequest;
+import co.caudal.api.dto.request.CreateValveRequest;
 import co.caudal.api.dto.request.UpdateSectorRequest;
 import co.caudal.api.dto.response.ListResponse;
 import co.caudal.api.dto.response.SectorResponse;
@@ -9,9 +10,11 @@ import co.caudal.api.mapper.NetworkMapper;
 import co.caudal.api.security.CallerFactory;
 import co.caudal.application.command.CommandBus;
 import co.caudal.application.network.CreateSectorCommand;
+import co.caudal.application.network.CreateValveCommand;
 import co.caudal.application.network.ListNetworkUseCase;
 import co.caudal.application.network.SectorView;
 import co.caudal.application.network.UpdateSectorCommand;
+import co.caudal.application.network.ValveView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -140,5 +143,38 @@ public class SectorController {
             .map(NetworkMapper::toResponse)
             .toList();
     return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(new ListResponse<>(items));
+  }
+
+  @Operation(
+      summary = "Crear una válvula en un sector",
+      description =
+          "Agrega una válvula al sector indicado. El código es único en el sector. Requiere el"
+              + " permiso NETWORK_MANAGE.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "201", description = "Válvula creada")
+  @ApiResponse(responseCode = "400", description = "VALIDATION_ERROR: algún campo no es válido")
+  @ApiResponse(responseCode = "403", description = "FORBIDDEN: falta el permiso NETWORK_MANAGE")
+  @ApiResponse(responseCode = "404", description = "NOT_FOUND: el sector no existe")
+  @ApiResponse(responseCode = "409", description = "CONFLICT: el código ya existe en el sector")
+  @PostMapping("/{id}/valves")
+  @PreAuthorize("hasAuthority('NETWORK_MANAGE')")
+  public ResponseEntity<ValveResponse> createValve(
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID id,
+      @Valid @RequestBody CreateValveRequest request,
+      HttpServletRequest http) {
+    ValveView valve =
+        commands.dispatch(
+            new CreateValveCommand(
+                CallerFactory.from(jwt, http),
+                id,
+                request.code(),
+                request.name(),
+                request.locationHint(),
+                request.isMotorized(),
+                request.failSafePosition()));
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .cacheControl(CacheControl.noStore())
+        .body(NetworkMapper.toResponse(valve));
   }
 }

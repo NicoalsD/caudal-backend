@@ -87,4 +87,64 @@ class NetworkAdministrationIT extends SessionIT {
             "{\"code\":\"OPER\",\"name\":\"Operador\"}")
         .andExpect(status().isForbidden());
   }
+
+  @Test
+  void addsAndChangesAValveOfASector() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    Session session = login(account("net.valves", "BOARD_ADMIN", aqueduct));
+    UUID sector =
+        owner.queryForObject(
+            "SELECT id FROM org.sectors WHERE aqueduct_id = ? AND code = 'ALTO'",
+            UUID.class,
+            aqueduct);
+
+    String valve =
+        idOf(
+            send(
+                    session,
+                    post("/api/v1/sectors/" + sector + "/valves"),
+                    "{\"code\":\"V-NUEVA\",\"name\":\"Válvula nueva\",\"location_hint\":"
+                        + "\"Junto al puente\",\"is_motorized\":true}")
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.fail_safe_position").value("KEEP"))
+                .andExpect(jsonPath("$.is_motorized").value(true)));
+    send(
+            session,
+            patch("/api/v1/valves/" + valve),
+            "{\"fail_safe_position\":\"CLOSED\",\"location_hint\":\"\",\"is_active\":false}")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.code").value("V-NUEVA"))
+        .andExpect(jsonPath("$.fail_safe_position").value("CLOSED"))
+        .andExpect(jsonPath("$.location_hint").doesNotExist())
+        .andExpect(jsonPath("$.is_active").value(false));
+    send(
+            session,
+            post("/api/v1/sectors/" + sector + "/valves"),
+            "{\"code\":\"V-ALTO\",\"name\":\"Repetida\"}")
+        .andExpect(status().isConflict());
+  }
+
+  @Test
+  void aValveOfAnotherAqueductIsInvisible() throws Exception {
+    Session session = login(account("net.valves.iso", "BOARD_ADMIN", newAqueductWithRules()));
+    UUID other = newAqueductWithRules();
+    UUID foreignSector =
+        owner.queryForObject(
+            "SELECT id FROM org.sectors WHERE aqueduct_id = ? AND code = 'ALTO'",
+            UUID.class,
+            other);
+    UUID foreignValve =
+        owner.queryForObject(
+            "SELECT id FROM org.valves WHERE sector_id = ?", UUID.class, foreignSector);
+
+    send(session, patch("/api/v1/valves/" + foreignValve), "{\"is_active\":false}")
+        .andExpect(status().isNotFound());
+    send(
+            session,
+            post("/api/v1/sectors/" + foreignSector + "/valves"),
+            "{\"code\":\"X\",\"name\":\"Ajena\"}")
+        .andExpect(status().isNotFound());
+    send(session, patch("/api/v1/valves/" + foreignValve), "{\"fail_safe_position\":\"MAYBE\"}")
+        .andExpect(status().isBadRequest());
+  }
 }

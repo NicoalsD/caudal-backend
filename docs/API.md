@@ -477,7 +477,7 @@ La red (tanques, sectores y válvulas) la gestiona `BOARD_ADMIN` (`NETWORK_MANAG
 
 ### 5.7 `POST /api/v1/sectors/{id}/valves`
 
-- **Permiso:** `BOARD_ADMIN`.
+- **Permiso:** `NETWORK_MANAGE` (`BOARD_ADMIN`).
 - **Cuerpo:**
 
 | Campo | Tipo | Oblig. | Límites |
@@ -489,13 +489,14 @@ La red (tanques, sectores y válvulas) la gestiona `BOARD_ADMIN` (`NETWORK_MANAG
 | `fail_safe_position` | texto | No | `KEEP`, `OPEN` o `CLOSED`. Por defecto `KEEP`. |
 
 - **Respuesta 201:** válvula creada.
-- **Errores:** `409 CONFLICT` (código repetido en el sector).
+- **Errores:** `404 NOT_FOUND` (el sector no existe o es de otro acueducto), `409 CONFLICT` (código repetido en el sector).
 
 ### 5.8 `PATCH /api/v1/valves/{id}`
 
-- **Permiso:** `BOARD_ADMIN`.
-- **Cuerpo (todos opcionales):** `name`, `location_hint`, `is_motorized`, `fail_safe_position`, `is_active`. El `code` no cambia.
+- **Permiso:** `NETWORK_MANAGE` (`BOARD_ADMIN`).
+- **Cuerpo (todos opcionales):** `name`, `location_hint` (vacío la borra), `is_motorized`, `fail_safe_position`, `is_active`. El `code` no cambia.
 - **Respuesta 200:** válvula actualizada.
+- **Errores:** `404 NOT_FOUND` (no existe o es de un sector de otro acueducto).
 
 ## 6. Reglas de la Junta (`/rule-sets`)
 

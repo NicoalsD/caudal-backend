@@ -5,6 +5,7 @@ import co.caudal.application.event.DomainEventPublisher;
 import co.caudal.application.network.CreateTankCommandHandler;
 import co.caudal.application.network.ListNetworkUseCase;
 import co.caudal.application.network.SectorCommandHandlers;
+import co.caudal.application.network.ValveCommandHandlers;
 import co.caudal.application.pagination.SignedCursorCodec;
 import co.caudal.application.port.out.CatalogPort;
 import co.caudal.application.port.out.NetworkPort;
@@ -118,5 +119,17 @@ class OpsServicesConfig {
   SectorCommandHandlers.Update updateSectorCommandHandler(
       NetworkPort network, UnitOfWorkPort unitOfWork) {
     return new SectorCommandHandlers.Update(network, unitOfWork);
+  }
+
+  @Bean
+  ValveCommandHandlers.Create createValveCommandHandler(
+      NetworkPort network, UnitOfWorkPort unitOfWork) {
+    return new ValveCommandHandlers.Create(network, unitOfWork);
+  }
+
+  @Bean
+  ValveCommandHandlers.Update updateValveCommandHandler(
+      NetworkPort network, UnitOfWorkPort unitOfWork) {
+    return new ValveCommandHandlers.Update(network, unitOfWork);
   }
 }
