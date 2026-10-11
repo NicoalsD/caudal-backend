@@ -1,5 +1,6 @@
 package co.caudal.infrastructure.config;
 
+import co.caudal.application.pagination.SignedCursorCodec;
 import co.caudal.application.port.out.AqueductPort;
 import co.caudal.application.port.out.ForecastRunPort;
 import co.caudal.application.port.out.NetworkPort;
@@ -9,6 +10,7 @@ import co.caudal.application.port.out.RuleSetPort;
 import co.caudal.application.port.out.ScheduleHistoryPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.schedule.GenerateProposalCommandHandler;
+import co.caudal.application.schedule.ListProposalsUseCase;
 import java.time.Clock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -36,5 +38,11 @@ class ScheduleServicesConfig {
       UnitOfWorkPort unitOfWork,
       Clock clock) {
     return new GenerateProposalCommandHandler(data, proposals, unitOfWork, clock);
+  }
+
+  @Bean
+  ListProposalsUseCase listProposalsUseCase(
+      ProposalPort proposals, SignedCursorCodec cursors, UnitOfWorkPort unitOfWork) {
+    return new ListProposalsUseCase(proposals, cursors, unitOfWork);
   }
 }

@@ -1,8 +1,10 @@
 package co.caudal.application.port.out;
 
 import co.caudal.application.schedule.ProposalDetail;
+import co.caudal.application.schedule.ProposalSummary;
 import co.caudal.domain.schedule.ScheduleProposal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -35,4 +37,16 @@ public interface ProposalPort {
    * @return the proposal, or empty
    */
   Optional<ProposalDetail> find(UUID id, LocalDate today);
+
+  /**
+   * Reads a page of proposals, the newest first.
+   *
+   * @param from first day of service, or null
+   * @param to last day of service, or null
+   * @param status only this status, or null
+   * @param beforeId only proposals older than this one, or null
+   * @param limit maximum rows
+   * @return the proposals without their shifts
+   */
+  List<ProposalSummary> list(LocalDate from, LocalDate to, String status, UUID beforeId, int limit);
 }

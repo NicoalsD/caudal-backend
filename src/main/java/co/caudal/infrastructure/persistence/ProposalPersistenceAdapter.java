@@ -145,6 +145,25 @@ public class ProposalPersistenceAdapter implements ProposalPort {
                         .single()));
   }
 
+  @Override
+  public List<ProposalSummary> list(
+      LocalDate from, LocalDate to, String status, UUID beforeId, int limit) {
+    return jdbc.sql(
+            SUMMARY_COLUMNS
+                + " WHERE (CAST(:from AS date) IS NULL OR service_date >= :from)"
+                + " AND (CAST(:to AS date) IS NULL OR service_date <= :to)"
+                + " AND (CAST(:status AS varchar) IS NULL OR status = :status)"
+                + " AND (CAST(:before AS uuid) IS NULL OR id < :before)"
+                + " ORDER BY id DESC LIMIT :limit")
+        .param("from", from, Types.DATE)
+        .param("to", to, Types.DATE)
+        .param("status", status, Types.VARCHAR)
+        .param("before", beforeId, Types.OTHER)
+        .param("limit", limit)
+        .query(ProposalPersistenceAdapter::summary)
+        .list();
+  }
+
   static ProposalSummary summary(ResultSet rs, int row) throws SQLException {
     return new ProposalSummary(
         rs.getObject("id", UUID.class),

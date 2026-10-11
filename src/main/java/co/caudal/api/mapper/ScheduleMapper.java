@@ -1,6 +1,7 @@
 package co.caudal.api.mapper;
 
 import co.caudal.api.dto.response.ProposalResponse;
+import co.caudal.api.dto.response.ProposalSummaryResponse;
 import co.caudal.application.schedule.ProposalDetail;
 import co.caudal.application.schedule.ProposalSummary;
 
@@ -53,5 +54,26 @@ public final class ScheduleMapper {
                         d.decision(), d.reason(), d.decidedBy(), d.decidedAt()))
             .toList(),
         detail.snapshotTaken());
+  }
+
+  /**
+   * Maps a proposal without its shifts.
+   *
+   * @param s the proposal
+   * @return the response
+   */
+  public static ProposalSummaryResponse toResponse(ProposalSummary s) {
+    return new ProposalSummaryResponse(
+        s.id(),
+        s.serviceDate(),
+        s.status(),
+        s.ruleSetId(),
+        s.tankLevelSnapshot(),
+        s.tankBand(),
+        s.availableHours(),
+        s.forecastRunId(),
+        s.strategyCode(),
+        s.generatedAt(),
+        s.lockVersion());
   }
 }

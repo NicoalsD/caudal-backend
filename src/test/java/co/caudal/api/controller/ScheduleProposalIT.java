@@ -1,10 +1,12 @@
 package co.caudal.api.controller;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import co.caudal.support.SessionIT;
+import com.jayway.jsonpath.JsonPath;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -157,5 +159,56 @@ class ScheduleProposalIT extends SessionIT {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"service_date\":\"mañana\"}"))
         .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void theBoardListsProposalsByDayAndStatusPageByPage() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    reading(aqueduct, "2.10");
+    Session member = login(account("proposal.list", "BOARD_MEMBER", aqueduct));
+    Session operator = login(account("proposal.list.op", "OPERATOR", aqueduct));
+    generate(member, TOMORROW).andExpect(status().isCreated());
+    generate(member, TOMORROW.plusDays(1)).andExpect(status().isCreated());
+    generate(
+        login(account("proposal.list.other", "BOARD_MEMBER", newAqueductWithRules())), TOMORROW);
+
+    String first =
+        mvc.perform(
+                get("/api/v1/schedule-proposals?limit=1").header("Authorization", member.bearer()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items.length()").value(1))
+            .andExpect(jsonPath("$.items[0].service_date").value(TOMORROW.plusDays(1).toString()))
+            .andExpect(jsonPath("$.items[0].items").doesNotExist())
+            .andExpect(jsonPath("$.next_cursor").isNotEmpty())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    String cursor = JsonPath.read(first, "$.next_cursor");
+    mvc.perform(
+            get("/api/v1/schedule-proposals?limit=1&cursor=" + cursor)
+                .header("Authorization", member.bearer()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items[0].service_date").value(TOMORROW.toString()))
+        .andExpect(jsonPath("$.next_cursor").doesNotExist());
+    mvc.perform(
+            get("/api/v1/schedule-proposals?status=PENDING_REVIEW&service_date_from="
+                    + TOMORROW
+                    + "&service_date_to="
+                    + TOMORROW)
+                .header("Authorization", member.bearer()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items.length()").value(1));
+    mvc.perform(
+            get("/api/v1/schedule-proposals?status=DRAFT").header("Authorization", member.bearer()))
+        .andExpect(status().isBadRequest());
+    mvc.perform(
+            get("/api/v1/schedule-proposals?service_date_from="
+                    + TOMORROW
+                    + "&service_date_to="
+                    + TOMORROW.minusDays(1))
+                .header("Authorization", member.bearer()))
+        .andExpect(status().isBadRequest());
+    mvc.perform(get("/api/v1/schedule-proposals").header("Authorization", operator.bearer()))
+        .andExpect(status().isForbidden());
   }
 }
