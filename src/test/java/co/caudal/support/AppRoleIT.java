@@ -89,6 +89,22 @@ public abstract class AppRoleIT {
         slug);
   }
 
+  /** The demo aqueduct of the seed, which has an active rule set. */
+  protected UUID demoAqueduct() {
+    return owner.queryForObject(
+        "SELECT id FROM org.aqueducts WHERE slug = 'vereda-demo'", UUID.class);
+  }
+
+  /** Creates a tank with a gauge from 0.00 to 5.00 in an aqueduct. Returns its id. */
+  protected UUID newTank(UUID aqueduct) {
+    return owner.queryForObject(
+        "INSERT INTO org.tanks (aqueduct_id, name, gauge_min, gauge_max, gauge_step,"
+            + " capacity_liters) VALUES (?, ?, 0.00, 5.00, 0.05, 20000) RETURNING id",
+        UUID.class,
+        aqueduct,
+        "Tanque " + UUID.randomUUID().toString().substring(0, 8));
+  }
+
   /** Grants a role to an account in an aqueduct, valid from the given instant. */
   protected UUID newMembership(
       UUID user, UUID aqueduct, String role, Instant validFrom, Instant validTo) {
