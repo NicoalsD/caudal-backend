@@ -110,4 +110,27 @@ class ReadingCreationIT extends SessionIT {
         .andExpect(jsonPath("$.issues[0].code").value("SUDDEN_JUMP"))
         .andExpect(jsonPath("$.issues[0].severity").value("WARNING"));
   }
+
+  @Test
+  void theSameIdAndContentIsARetryAndOtherContentIsAConflict() throws Exception {
+    UUID tank = newTank(demoAqueduct());
+    Session session = login(account("create.retry", "OPERATOR", demoAqueduct()));
+    UUID id = UUID.randomUUID();
+    Instant at = NOW.minus(30, ChronoUnit.MINUTES);
+
+    record(session, id, tank, "2.10", at)
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.idempotent_replay").value(false));
+    record(session, id, tank, "2.1", at)
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.idempotent_replay").value(true))
+        .andExpect(jsonPath("$.reading.id").value(id.toString()));
+    record(session, id, tank, "2.20", at)
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error.code").value("DUPLICATE_READING"));
+    org.assertj.core.api.Assertions.assertThat(
+            owner.queryForObject(
+                "SELECT count(*) FROM ops.readings WHERE id = ?", Integer.class, id))
+        .isEqualTo(1);
+  }
 }

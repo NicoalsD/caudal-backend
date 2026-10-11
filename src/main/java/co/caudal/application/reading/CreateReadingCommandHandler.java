@@ -8,6 +8,7 @@ import co.caudal.application.port.out.ReadingPort;
 import co.caudal.application.port.out.RuleSetPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.rules.RuleSetView;
+import co.caudal.domain.reading.ReadingContent;
 import co.caudal.domain.reading.validation.ReadingCandidate;
 import co.caudal.domain.reading.validation.ReadingCandidate.ReadingLimits;
 import co.caudal.domain.reading.validation.ReadingHistory;
@@ -158,18 +159,28 @@ public class CreateReadingCommandHandler
         false);
   }
 
+  /**
+   * The same client id again: the same content is a retry that returns the stored reading, other
+   * content is a conflict.
+   */
   private RecordedReading replay(ReadingView existing, CreateReadingCommand command, String note) {
-    boolean same =
-        existing.tankId().equals(command.tankId())
-            && existing.gaugeValue().compareTo(command.gaugeValue()) == 0
-            && existing.waterAppearanceCode().equals(command.waterAppearanceCode())
-            && existing.damageNoticed() == command.damageNoticed()
-            && java.util.Objects.equals(existing.note(), note)
-            && command.observedAt() != null
-            && existing
-                .observedAt()
-                .equals(command.observedAt().truncatedTo(java.time.temporal.ChronoUnit.MICROS));
-    if (!same) {
+    ReadingContent stored =
+        new ReadingContent(
+            existing.tankId(),
+            existing.gaugeValue(),
+            existing.waterAppearanceCode(),
+            existing.damageNoticed(),
+            existing.note(),
+            existing.observedAt());
+    ReadingContent incoming =
+        new ReadingContent(
+            command.tankId(),
+            command.gaugeValue(),
+            command.waterAppearanceCode(),
+            command.damageNoticed(),
+            note,
+            command.observedAt());
+    if (!stored.sameAs(incoming)) {
       throw new DomainException(ErrorCode.DUPLICATE_READING);
     }
     return new RecordedReading(existing, readings.issues(existing.id()), true);
