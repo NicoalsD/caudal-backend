@@ -679,11 +679,11 @@ Las anomalías son sospechas (`INFERRED`) hasta que alguien las confirme.
 
 - **Permiso:** `STATUS_VIEW`.
 - **Parámetros:** `status` (`OPEN`, `CONFIRMED`, `DISMISSED`), `kind` (`POSSIBLE_LEAK`, `SENSOR_FAULT`, `STALE_DATA`, `SUSPECTED_DUPLICATE`, `ABNORMAL_DROP`), `limit`, `cursor`.
-- **Respuesta:** lista de `id`, `kind`, `detected_at`, `status`, `evidence`, `resolved_by`, `resolved_at`, `related_incident_id`.
+- **Respuesta:** `items`, de la más nueva a la más antigua, con `id`, `kind`, `detected_at`, `status`, `evidence`, `resolved_by`, `resolved_at`, `resolution_note`, `related_incident_id`, y `next_cursor`.
 
 ### 9.2 `PATCH /api/v1/anomalies/{id}`
 
-- **Permiso:** `BOARD_ADMIN` o `BOARD_MEMBER` (verificar).
+- **Permiso:** `ANOMALY_REVIEW` (`BOARD_ADMIN` y `BOARD_MEMBER`).
 - **Cuerpo:** `status` (`CONFIRMED` o `DISMISSED`), `resolution_note` (texto, 0 a 500; obligatorio con 10 a 500 caracteres si es `DISMISSED`), `related_incident_id` (UUID, opcional).
 - **Respuesta 200:** anomalía actualizada.
 - **Errores:** `409 INVALID_STATE_TRANSITION` (no está `OPEN`), `422 REASON_REQUIRED` (descarte sin motivo).

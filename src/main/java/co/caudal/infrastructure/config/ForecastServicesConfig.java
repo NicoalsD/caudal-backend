@@ -1,10 +1,13 @@
 package co.caudal.infrastructure.config;
 
+import co.caudal.application.anomaly.ListAnomaliesUseCase;
+import co.caudal.application.anomaly.ReviewAnomalyCommandHandler;
 import co.caudal.application.facade.TankStatusFacade;
 import co.caudal.application.forecast.ForecastRunner;
 import co.caudal.application.forecast.Forecaster;
 import co.caudal.application.forecast.GetLatestForecastUseCase;
 import co.caudal.application.forecast.RequestForecastUseCase;
+import co.caudal.application.pagination.SignedCursorCodec;
 import co.caudal.application.port.out.AnomalyPort;
 import co.caudal.application.port.out.AqueductPort;
 import co.caudal.application.port.out.ForecastRunPort;
@@ -75,5 +78,17 @@ class ForecastServicesConfig {
       ForecastRunner runner, RateLimiterPort rateLimiter, RateLimitProperties rates) {
     return new RequestForecastUseCase(
         runner, rateLimiter, new RateLimit(rates.forecastPerHour(), Duration.ofHours(1)));
+  }
+
+  @Bean
+  ListAnomaliesUseCase listAnomaliesUseCase(
+      AnomalyPort anomalies, SignedCursorCodec cursors, UnitOfWorkPort unitOfWork) {
+    return new ListAnomaliesUseCase(anomalies, cursors, unitOfWork);
+  }
+
+  @Bean
+  ReviewAnomalyCommandHandler reviewAnomalyCommandHandler(
+      AnomalyPort anomalies, UnitOfWorkPort unitOfWork, Clock clock) {
+    return new ReviewAnomalyCommandHandler(anomalies, unitOfWork, clock);
   }
 }

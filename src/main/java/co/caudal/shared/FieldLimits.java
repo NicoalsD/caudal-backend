@@ -311,5 +311,15 @@ public final class FieldLimits {
   /** Days of daily levels used to compute the trend of a tank (docs/Reglas-de-negocio.md, 10.2). */
   public static final int TREND_WINDOW_DAYS = 3;
 
+  /** Status of an anomaly. */
+  public static final String ANOMALY_STATUS_PATTERN = "^(OPEN|CONFIRMED|DISMISSED)$";
+
+  /** Statuses a person may set on an anomaly. */
+  public static final String ANOMALY_RESOLUTION_PATTERN = "^(CONFIRMED|DISMISSED)$";
+
+  /** Kinds of anomaly. */
+  public static final String ANOMALY_KIND_PATTERN =
+      "^(POSSIBLE_LEAK|SENSOR_FAULT|STALE_DATA|SUSPECTED_DUPLICATE|ABNORMAL_DROP)$";
+
   private FieldLimits() {}
 }
