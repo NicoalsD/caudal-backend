@@ -28,7 +28,9 @@ class IaForecastClientAdapterTest {
   static final ZoneId BOGOTA = ZoneId.of("America/Bogota");
   static final Instant LAST = Instant.parse("2026-10-08T23:00:00Z");
 
+  private static final long READ_MS = 300;
   private HttpServer server;
+  private long delayMs;
   private final AtomicReference<String> received = new AtomicReference<>();
   private final AtomicReference<String> authorization = new AtomicReference<>();
 
@@ -47,6 +49,11 @@ class IaForecastClientAdapterTest {
     server.createContext(
         "/v1/forecasts",
         exchange -> {
+          try {
+            Thread.sleep(delayMs);
+          } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+          }
           received.set(
               new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
           authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
@@ -59,7 +66,8 @@ class IaForecastClientAdapterTest {
     server.start();
     return new IaForecastClientAdapter(
         HttpClient.newHttpClient(),
-        new IaProperties("http://127.0.0.1:" + server.getAddress().getPort(), "service-token"),
+        new IaProperties(
+            "http://127.0.0.1:" + server.getAddress().getPort(), "service-token", 2000, READ_MS),
         JsonMapper.builder().build());
   }
 
@@ -154,11 +162,13 @@ class IaForecastClientAdapterTest {
   void withoutServiceOrWithANetworkErrorItFails() {
     IaForecastClientAdapter none =
         new IaForecastClientAdapter(
-            HttpClient.newHttpClient(), new IaProperties(null, null), JsonMapper.builder().build());
+            HttpClient.newHttpClient(),
+            new IaProperties(null, null, 2000, 10000),
+            JsonMapper.builder().build());
     IaForecastClientAdapter refused =
         new IaForecastClientAdapter(
             HttpClient.newHttpClient(),
-            new IaProperties("http://127.0.0.1:1", "token"),
+            new IaProperties("http://127.0.0.1:1", "token", 2000, 10000),
             JsonMapper.builder().build());
 
     assertThat(((ForecastCallResult.Failure) none.forecast(series(1))).failure().countsForCircuit())
@@ -166,6 +176,25 @@ class IaForecastClientAdapterTest {
     assertThat(((ForecastCallResult.Failure) refused.forecast(series(1))).failure())
         .extracting(ForecastFailure::reason, ForecastFailure::countsForCircuit)
         .containsExactly("IA_ERROR", true);
-    assertThat(new IaProperties("u", "secret").toString()).doesNotContain("secret");
+    assertThat(new IaProperties("u", "secret", 1, 1).toString()).doesNotContain("secret");
+  }
+
+  @Test
+  void aSlowServiceIsATimeoutThatCounts() throws IOException {
+    delayMs = READ_MS * 3;
+
+    ForecastFailure failure =
+        ((ForecastCallResult.Failure)
+                adapter(200, answer("2026-10-09", "1.80", "2.10", "2.40")).forecast(series(1)))
+            .failure();
+
+    assertThat(failure.reason()).isEqualTo("IA_TIMEOUT");
+    assertThat(failure.countsForCircuit()).isTrue();
+  }
+
+  @Test
+  void timeoutsMustBePositive() {
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> new IaProperties("u", "t", 0, 1))
+        .isInstanceOf(IllegalArgumentException.class);
   }
 }

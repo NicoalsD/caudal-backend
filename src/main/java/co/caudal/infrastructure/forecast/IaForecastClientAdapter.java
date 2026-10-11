@@ -14,6 +14,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -30,8 +31,10 @@ import tools.jackson.databind.json.JsonMapper;
 /**
  * Speaks the contract of {@code caudal-ia} (docs/Contrato-IA.md, section 3): it turns a series of
  * effective levels into {@code POST /v1/forecasts}, checks every rule of the answer again and maps
- * each error to a {@link ForecastFailure} as section 3.4 says. A 422 about the data does not count
- * for the circuit breaker; timeouts, network errors, 5xx, 401 and invalid answers do.
+ * each error to a {@link ForecastFailure} as section 3.4 says. It waits at most the connect and
+ * read timeouts (2 s and 10 s by default, section 4.1) and never retries in the same request. A 422
+ * about the data does not count for the circuit breaker; timeouts, network errors, 5xx, 401 and
+ * invalid answers do.
  *
  * @pattern P06 Adapter
  */
@@ -73,6 +76,8 @@ public class IaForecastClientAdapter implements ForecastServicePort {
     HttpResponse<String> response;
     try {
       response = http.send(request(series), HttpResponse.BodyHandlers.ofString());
+    } catch (HttpTimeoutException slow) {
+      return failure(ForecastFailure.IA_TIMEOUT, true, slow.getClass().getSimpleName());
     } catch (IOException network) {
       return failure(ForecastFailure.IA_ERROR, true, network.getClass().getSimpleName());
     } catch (InterruptedException interrupted) {
@@ -98,6 +103,7 @@ public class IaForecastClientAdapter implements ForecastServicePort {
         .header("Authorization", "Bearer " + properties.serviceToken())
         .header("Content-Type", "application/json")
         .header("Accept", "application/json")
+        .timeout(properties.readTimeout())
         .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body)))
         .build();
   }

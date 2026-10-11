@@ -13,6 +13,10 @@ spring:
     password: test
 
 caudal:
+  ia:
+    service-url: ""
+    connect-timeout-ms: 500
+    read-timeout-ms: 2000
   security:
     # Obvious test-only values; never used outside the test profile.
     jwt:

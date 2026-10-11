@@ -14,6 +14,11 @@ class ForecastConfig {
 
   @Bean
   ForecastServicePort forecastService(IaProperties properties, JsonMapper json) {
-    return new IaForecastClientAdapter(HttpClient.newHttpClient(), properties, json);
+    HttpClient http =
+        HttpClient.newBuilder()
+            .connectTimeout(properties.connectTimeout())
+            .followRedirects(HttpClient.Redirect.NEVER)
+            .build();
+    return new IaForecastClientAdapter(http, properties, json);
   }
 }

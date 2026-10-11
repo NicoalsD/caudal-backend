@@ -59,6 +59,8 @@ caudal:
   ia:
     service-url: ${IA_SERVICE_URL:}
     service-token: ${IA_SERVICE_TOKEN:}
+    connect-timeout-ms: ${IA_CONNECT_TIMEOUT_MS:2000}
+    read-timeout-ms: ${IA_READ_TIMEOUT_MS:10000}
   security:
     # Access token (JWT HS256). Secret, issuer and audience have no default: without them the
     # application does not start.
