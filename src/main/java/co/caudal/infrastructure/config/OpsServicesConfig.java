@@ -12,6 +12,7 @@ import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.reading.CreateReadingCommandHandler;
 import co.caudal.application.reading.ListReadingsUseCase;
 import co.caudal.application.reading.ReadingCursor;
+import co.caudal.application.rules.ActivateRuleSetCommandHandler;
 import co.caudal.application.rules.CreateRuleSetDraftCommandHandler;
 import co.caudal.application.rules.GetCurrentRuleSetUseCase;
 import co.caudal.application.rules.GetRuleSetUseCase;
@@ -93,5 +94,11 @@ class OpsServicesConfig {
   UpdateRuleSetDraftCommandHandler updateRuleSetDraftCommandHandler(
       RuleSetPort ruleSets, UnitOfWorkPort unitOfWork) {
     return new UpdateRuleSetDraftCommandHandler(ruleSets, unitOfWork);
+  }
+
+  @Bean
+  ActivateRuleSetCommandHandler activateRuleSetCommandHandler(
+      RuleSetPort ruleSets, NetworkPort network, UnitOfWorkPort unitOfWork, Clock clock) {
+    return new ActivateRuleSetCommandHandler(ruleSets, network, unitOfWork, clock);
   }
 }

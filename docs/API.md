@@ -551,7 +551,8 @@ Las reglas se leen en la app offline para validar lecturas, así que `GET /rule-
 - **Permiso:** `RULESET_ACTIVATE` (solo `BOARD_ADMIN`).
 - **Cuerpo:** `change_reason` (texto, 10 a 500, obligatorio, `FieldLimits.REASON`). Ver `Reglas-de-negocio.md`, sección 7.
 - **Respuesta 200:** versión `ACTIVE` con `valid_from`. La versión anterior queda `SUPERSEDED`.
-- **Errores:** `422 RULE_SET_INVALID` (validación de bandas, cobertura y rangos), `422 REASON_REQUIRED`, `409 INVALID_STATE_TRANSITION` (no es `DRAFT`).
+- **Errores:** `422 RULE_SET_INVALID` con `details.violations` (lista de `code`: `NO_BANDS`, `BAND_EMPTY`, `BAND_OVERLAP`, `BAND_GAP` con `tank_id` y `gaps` `from`/`to`, `BAND_HOURS_OUT_OF_RANGE`, `SHIFT_LENGTH_INVALID`, `DAILY_HOURS_OUT_OF_RANGE`, `VALVE_ORDER_MISSING` con `valve_ids`), `422 REASON_REQUIRED` (falta el motivo o no tiene 10 a 500 caracteres después de recortar), `409 INVALID_STATE_TRANSITION` (no es `DRAFT`), `404 NOT_FOUND`.
+- **Transacción:** valida, marca la versión vigente `SUPERSEDED` con `valid_to` igual al `valid_from` de la nueva y pone el borrador en `ACTIVE` con `activated_by`, `activated_at` y `change_reason`. Si algo falla no cambia nada.
 - **Ejemplo:** `{ "change_reason": "Se activa la reserva de 1,20 aprobada en la reunión de octubre." }`
 
 ## 7. Lecturas del tanque (`/readings`)

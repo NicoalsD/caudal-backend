@@ -15,6 +15,7 @@ import co.caudal.shared.error.ErrorCode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.time.Instant;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
@@ -189,6 +190,29 @@ public class RuleSetPersistenceAdapter implements RuleSetPort {
           insertChildren(ruleSetId, rules);
           return null;
         });
+  }
+
+  @Override
+  public void supersede(UUID ruleSetId, Instant validTo) {
+    jdbc.sql(
+            "UPDATE org.rule_sets SET status = 'SUPERSEDED', valid_to = :validTo"
+                + " WHERE id = :id AND status = 'ACTIVE'")
+        .param("validTo", SqlTime.offset(validTo), Types.TIMESTAMP_WITH_TIMEZONE)
+        .param("id", ruleSetId)
+        .update();
+  }
+
+  @Override
+  public void activate(UUID ruleSetId, Instant validFrom, UUID activatedBy, String changeReason) {
+    jdbc.sql(
+            "UPDATE org.rule_sets SET status = 'ACTIVE', valid_from = :validFrom,"
+                + " activated_by = :by, activated_at = :validFrom, change_reason = :reason"
+                + " WHERE id = :id AND status = 'DRAFT'")
+        .param("validFrom", SqlTime.offset(validFrom), Types.TIMESTAMP_WITH_TIMEZONE)
+        .param("by", activatedBy)
+        .param("reason", changeReason)
+        .param("id", ruleSetId)
+        .update();
   }
 
   /** Turns a value the database refuses into {@code RULE_SET_INVALID} with the constraint. */

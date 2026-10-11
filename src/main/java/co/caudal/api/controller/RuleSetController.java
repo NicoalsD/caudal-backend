@@ -1,5 +1,6 @@
 package co.caudal.api.controller;
 
+import co.caudal.api.dto.request.ActivateRuleSetRequest;
 import co.caudal.api.dto.request.CreateRuleSetDraftRequest;
 import co.caudal.api.dto.request.UpdateRuleSetRequest;
 import co.caudal.api.dto.response.PageResponse;
@@ -10,6 +11,7 @@ import co.caudal.api.mapper.RuleSetMapper;
 import co.caudal.api.security.CallerFactory;
 import co.caudal.application.command.CommandBus;
 import co.caudal.application.pagination.Page;
+import co.caudal.application.rules.ActivateRuleSetCommand;
 import co.caudal.application.rules.CreateRuleSetDraftCommand;
 import co.caudal.application.rules.GetCurrentRuleSetUseCase;
 import co.caudal.application.rules.GetRuleSetUseCase;
@@ -125,6 +127,39 @@ public class RuleSetController {
     return ResponseEntity.ok()
         .cacheControl(CacheControl.noStore())
         .body(RuleSetMapper.toResponse(draft));
+  }
+
+  @Operation(
+      summary = "Activar un borrador de reglas",
+      description =
+          "En una sola transacción valida el borrador (bandas sin solapes que cubren toda la regla"
+              + " de cada tanque activo, turnos y horas coherentes, y orden para cada válvula de"
+              + " los sectores incluidos), marca la versión vigente como SUPERSEDED con valid_to"
+              + " ahora y pone el borrador en ACTIVE desde ahora con activated_by y change_reason."
+              + " Requiere el permiso RULESET_ACTIVATE (solo BOARD_ADMIN).")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "200", description = "Versión activa")
+  @ApiResponse(responseCode = "403", description = "FORBIDDEN: falta el permiso RULESET_ACTIVATE")
+  @ApiResponse(responseCode = "404", description = "NOT_FOUND: la versión no existe")
+  @ApiResponse(responseCode = "409", description = "INVALID_STATE_TRANSITION: no es un borrador")
+  @ApiResponse(
+      responseCode = "422",
+      description =
+          "REASON_REQUIRED (falta el motivo o no cumple 10 a 500) o RULE_SET_INVALID (con la"
+              + " lista de problemas en details.violations, por ejemplo BAND_GAP con los huecos)")
+  @PostMapping("/{id}/activate")
+  @PreAuthorize("hasAuthority('RULESET_ACTIVATE')")
+  public ResponseEntity<RuleSetVersionResponse> activate(
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID id,
+      @Valid @RequestBody ActivateRuleSetRequest request,
+      HttpServletRequest http) {
+    RuleSetDetail active =
+        commands.dispatch(
+            new ActivateRuleSetCommand(CallerFactory.from(jwt, http), id, request.changeReason()));
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.noStore())
+        .body(RuleSetMapper.toResponse(active));
   }
 
   @Operation(

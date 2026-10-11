@@ -189,4 +189,76 @@ class RuleSetVersionsIT extends SessionIT {
         .andExpect(status().isUnprocessableContent());
     patchRules(session, UUID.randomUUID(), "{}").andExpect(status().isNotFound());
   }
+
+  private ResultActions activate(Session session, UUID id, String reason) throws Exception {
+    return mvc.perform(
+        post("/api/v1/rule-sets/" + id + "/activate")
+            .header("Authorization", session.bearer())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(reason == null ? "{}" : "{\"change_reason\":\"" + reason + "\"}"));
+  }
+
+  @Test
+  void activatingADraftSupersedesTheActiveVersion() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    Session session = login(account("rules.activate", "BOARD_ADMIN", aqueduct));
+    UUID old =
+        owner.queryForObject(
+            "SELECT id FROM org.rule_sets WHERE aqueduct_id = ?", UUID.class, aqueduct);
+    UUID draft = draftOf(session);
+    patchRules(session, draft, "{\"reserve_level\":1.20}").andExpect(status().isOk());
+
+    activate(session, draft, "Se aprueba la reserva de 1,20 en la reunión.")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("ACTIVE"))
+        .andExpect(
+            jsonPath("$.change_reason").value("Se aprueba la reserva de 1,20 en la reunión."))
+        .andExpect(jsonPath("$.valid_from").isNotEmpty())
+        .andExpect(jsonPath("$.activated_by").value(session.userId().toString()));
+
+    call(session, "/current")
+        .andExpect(jsonPath("$.version").value(2))
+        .andExpect(jsonPath("$.reserve_level").value(1.20));
+    call(session, "/" + old)
+        .andExpect(jsonPath("$.status").value("SUPERSEDED"))
+        .andExpect(jsonPath("$.valid_to").isNotEmpty());
+    activate(session, draft, "Otra vez la misma versión activa.")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error.code").value("INVALID_STATE_TRANSITION"));
+  }
+
+  @Test
+  void aGapOrAMissingReasonKeepsTheDraft() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    Session session = login(account("rules.gap", "BOARD_ADMIN", aqueduct));
+    UUID draft = draftOf(session);
+    patchRules(
+            session,
+            draft,
+            "{\"bands\":[{\"band\":\"CRITICAL\",\"min_level\":0,\"max_level\":1.5,"
+                + "\"daily_service_hours\":3,\"priority_only\":true},{\"band\":\"LOW\","
+                + "\"min_level\":1.5,\"max_level\":3,\"daily_service_hours\":8},{\"band\":"
+                + "\"HIGH\",\"min_level\":3.5,\"max_level\":5,\"daily_service_hours\":16}]}")
+        .andExpect(status().isOk());
+
+    activate(session, draft, null)
+        .andExpect(status().isUnprocessableContent())
+        .andExpect(jsonPath("$.error.code").value("REASON_REQUIRED"));
+    activate(session, draft, "Cambia las bandas de la temporada.")
+        .andExpect(status().isUnprocessableContent())
+        .andExpect(jsonPath("$.error.code").value("RULE_SET_INVALID"))
+        .andExpect(jsonPath("$.error.details.violations[0].code").value("BAND_GAP"))
+        .andExpect(jsonPath("$.error.details.violations[0].gaps[0].from").value("3.00"))
+        .andExpect(jsonPath("$.error.details.violations[0].gaps[0].to").value("3.50"));
+    call(session, "/" + draft).andExpect(jsonPath("$.status").value("DRAFT"));
+  }
+
+  @Test
+  void onlyTheBoardAdministratorActivates() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    Session member = login(account("rules.member.act", "BOARD_MEMBER", aqueduct));
+
+    activate(member, draftOf(member), "Intento de un miembro de la Junta.")
+        .andExpect(status().isForbidden());
+  }
 }

@@ -4,6 +4,7 @@ import co.caudal.application.rules.RuleSetDetail;
 import co.caudal.application.rules.RuleSetSummary;
 import co.caudal.application.rules.RuleSetView;
 import co.caudal.domain.rules.RuleSet;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -92,4 +93,22 @@ public interface RuleSetPort {
    *     refuses them (overlapping bands, a sector or valve of another aqueduct, a repeated order)
    */
   void replaceChildren(UUID ruleSetId, RuleSet rules);
+
+  /**
+   * Marks the active version as replaced.
+   *
+   * @param ruleSetId the active version
+   * @param validTo end of its validity, the start of the new one
+   */
+  void supersede(UUID ruleSetId, Instant validTo);
+
+  /**
+   * Puts a draft in force.
+   *
+   * @param ruleSetId the draft
+   * @param validFrom start of its validity
+   * @param activatedBy who activates it
+   * @param changeReason why
+   */
+  void activate(UUID ruleSetId, Instant validFrom, UUID activatedBy, String changeReason);
 }
