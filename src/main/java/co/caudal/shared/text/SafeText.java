@@ -65,6 +65,30 @@ public final class SafeText {
     return text;
   }
 
+  /**
+   * An optional note that may have a few lines.
+   *
+   * @param field the JSON field, for the error
+   * @param raw what was typed, or null
+   * @param max longest length after trimming
+   * @param maxLines most lines
+   * @return the normalized note, or null when empty
+   * @throws FieldValidationException when it is too long, has too many lines or a forbidden
+   *     character
+   */
+  public static String optionalNote(String field, String raw, int max, int maxLines) {
+    String text = normalize(raw);
+    if (text.isEmpty()) {
+      return null;
+    }
+    check(field, text, true);
+    length(field, text, 0, max);
+    if (text.lines().count() > maxLines) {
+      throw new FieldValidationException(field, "FIELD_TOO_MANY_LINES");
+    }
+    return text;
+  }
+
   private static String normalize(String raw) {
     if (raw == null) {
       return "";
