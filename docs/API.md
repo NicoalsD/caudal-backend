@@ -760,7 +760,7 @@ La propuesta sigue la máquina de estados de `Reglas-de-negocio.md`, sección 12
 
 ### 11.1 `POST /api/v1/schedule-items/{id}/execution`
 
-- **Permiso:** `EXECUTION_RECORD`.
+- **Permiso:** `DAY_CLOSE` (registra ejecuciones y cierres; lo tienen `OPERATOR` y `BOARD_ADMIN`).
 - **Cuerpo:**
 
 | Campo | Tipo | Oblig. | Límites |
@@ -771,13 +771,13 @@ La propuesta sigue la máquina de estados de `Reglas-de-negocio.md`, sección 12
 | `note` | texto | No | 0 a 500, máximo 10 líneas (`NOTE`) |
 | `supersedes_id` | UUID | No | Ejecución anterior que esta reemplaza |
 
-- **Respuesta 201:** ejecución registrada. Una ejecución nunca se edita; un cambio es una fila nueva con `supersedes_id`.
+- **Respuesta 201:** ejecución registrada. Una ejecución nunca se edita; un cambio es una fila nueva con `supersedes_id`. Sin horas, `COMPLETED` usa las del turno y `PARTIAL` toma el fin del turno; `NOT_EXECUTED` no admite horas. Un turno con ejecución vigente solo recibe otra que la reemplace.
 - **Errores:** `400 VALIDATION_ERROR` (`actual_end <= actual_start`), `409 INVALID_STATE_TRANSITION` (propuesta no publicada o día cerrado), `409 CONFLICT` (ya reemplazada).
 - **Ejemplo:** `{ "status": "PARTIAL", "actual_start": "2026-10-09T08:00:00-05:00", "actual_end": "2026-10-09T09:30:00-05:00", "note": "Se cortó el agua a las 09:30 por falla de la bomba." }`
 
 ### 11.2 `GET /api/v1/days/{date}/closure`
 
-- **Permiso:** `EXECUTION_RECORD` o `DAY_CLOSE`.
+- **Permiso:** `DAY_CLOSE`.
 - **Respuesta 200:** cierre (`id`, `service_date`, `notes`, `closed_by`, `closed_at`) y `executions` del día.
 - **Errores:** `404 NOT_FOUND` (día sin cierre).
 
@@ -785,8 +785,8 @@ La propuesta sigue la máquina de estados de `Reglas-de-negocio.md`, sección 12
 
 - **Permiso:** `DAY_CLOSE`.
 - **Cuerpo:** `notes` (texto, 0 a 500, máximo 10 líneas).
-- **Respuesta 201:** cierre creado.
-- **Errores:** `409 INVALID_STATE_TRANSITION` (no hay propuesta `PUBLISHED`), `409 CONFLICT` (día ya cerrado).
+- **Respuesta 201:** cierre creado. La propuesta del día pasa a `CLOSED` y el día ya no recibe ejecuciones.
+- **Errores:** `409 INVALID_STATE_TRANSITION` (no hay propuesta `PUBLISHED`), `409 CONFLICT` (día ya cerrado, también si dos cierres llegan a la vez).
 - **Ejemplo:** `{ "notes": "Día sin novedades mayores. Un turno a medias por la lluvia." }`
 
 ## 12. Incidentes (`/incidents`)
@@ -827,18 +827,18 @@ La propuesta sigue la máquina de estados de `Reglas-de-negocio.md`, sección 12
 - **Permiso:** `MINUTES_GENERATE`.
 - **Cuerpo:** `period_from`, `period_to` (fechas, `period_to >= period_from`).
 - **Respuesta 201:** acta en `DRAFT` con `content` (secciones `observed`, `estimated`, `inferred`, `confirmed`).
-- **Errores:** `400 VALIDATION_ERROR` (periodo invertido).
+- **Errores:** `400 VALIDATION_ERROR` (periodo invertido o de más de 366 días).
 - **Cierre:** el acta se cierra como `FINAL` con `POST /api/v1/minutes/{id}/finalize` (sección 13.7).
 
 ### 13.2 `GET /api/v1/minutes/{id}`
 
-- **Permiso:** `MINUTES_READ`.
+- **Permiso:** `MINUTES_VIEW`.
 - **Respuesta:** acta con `status`, `period_from`, `period_to`, `content`, `generated_by`, `generated_at`, `pdf_sha256` y `audit_head_hash` (si está `FINAL`).
 
 ### 13.3 `GET /api/v1/minutes/{id}/pdf`
 
-- **Permiso:** `MINUTES_READ`.
-- **Respuesta 200:** `application/pdf`. Un acta en `DRAFT` lleva la marca "BORRADOR". Cada descarga escribe en `audit.data_access_log` con `resource = MINUTES_PDF`.
+- **Permiso:** `MINUTES_VIEW`.
+- **Respuesta 200:** `application/pdf`. Un acta en `DRAFT` lleva la marca "BORRADOR". Un acta `FINAL` trae la cabecera `X-Content-SHA256`, igual a `pdf_sha256`: el PDF es determinista y se vuelve a generar idéntico. Cada descarga escribe en `audit.data_access_log` con `resource = MINUTES_PDF`.
 - **Errores:** `404 NOT_FOUND`.
 
 ### 13.4 `POST /api/v1/summary-shares`
