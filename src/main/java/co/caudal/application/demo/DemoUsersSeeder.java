@@ -1,5 +1,6 @@
 package co.caudal.application.demo;
 
+import co.caudal.application.aqueduct.AqueductRef;
 import co.caudal.application.auth.SessionScope;
 import co.caudal.application.port.out.AqueductPort;
 import co.caudal.application.port.out.MembershipAdminPort;
@@ -76,7 +77,7 @@ public class DemoUsersSeeder {
    * @return how many accounts were created
    */
   public int seed(String aqueductSlug, String password) {
-    Optional<AqueductPort.AqueductRef> aqueduct = aqueducts.findBySlug(aqueductSlug);
+    Optional<AqueductRef> aqueduct = aqueducts.findBySlug(aqueductSlug);
     if (aqueduct.isEmpty() || !aqueduct.get().demo()) {
       return 0;
     }

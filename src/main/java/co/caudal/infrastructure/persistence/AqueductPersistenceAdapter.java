@@ -1,5 +1,6 @@
 package co.caudal.infrastructure.persistence;
 
+import co.caudal.application.aqueduct.AqueductRef;
 import co.caudal.application.port.out.AqueductPort;
 import java.util.Optional;
 import java.util.UUID;
