@@ -74,6 +74,7 @@ public class GetPublicScheduleUseCase {
         documents.poster(
             SchedulePoster.of(
                 schedule.aqueductName(),
+                schedule.demo(),
                 schedule.serviceDate(),
                 ZoneId.of(aqueduct.timezone()),
                 schedule.lines()));

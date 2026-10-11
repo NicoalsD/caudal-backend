@@ -22,7 +22,8 @@ class NoticeChannelBridgeTest {
   @Test
   void theScheduleInWhatsAppHasABoldTitleAndDashes() {
     String text =
-        new ScheduleNotice(new WhatsAppChannel(), "Acueducto Demo", DAY, BOGOTA, LINES).publish();
+        new ScheduleNotice(new WhatsAppChannel(), "Acueducto Demo", false, DAY, BOGOTA, LINES)
+            .publish();
 
     assertThat(text)
         .startsWith("*Horario de agua de Acueducto Demo para el lunes 12 de octubre:*")
@@ -34,7 +35,8 @@ class NoticeChannelBridgeTest {
   @Test
   void theSameScheduleInPlainTextHasNoMarks() {
     String text =
-        new ScheduleNotice(new PlainTextChannel(), "Acueducto Demo", DAY, BOGOTA, LINES).publish();
+        new ScheduleNotice(new PlainTextChannel(), "Acueducto Demo", false, DAY, BOGOTA, LINES)
+            .publish();
 
     assertThat(text)
         .startsWith("Horario de agua de Acueducto Demo para el lunes 12 de octubre:\nSector Alto")
@@ -49,5 +51,23 @@ class NoticeChannelBridgeTest {
         .contains("- Código de seguimiento: AB12CD34");
     assertThat(new ReportReceivedNotice(new PlainTextChannel(), "AB12CD34").publish())
         .contains("\nCódigo de seguimiento: AB12CD34\nGuarde el código");
+  }
+
+  @Test
+  void aDemoScheduleCarriesTheMarkInEveryChannel() {
+    assertThat(
+            new ScheduleNotice(new WhatsAppChannel(), "Acueducto Demo", true, DAY, BOGOTA, LINES)
+                .publish())
+        .startsWith("_Datos simulados: este acueducto es de demostración")
+        .contains("_\n\n*Horario de agua");
+    assertThat(
+            new ScheduleNotice(new PlainTextChannel(), "Acueducto Demo", true, DAY, BOGOTA, LINES)
+                .publish())
+        .startsWith("Datos simulados: ");
+    assertThat(SchedulePoster.of("Acueducto Demo", true, DAY, BOGOTA, LINES).banner())
+        .startsWith("Datos simulados");
+    assertThat(SchedulePoster.of("Acueducto Demo", false, DAY, BOGOTA, LINES).banner()).isNull();
+    assertThat(DemoMark.banner(true)).isEqualTo("Datos simulados");
+    assertThat(DemoMark.banner(false)).isNull();
   }
 }

@@ -1,6 +1,7 @@
 package co.caudal.api.controller;
 
 import co.caudal.api.dto.response.PublicScheduleResponse;
+import co.caudal.application.publication.DemoMark;
 import co.caudal.application.publication.GetPublicScheduleUseCase;
 import co.caudal.application.publication.PosterFile;
 import co.caudal.application.publication.PublicSchedule;
@@ -69,7 +70,7 @@ public class PublicScheduleController {
     PublicSchedule found = schedule.execute(aqueductSlug, date);
     return ResponseEntity.ok()
         .cacheControl(CacheControl.maxAge(MAX_AGE).cachePublic())
-        .body(toResponse(found, null));
+        .body(toResponse(found, DemoMark.banner(found.demo())));
   }
 
   @Operation(

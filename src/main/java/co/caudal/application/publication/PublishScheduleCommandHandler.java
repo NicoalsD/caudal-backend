@@ -97,10 +97,13 @@ public class PublishScheduleCommandHandler
           List<ScheduleLine> lines = lines(current);
           LocalDate day = current.summary().serviceDate();
           String text =
-              new ScheduleNotice(new WhatsAppChannel(), aqueduct.name(), day, zone, lines)
+              new ScheduleNotice(
+                      new WhatsAppChannel(), aqueduct.name(), aqueduct.demo(), day, zone, lines)
                   .publish();
           String posterSha =
-              Sha256.hex(documents.poster(SchedulePoster.of(aqueduct.name(), day, zone, lines)));
+              Sha256.hex(
+                  documents.poster(
+                      SchedulePoster.of(aqueduct.name(), aqueduct.demo(), day, zone, lines)));
           if (!proposals.transition(command.proposalId(), command.lockVersion(), next.code())) {
             throw new DomainException(ErrorCode.CONFLICT);
           }

@@ -103,6 +103,8 @@ class PublicationIT extends PublishedScheduleIT {
             .andExpect(jsonPath("$.items.length()").value(2))
             .andExpect(jsonPath("$.items[0].sector_name").value("Sector ALTO"))
             .andExpect(jsonPath("$.items[0].start_at").isNotEmpty())
+            .andExpect(jsonPath("$.aqueduct.is_demo").value(false))
+            .andExpect(jsonPath("$.aqueduct.banner").doesNotExist())
             .andReturn()
             .getResponse()
             .getContentAsString();
@@ -156,5 +158,30 @@ class PublicationIT extends PublishedScheduleIT {
 
     mvc.perform(get("/api/v1/public/" + slugOf(aqueduct) + "/schedule?date=" + TOMORROW))
         .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void aDemoAqueductMarksItsPageMessageAndPoster() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    owner.update("UPDATE org.aqueducts SET is_demo = true WHERE id = ?", aqueduct);
+    reading(aqueduct, "2.10");
+    String body = publishedSchedule(login(account("public.demo", "BOARD_MEMBER", aqueduct)));
+    String slug = slugOf(aqueduct);
+
+    assertThat((String) JsonPath.read(body, "$.whatsapp_text")).startsWith("_Datos simulados: ");
+    mvc.perform(get("/api/v1/public/" + slug + "/schedule?date=" + TOMORROW))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.aqueduct.is_demo").value(true))
+        .andExpect(jsonPath("$.aqueduct.banner").value("Datos simulados"));
+    byte[] pdf =
+        mvc.perform(get("/api/v1/public/" + slug + "/schedule/poster.pdf?date=" + TOMORROW))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsByteArray();
+    assertThat(new String(pdf, java.nio.charset.StandardCharsets.US_ASCII))
+        .contains("(Datos simulados: este acueducto");
+    assertThat(co.caudal.shared.hash.Sha256.hex(pdf))
+        .isEqualTo(JsonPath.read(body, "$.poster_sha256"));
   }
 }

@@ -6,7 +6,7 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 
-/** The published schedule of a day: only sectors and hours. */
+/** The published schedule of a day: only sectors and hours, with the demo mark when it applies. */
 public final class ScheduleNotice extends Notice {
 
   private static final MessageTemplate TITLE =
@@ -16,6 +16,7 @@ public final class ScheduleNotice extends Notice {
   private static final String CLOSING = "Cuide el agua. Si ve un daño, avísele a la Junta.";
 
   private final String aqueductName;
+  private final boolean demo;
   private final LocalDate day;
   private final ZoneId zone;
   private final List<ScheduleLine> lines;
@@ -25,6 +26,7 @@ public final class ScheduleNotice extends Notice {
    *
    * @param channel where it is shown
    * @param aqueductName the aqueduct
+   * @param demo true if its data are simulated
    * @param day the day of service
    * @param zone time zone of the aqueduct
    * @param lines the shifts in their order
@@ -32,11 +34,13 @@ public final class ScheduleNotice extends Notice {
   public ScheduleNotice(
       PublicationChannel channel,
       String aqueductName,
+      boolean demo,
       LocalDate day,
       ZoneId zone,
       List<ScheduleLine> lines) {
     super(channel);
     this.aqueductName = aqueductName;
+    this.demo = demo;
     this.day = day;
     this.zone = zone;
     this.lines = List.copyOf(lines);
@@ -45,6 +49,7 @@ public final class ScheduleNotice extends Notice {
   @Override
   protected NoticeMessage toMessage() {
     return new NoticeMessage(
+        DemoMark.note(demo),
         TITLE.render(Map.of("acueducto", aqueductName, "dia", ScheduleTexts.day(day))),
         lines.stream()
             .map(

@@ -21,15 +21,16 @@ public final class SchedulePoster {
    * The content of the poster.
    *
    * @param aqueductName the aqueduct
+   * @param demo true if its data are simulated
    * @param day the day of service
    * @param zone time zone of the aqueduct
    * @param lines the shifts in their order
    * @return what the poster says
    */
   public static PosterData of(
-      String aqueductName, LocalDate day, ZoneId zone, List<ScheduleLine> lines) {
+      String aqueductName, boolean demo, LocalDate day, ZoneId zone, List<ScheduleLine> lines) {
     return new PosterData(
-        null,
+        DemoMark.note(demo),
         TITLE,
         SUBTITLE.render(Map.of("acueducto", aqueductName, "dia", ScheduleTexts.day(day))),
         lines.stream()

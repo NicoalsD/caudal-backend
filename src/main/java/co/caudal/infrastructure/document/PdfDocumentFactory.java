@@ -40,8 +40,7 @@ public final class PdfDocumentFactory implements DocumentFactory {
   public DocumentHeader createHeader(DocumentMetadata metadata) {
     List<PdfLine> lines = new ArrayList<>();
     if (metadata.banner() != null) {
-      lines.add(
-          new PdfLine(metadata.banner().toUpperCase(java.util.Locale.ROOT), BANNER_SIZE, true, 0));
+      lines.add(new PdfLine(metadata.banner(), BANNER_SIZE, true, 0));
     }
     lines.add(new PdfLine(metadata.title(), TITLE_SIZE, true, 0));
     if (metadata.subtitle() != null) {

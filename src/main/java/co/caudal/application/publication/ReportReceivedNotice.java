@@ -27,6 +27,7 @@ public final class ReportReceivedNotice extends Notice {
 
   @Override
   protected NoticeMessage toMessage() {
-    return new NoticeMessage(TITLE, List.of(CODE.render(Map.of("codigo", trackingCode))), CLOSING);
+    return new NoticeMessage(
+        null, TITLE, List.of(CODE.render(Map.of("codigo", trackingCode))), CLOSING);
   }
 }
