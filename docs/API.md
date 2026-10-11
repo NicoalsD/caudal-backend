@@ -204,7 +204,7 @@ Los permisos de la tabla siguiente son los que se usan en las secciones de recur
 
 | Permiso (propuesta) | BOARD_ADMIN | BOARD_MEMBER | OPERATOR | PROJECT_TEAM | SUPPORT_ENTITY | Público |
 |---|---|---|---|---|---|---|
-| `USER_MANAGE`, `MEMBERSHIP_MANAGE` | Sí | No | No | No | No | No |
+| `USER_MANAGE` (usuarios y membresías) | Sí | No | No | No | No | No |
 | `RULESET_PROPOSE` (crear borrador) | Sí | Sí | No | No | No | No |
 | `RULESET_EDIT` | Sí | Sí | No | No | No | No |
 | `RULESET_ACTIVATE` | Sí | No | No | No | No | No |
@@ -369,22 +369,23 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 
 ### 3.5 `GET /api/v1/memberships`
 
-- **Permiso:** `MEMBERSHIP_MANAGE`.
-- **Parámetros:** `user_id`, `aqueduct_id`, `limit`, `cursor`.
-- **Respuesta:** lista de `id`, `user_id`, `aqueduct_id`, `role_code`, `valid_from`, `valid_to`, `granted_by`.
+- **Permiso:** `USER_MANAGE`.
+- **Parámetros:** `user_id`, `aqueduct_id` (solo el de la sesión; otro responde `403`), `limit`, `cursor`.
+- **Respuesta:** `items`, en orden de creación, con `id`, `user_id`, `aqueduct_id`, `role_code`, `valid_from`, `valid_to`, `granted_by`.
 
 ### 3.6 `POST /api/v1/memberships`
 
-- **Permiso:** `MEMBERSHIP_MANAGE`.
+- **Permiso:** `USER_MANAGE`.
 - **Cuerpo:** `user_id` (UUID, obligatorio), `aqueduct_id` (UUID, obligatorio), `role_code` (enum de la sección 3.2, obligatorio), `valid_from` (fecha y hora, opcional, por defecto ahora), `valid_to` (opcional, debe ser mayor que `valid_from`).
-- **Respuesta 201:** la membresía.
-- **Errores:** `400 VALIDATION_ERROR` (`valid_to` no mayor que `valid_from`), `409 CONFLICT` (por definir: membresía vigente del mismo rol).
+- **Respuesta 201:** la membresía (`id`, `user_id`, `aqueduct_id`, `role_code`, `valid_from`, `valid_to`, `granted_by`).
+- **Errores:** `400 VALIDATION_ERROR` (`valid_to` no mayor que `valid_from` o rol desconocido), `403 FORBIDDEN` (`aqueduct_id` distinto del de la sesión), `404 NOT_FOUND` (la cuenta no existe), `409 CONFLICT` con `details.reason = MEMBERSHIP_OVERLAP`: una cuenta tiene un solo rol a la vez en un acueducto, así que la vigencia no puede cruzarse con otra membresía del mismo acueducto.
 
 ### 3.7 `DELETE /api/v1/memberships/{id}`
 
-- **Permiso:** `MEMBERSHIP_MANAGE`.
+- **Permiso:** `USER_MANAGE`.
 - **Respuesta 204.** No borra la fila: hace `UPDATE` de `valid_to = ahora`. Las membresías no se eliminan porque la auditoría las referencia.
-- **Efecto:** incrementa `token_version` del usuario.
+- **Efecto:** incrementa `token_version` del usuario. Si la membresía aún no empezó, `valid_to` queda un microsegundo después de `valid_from`. Terminar una membresía ya terminada responde 204 sin cambios.
+- **Errores:** `404 NOT_FOUND` (no existe o es de otro acueducto), `409 CONFLICT` con `details.reason = SELF_LOCKOUT` (un administrador no termina su propia membresía vigente).
 
 ## 4. Meta, catálogos y aviso de privacidad
 
@@ -1089,8 +1090,8 @@ Respuesta 201 común: `import_batch_id`, `rows_received`, `rows_accepted`, `rows
 | Usuarios | GET, POST | `/users` | `USER_MANAGE` |
 | Usuarios | PATCH | `/users/{id}` | `USER_MANAGE` |
 | Usuarios | POST | `/users/{id}/reset-grants` | `USER_MANAGE` |
-| Membresías | GET, POST | `/memberships` | `MEMBERSHIP_MANAGE` |
-| Membresías | DELETE | `/memberships/{id}` | `MEMBERSHIP_MANAGE` |
+| Membresías | GET, POST | `/memberships` | `USER_MANAGE` |
+| Membresías | DELETE | `/memberships/{id}` | `USER_MANAGE` |
 | Meta | GET | `/meta/constraints` | Público |
 | Catálogos | GET | `/catalogs/{catalog}` | Público (solo etiquetas) |
 | Catálogos | POST, PATCH | `/catalogs/{catalog}/items` | `PROJECT_TEAM` |
