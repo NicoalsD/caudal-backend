@@ -5,7 +5,6 @@ import co.caudal.application.auth.Caller;
 import co.caudal.application.network.TankView;
 import co.caudal.application.port.out.AqueductPort;
 import co.caudal.application.port.out.ForecastRunPort;
-import co.caudal.application.port.out.ForecasterPort;
 import co.caudal.application.port.out.NetworkPort;
 import co.caudal.application.port.out.ReadingPort;
 import co.caudal.application.port.out.RuleSetPort;
@@ -28,9 +27,9 @@ import java.util.UUID;
 
 /**
  * Forecasts a tank and stores the result (docs/Modulo-IA.md, sections 6 and 8): it reads the
- * effective levels of the last {@code forecast_context_days}, asks the {@link ForecasterPort}
- * outside any transaction, so a slow service never holds a database connection, and then stores the
- * primary run and, when the service answered, the simple estimate of the shadow.
+ * effective levels of the last {@code forecast_context_days}, asks the {@link Forecaster} outside
+ * any transaction, so a slow service never holds a database connection, and then stores the primary
+ * run and, when the service answered, the simple estimate of the shadow.
  */
 public class ForecastRunner {
 
@@ -38,7 +37,7 @@ public class ForecastRunner {
   private final RuleSetPort ruleSets;
   private final ReadingPort readings;
   private final AqueductPort aqueducts;
-  private final ForecasterPort forecaster;
+  private final Forecaster forecaster;
   private final ForecastRunPort runs;
   private final UnitOfWorkPort unitOfWork;
   private final Clock clock;
@@ -63,7 +62,7 @@ public class ForecastRunner {
       RuleSetPort ruleSets,
       ReadingPort readings,
       AqueductPort aqueducts,
-      ForecasterPort forecaster,
+      Forecaster forecaster,
       ForecastRunPort runs,
       UnitOfWorkPort unitOfWork,
       Clock clock) {
@@ -166,8 +165,14 @@ public class ForecastRunner {
     return new Input(tank, rules, points, zone);
   }
 
-  /** The last level of each local day, oldest first. */
-  static List<DailyLevel> daily(List<LevelPoint> points, ZoneId zone) {
+  /**
+   * The last level of each local day, oldest first.
+   *
+   * @param points effective levels
+   * @param zone time zone of the aqueduct
+   * @return one level per day
+   */
+  public static List<DailyLevel> daily(List<LevelPoint> points, ZoneId zone) {
     Map<LocalDate, LevelPoint> lastOfDay = new TreeMap<>();
     for (LevelPoint point : points) {
       lastOfDay.merge(

@@ -1,7 +1,5 @@
 package co.caudal.application.forecast;
 
-import co.caudal.application.port.out.ForecasterPort;
-
 /**
  * Adds the simple estimate in the shadow to every forecast the service answered (docs/Modulo-IA.md,
  * section 8): both are stored with the same input, so the evaluation compares them on the same
@@ -9,9 +7,9 @@ import co.caudal.application.port.out.ForecasterPort;
  *
  * @pattern P09 Decorator
  */
-public class ShadowBaselineForecaster implements ForecasterPort {
+public class ShadowBaselineForecaster implements Forecaster {
 
-  private final ForecasterPort delegate;
+  private final Forecaster delegate;
   private final BaselineForecaster baseline;
 
   /**
@@ -20,7 +18,7 @@ public class ShadowBaselineForecaster implements ForecasterPort {
    * @param delegate the forecaster that calls the service
    * @param baseline the simple estimate
    */
-  public ShadowBaselineForecaster(ForecasterPort delegate, BaselineForecaster baseline) {
+  public ShadowBaselineForecaster(Forecaster delegate, BaselineForecaster baseline) {
     this.delegate = delegate;
     this.baseline = baseline;
   }

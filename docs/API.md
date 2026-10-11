@@ -636,7 +636,8 @@ Una lectura es una observación del nivel de la regla pintada. Su estatus epist�
 
 ### 8.1 `GET /api/v1/tanks/{id}/status`
 
-- **Permiso:** `TANK_STATUS_READ`.
+- **Permiso:** `STATUS_VIEW`.
+- **Cálculo:** `TankStatusFacade` (patrón Facade). La tendencia es la pendiente por mínimos cuadrados del último nivel de cada día de los últimos `TREND_WINDOW_DAYS` días (3); con menos de dos días es nula. Un dato viejo abre una sola anomalía `STALE_DATA` abierta por tanque. La banda usa `[min_level, max_level)` y la banda superior incluye `gauge_max`. `level`, `trend`, `band` y `forecast` son nulos si no hay datos.
 - **Respuesta 200:**
   - `level`: `value`, `observed_at`, `hours_ago`.
   - `trend`: `slope_per_day`, `label` (`DOWN`, `STABLE` o `UP`) y `label_es` ("viene bajando", "estable", "sube").
@@ -657,7 +658,7 @@ Una lectura es una observación del nivel de la regla pintada. Su estatus epist�
 
 ### 8.2 `GET /api/v1/tanks/{id}/forecasts/latest`
 
-- **Permiso:** `TANK_STATUS_READ`.
+- **Permiso:** `STATUS_VIEW`.
 - **Respuesta:** la última corrida (`run_id`, `model_name`, `model_version`, `is_fallback`, `fallback_reason`, `created_at`, `context_from`, `context_to`) y sus `points`.
 
 ### 8.3 `POST /api/v1/tanks/{id}/forecasts`
@@ -674,7 +675,7 @@ Las anomalías son sospechas (`INFERRED`) hasta que alguien las confirme.
 
 ### 9.1 `GET /api/v1/anomalies`
 
-- **Permiso:** `TANK_STATUS_READ`.
+- **Permiso:** `STATUS_VIEW`.
 - **Parámetros:** `status` (`OPEN`, `CONFIRMED`, `DISMISSED`), `kind` (`POSSIBLE_LEAK`, `SENSOR_FAULT`, `STALE_DATA`, `SUSPECTED_DUPLICATE`, `ABNORMAL_DROP`), `limit`, `cursor`.
 - **Respuesta:** lista de `id`, `kind`, `detected_at`, `status`, `evidence`, `resolved_by`, `resolved_at`, `related_incident_id`.
 

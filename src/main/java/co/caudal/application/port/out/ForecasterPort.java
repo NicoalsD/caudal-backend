@@ -1,16 +1,9 @@
 package co.caudal.application.port.out;
 
-import co.caudal.application.forecast.ForecastOutcome;
-import co.caudal.application.forecast.ForecastRequest;
+import co.caudal.application.forecast.Forecaster;
 
-/** Forecasts a tank and always answers: with the service, or with the simple estimate. */
-public interface ForecasterPort {
-
-  /**
-   * Forecasts a tank.
-   *
-   * @param request the history, the horizon and the gauge
-   * @return the forecast
-   */
-  ForecastOutcome forecast(ForecastRequest request);
-}
+/**
+ * The outside forecaster: the remote service behind its proxy, with the simple estimate when the
+ * service cannot answer.
+ */
+public interface ForecasterPort extends Forecaster {}

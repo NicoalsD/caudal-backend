@@ -308,5 +308,8 @@ public final class FieldLimits {
   /** Changes between days the simple estimate needs before it gives a range. */
   public static final int FORECAST_BASELINE_MIN_CHANGES = 3;
 
+  /** Days of daily levels used to compute the trend of a tank (docs/Reglas-de-negocio.md, 10.2). */
+  public static final int TREND_WINDOW_DAYS = 3;
+
   private FieldLimits() {}
 }

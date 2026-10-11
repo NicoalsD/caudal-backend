@@ -3,9 +3,12 @@ package co.caudal.api.controller;
 import co.caudal.api.dto.request.CreateTankRequest;
 import co.caudal.api.dto.response.ListResponse;
 import co.caudal.api.dto.response.TankResponse;
+import co.caudal.api.dto.response.TankStatusResponse;
+import co.caudal.api.mapper.ForecastMapper;
 import co.caudal.api.mapper.NetworkMapper;
 import co.caudal.api.security.CallerFactory;
 import co.caudal.application.command.CommandBus;
+import co.caudal.application.facade.TankStatusFacade;
 import co.caudal.application.network.CreateTankCommand;
 import co.caudal.application.network.ListNetworkUseCase;
 import io.swagger.v3.oas.annotations.Operation;
@@ -14,6 +17,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.util.UUID;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +25,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -34,10 +39,32 @@ public class TankController {
 
   private final ListNetworkUseCase network;
   private final CommandBus commands;
+  private final TankStatusFacade status;
 
-  TankController(ListNetworkUseCase network, CommandBus commands) {
+  TankController(ListNetworkUseCase network, CommandBus commands, TankStatusFacade status) {
     this.network = network;
     this.commands = commands;
+    this.status = status;
+  }
+
+  @Operation(
+      summary = "Estado del tanque",
+      description =
+          "Último nivel efectivo y hace cuántas horas, tendencia por mínimos cuadrados de los"
+              + " últimos días (viene bajando, estable o sube), si el dato está viejo según"
+              + " stale_reading_hours, banda de la regla vigente, último pronóstico mostrado y"
+              + " anomalías abiertas. Un dato viejo abre una vez la anomalía STALE_DATA. Requiere"
+              + " el permiso STATUS_VIEW.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "200", description = "Estado del tanque")
+  @ApiResponse(responseCode = "404", description = "NOT_FOUND: el tanque no existe")
+  @GetMapping("/{id}/status")
+  @PreAuthorize("hasAuthority('STATUS_VIEW')")
+  public ResponseEntity<TankStatusResponse> status(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id, HttpServletRequest http) {
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.noStore())
+        .body(ForecastMapper.toResponse(status.status(CallerFactory.from(jwt, http), id)));
   }
 
   @Operation(
