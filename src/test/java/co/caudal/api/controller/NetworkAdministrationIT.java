@@ -147,4 +147,29 @@ class NetworkAdministrationIT extends SessionIT {
     send(session, patch("/api/v1/valves/" + foreignValve), "{\"fail_safe_position\":\"MAYBE\"}")
         .andExpect(status().isBadRequest());
   }
+
+  @Test
+  void theTreeAddsUpHouseholdsAndValvesBySector() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    Session session = login(account("net.tree", "OPERATOR", aqueduct));
+    UUID alto =
+        owner.queryForObject(
+            "SELECT id FROM org.sectors WHERE aqueduct_id = ? AND code = 'ALTO'",
+            UUID.class,
+            aqueduct);
+    owner.update(
+        "INSERT INTO org.sectors (aqueduct_id, code, name, parent_sector_id, households_count)"
+            + " VALUES (?, 'ALTO-1', 'Alto uno', ?, 4)",
+        aqueduct,
+        alto);
+
+    mvc.perform(get("/api/v1/network").header("Authorization", session.bearer()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items.length()").value(2))
+        .andExpect(jsonPath("$.items[0].code").value("ALTO"))
+        .andExpect(jsonPath("$.items[0].households").value(14))
+        .andExpect(jsonPath("$.items[0].active_valves").value(1))
+        .andExpect(jsonPath("$.items[0].children[0].kind").value("VALVE"))
+        .andExpect(jsonPath("$.items[0].children[1].code").value("ALTO-1"));
+  }
 }

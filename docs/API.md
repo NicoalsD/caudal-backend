@@ -498,6 +498,11 @@ La red (tanques, sectores y válvulas) la gestiona `BOARD_ADMIN` (`NETWORK_MANAG
 - **Respuesta 200:** válvula actualizada.
 - **Errores:** `404 NOT_FOUND` (no existe o es de un sector de otro acueducto).
 
+### 5.9 `GET /api/v1/network`
+
+- **Permiso:** `NETWORK_VIEW`.
+- **Respuesta:** `items`, los sectores de primer nivel como árbol (patrón Composite, `NetworkNode`): cada parte tiene `kind` (`SECTOR` o `VALVE`), `id`, `code`, `name`, `is_active`, `households` (viviendas de la parte y de todo lo que contiene), `active_valves` (válvulas activas de todo lo que contiene) y `children` (primero sus válvulas, luego sus subsectores). Un sector inactivo no suma viviendas ni válvulas. Un sector con un padre desconocido o que cierra un ciclo aparece en el primer nivel.
+
 ## 6. Reglas de la Junta (`/rule-sets`)
 
 Las reglas se leen en la app offline para validar lecturas, así que `GET /rule-sets/current` es el endpoint más consultado. Las reglas de negocio y su validación están en `Reglas-de-negocio.md`.
