@@ -36,9 +36,6 @@ import java.util.UUID;
  */
 public class ReadingRecorder {
 
-  /** Where a reading came from. */
-  public static final String SOURCE_MANUAL = "MANUAL_APP";
-
   private static final String WATER_APPEARANCE = "WATER_APPEARANCE";
   private static final String ACCEPTED = "ACCEPTED";
   private static final String FLAGGED = "FLAGGED";
@@ -127,13 +124,12 @@ public class ReadingRecorder {
    * @param caller who sends it
    * @param verdict the verdict of {@link #judge}
    * @param rules the active rules
-   * @param source {@code MANUAL_APP}, {@code IMPORT} or another source of the schema
-   * @param syncBatchId the offline batch it came in, or null
+   * @param origin the source and the batch or import it came in
    * @return the stored reading
    * @throws DomainException with {@code DUPLICATE_READING} if the id was taken meanwhile
    */
   public RecordedReading store(
-      Caller caller, Verdict verdict, RuleSetView rules, String source, UUID syncBatchId) {
+      Caller caller, Verdict verdict, RuleSetView rules, ReadingOrigin origin) {
     if (verdict.replay()) {
       return new RecordedReading(
           verdict.replayOf(), readings.issues(verdict.replayOf().id()), true);
@@ -149,10 +145,10 @@ public class ReadingRecorder {
             input.note(),
             input.observedAt(),
             clock.instant(),
-            source,
+            origin.source(),
             verdict.issues().isEmpty() ? ACCEPTED : FLAGGED,
             rules.id());
-    if (!readings.insert(caller.aqueductId(), reading, caller.userId(), syncBatchId)) {
+    if (!readings.insert(caller.aqueductId(), reading, caller.userId(), origin)) {
       throw new DomainException(ErrorCode.DUPLICATE_READING);
     }
     for (IssueView issue : verdict.issues()) {

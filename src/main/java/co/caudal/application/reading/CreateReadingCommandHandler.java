@@ -54,8 +54,7 @@ public class CreateReadingCommandHandler
               command.caller(),
               recorder.judge(command.caller(), input, rules, false),
               rules,
-              ReadingRecorder.SOURCE_MANUAL,
-              null);
+              ReadingOrigin.manual());
         });
   }
 

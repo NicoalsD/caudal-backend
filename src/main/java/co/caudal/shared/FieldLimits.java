@@ -296,5 +296,14 @@ public final class FieldLimits {
   /** A single line of text: no line breaks. */
   public static final String SINGLE_LINE_PATTERN = "^[^\\r\\n]*$";
 
+  /** Longest name of a scenario of the simulator. */
+  public static final int SCENARIO_NAME_MAX = 60;
+
+  /** Longest version of the simulator. */
+  public static final int SIMULATOR_VERSION_MAX = 30;
+
+  /** A SHA-256 in lower or upper case hexadecimal. */
+  public static final String SHA256_HEX_PATTERN = "^[0-9a-fA-F]{64}$";
+
   private FieldLimits() {}
 }

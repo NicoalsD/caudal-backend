@@ -113,7 +113,7 @@ public class CreateReadingBatchCommandHandler
   private BatchItemResult store(Caller caller, ReadingInput input, RuleSetView rules, UUID batch) {
     Verdict verdict = recorder.judge(caller, input, rules, false);
     RecordedReading recorded =
-        recorder.store(caller, verdict, rules, ReadingRecorder.SOURCE_MANUAL, batch);
+        recorder.store(caller, verdict, rules, ReadingOrigin.offlineBatch(batch));
     String status =
         recorded.replay()
             ? BatchItemResult.REPLAYED

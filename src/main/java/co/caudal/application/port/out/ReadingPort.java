@@ -5,6 +5,7 @@ import co.caudal.application.reading.IssueView;
 import co.caudal.application.reading.LevelPoint;
 import co.caudal.application.reading.ListedReading;
 import co.caudal.application.reading.ReadingFilter;
+import co.caudal.application.reading.ReadingOrigin;
 import co.caudal.application.reading.ReadingView;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -62,10 +63,10 @@ public interface ReadingPort {
    * @param aqueductId the aqueduct
    * @param reading the reading
    * @param recordedBy the account
-   * @param syncBatchId the offline batch it came in, or null
+   * @param origin the batch or import it came in
    * @return true if stored, false if the id already existed
    */
-  boolean insert(UUID aqueductId, ReadingView reading, UUID recordedBy, UUID syncBatchId);
+  boolean insert(UUID aqueductId, ReadingView reading, UUID recordedBy, ReadingOrigin origin);
 
   /**
    * Stores an issue of a reading.

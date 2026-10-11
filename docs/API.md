@@ -1046,11 +1046,14 @@ Campos comunes del cuerpo:
 | `file_sha256` | texto | Sí | 64 caracteres hexadecimales. Repetido: `409 CONFLICT`. |
 | `rows` | lista | Sí | 1 a 5.000 |
 
-Respuesta 201 común: `import_batch_id`, `rows_received`, `rows_accepted`, `rows_rejected` y `rejections` (lista de `row`, `code`).
+Respuesta 201 común: `import_batch_id`, `rows_received`, `rows_accepted`, `rows_rejected` y `rejections` (lista de `row`, la posición en el archivo desde 1, y `code`).
+
+Permiso: `IMPORT_SIMULATED` (`PROJECT_TEAM`). `aqueduct_id` debe ser el acueducto de la sesión y estar marcado `is_demo`; otro responde `403 DEMO_ONLY` (la base de datos lo rechaza también con `sim.guard_demo_only`). La fila de `sim.import_batches` se escribe una vez, con sus conteos, antes que sus datos.
 
 ### 17.1 `POST /api/v1/imports/readings`
 
 - Cada fila tiene los campos de la lectura (7.1) sin `source`, que se fija en `IMPORT`. Las lecturas quedan con `import_batch_id`.
+- Pasan la misma cadena de validación de 7.1 salvo `TOO_OLD`, y se guardan en el orden de `observed_at`. Un `id` repetido dentro del archivo se rechaza con `DUPLICATE_READING`.
 
 ### 17.2 `POST /api/v1/imports/shift-executions`
 
