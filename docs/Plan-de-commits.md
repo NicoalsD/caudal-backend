@@ -166,18 +166,18 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
 | B103 | `feat: implementa GET /api/v1/rule-sets/current` | `Drako2305` | HU-08 | - | [x] |
-| B104 | `feat: implementa GET /api/v1/rule-sets` | `Drako2305` | HU-07 | - | [ ] |
-| B105 | `feat: implementa GET /api/v1/rule-sets/{id}` | `Drako2305` | HU-07 | - | [ ] |
-| B106 | `feat: copia reglas con RuleSet.copyForNewVersion()` | `Drako2305` | HU-07 | P05 | [ ] |
-| B107 | `feat: implementa POST /api/v1/rule-sets` | `Drako2305` | HU-07 | P05 | [ ] |
-| B108 | `feat: valida cobertura y solape de rule_level_bands` | `Drako2305` | HU-07 | - | [ ] |
-| B109 | `feat: implementa PATCH /api/v1/rule-sets/{id}` | `Drako2305` | HU-07 | P05 | [ ] |
-| B110 | `feat: activa reglas con ActivateRuleSetCommand` | `Drako2305` | HU-08 | P13 | [ ] |
-| B111 | `feat: agrega DomainEventPublisher para RuleSetActivated` | `Drako2305` | HU-08 | P17 | [ ] |
+| B104 | `feat: implementa GET /api/v1/rule-sets` | `Drako2305` | HU-07 | - | [x] |
+| B105 | `feat: implementa GET /api/v1/rule-sets/{id}` | `Drako2305` | HU-07 | - | [x] |
+| B106 | `feat: copia reglas con RuleSet.copyForNewVersion()` | `Drako2305` | HU-07 | P05 | [x] |
+| B107 | `feat: implementa POST /api/v1/rule-sets` | `Drako2305` | HU-07 | P05 | [x] |
+| B108 | `feat: valida cobertura y solape de rule_level_bands` | `Drako2305` | HU-07 | - | [x] |
+| B109 | `feat: implementa PATCH /api/v1/rule-sets/{id}` | `Drako2305` | HU-07 | P05 | [x] |
+| B110 | `feat: activa reglas con ActivateRuleSetCommand` | `Drako2305` | HU-08 | P13 | [x] |
+| B111 | `feat: agrega DomainEventPublisher para RuleSetActivated` | `Drako2305` | HU-08 | P17 | [x] |
 | B112 | `feat: gestiona tanques en GET y POST /api/v1/tanks` | `Drako2305` | HU-14 | - | [x] |
 | B113 | `feat: modela red con NetworkNode` (SectorNode, ValveNode; GET/POST /api/v1/sectors, PATCH /api/v1/sectors/{id}, GET/POST /api/v1/sectors/{id}/valves, PATCH /api/v1/valves/{id}) | `Drako2305` | HU-18 | P08 | [x] |
 | B114 | `feat: publica GET /api/v1/catalogs/{catalog}` | `Drako2305` | HU-11, HU-27 | P23 | [x] |
-| B115 | `feat: expone GET /api/v1/meta/constraints` | `Drako2305` | HU-02, HU-11 | - | [ ] |
+| B115 | `feat: expone GET /api/v1/meta/constraints` | `Drako2305` | HU-02, HU-11 | - | [x] |
 
 ### Fase 5: Lecturas e importación
 
