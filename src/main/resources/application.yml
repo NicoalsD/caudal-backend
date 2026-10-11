@@ -54,6 +54,11 @@ caudal:
     user-password: ${DEMO_USER_PASSWORD:}
   api-docs:
     server-url: ${API_PUBLIC_URL:http://localhost:8080}
+  # Forecast service caudal-ia (docs/Contrato-IA.md). Without a URL every forecast is the simple
+  # estimate of the backend.
+  ia:
+    service-url: ${IA_SERVICE_URL:}
+    service-token: ${IA_SERVICE_TOKEN:}
   security:
     # Access token (JWT HS256). Secret, issuer and audience have no default: without them the
     # application does not start.
