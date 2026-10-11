@@ -6,7 +6,9 @@ import co.caudal.api.security.CallerFactory;
 import co.caudal.application.command.CommandBus;
 import co.caudal.application.minutes.FinalizeMinutesCommand;
 import co.caudal.application.minutes.GenerateMinutesCommand;
+import co.caudal.application.minutes.GetMinutesPdfUseCase;
 import co.caudal.application.minutes.GetMinutesUseCase;
+import co.caudal.application.minutes.MinutesPdf;
 import co.caudal.application.minutes.MinutesView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -16,7 +18,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -34,12 +39,16 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Actas", description = "Actas por estatus epistémico y su PDF.")
 public class MinutesController {
 
+  private static final String SHA_HEADER = "X-Content-SHA256";
+
   private final CommandBus commands;
   private final GetMinutesUseCase get;
+  private final GetMinutesPdfUseCase pdf;
 
-  MinutesController(CommandBus commands, GetMinutesUseCase get) {
+  MinutesController(CommandBus commands, GetMinutesUseCase get, GetMinutesPdfUseCase pdf) {
     this.commands = commands;
     this.get = get;
+    this.pdf = pdf;
   }
 
   @Operation(
@@ -98,5 +107,31 @@ public class MinutesController {
     return ResponseEntity.ok()
         .cacheControl(CacheControl.noStore())
         .body(MinutesResponse.of(minutes));
+  }
+
+  @Operation(
+      summary = "Descargar el PDF del acta",
+      description =
+          "El acta en PDF. Un borrador lleva la marca BORRADOR; un acta FINAL es el mismo PDF"
+              + " cuyo hash se guardó (cabecera X-Content-SHA256). Cada descarga queda en el"
+              + " registro de accesos. Requiere el permiso MINUTES_VIEW.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "200", description = "El PDF")
+  @ApiResponse(responseCode = "404", description = "NOT_FOUND")
+  @GetMapping(value = "/{id}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+  @PreAuthorize("hasAuthority('MINUTES_VIEW')")
+  public ResponseEntity<byte[]> pdf(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id, HttpServletRequest http) {
+    MinutesPdf file = pdf.execute(CallerFactory.from(jwt, http), id);
+    ResponseEntity.BodyBuilder response =
+        ResponseEntity.ok()
+            .cacheControl(CacheControl.noStore())
+            .header(
+                HttpHeaders.CONTENT_DISPOSITION,
+                ContentDisposition.attachment().filename(file.fileName()).build().toString());
+    if (file.sha256() != null) {
+      response.header(SHA_HEADER, file.sha256());
+    }
+    return response.body(file.pdf());
   }
 }

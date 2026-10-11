@@ -140,4 +140,60 @@ class MinutesIT extends PublishedScheduleIT {
                 .header("Authorization", member.bearer()))
         .andExpect(status().isNotFound());
   }
+
+  @Test
+  void theDraftPdfIsMarkedAndTheFinalOneMatchesItsHash() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    Session member = login(account("minutes.pdf", "BOARD_MEMBER", aqueduct));
+    Session operator = login(account("minutes.pdf.op", "OPERATOR", aqueduct));
+    String id = minutesWithEveryKind(aqueduct, member, operator);
+
+    byte[] draft =
+        mvc.perform(get("/api/v1/minutes/" + id + "/pdf").header("Authorization", member.bearer()))
+            .andExpect(status().isOk())
+            .andExpect(
+                org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                    .doesNotExist("X-Content-SHA256"))
+            .andReturn()
+            .getResponse()
+            .getContentAsByteArray();
+    assertThat(new String(draft, java.nio.charset.StandardCharsets.US_ASCII))
+        .startsWith("%PDF-1.4")
+        .contains("(BORRADOR) Tj")
+        .contains("(Observado) Tj")
+        .contains("(Presidencia de la Junta) Tj");
+
+    String finalBody =
+        mvc.perform(
+                post("/api/v1/minutes/" + id + "/finalize")
+                    .header("Authorization", member.bearer()))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    String sha = JsonPath.read(finalBody, "$.pdf_sha256");
+    byte[] last =
+        mvc.perform(get("/api/v1/minutes/" + id + "/pdf").header("Authorization", member.bearer()))
+            .andExpect(status().isOk())
+            .andExpect(
+                org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                    .string("X-Content-SHA256", sha))
+            .andReturn()
+            .getResponse()
+            .getContentAsByteArray();
+
+    assertThat(co.caudal.shared.hash.Sha256.hex(last)).isEqualTo(sha);
+    assertThat(new String(last, java.nio.charset.StandardCharsets.US_ASCII))
+        .doesNotContain("BORRADOR")
+        .contains("(Verificaci");
+    assertThat(
+            owner.queryForObject(
+                "SELECT count(*) FROM audit.data_access_log WHERE aqueduct_id = ? AND resource ="
+                    + " 'MINUTES_PDF' AND resource_id = ?",
+                Integer.class,
+                aqueduct,
+                id))
+        .isEqualTo(2);
+    mvc.perform(get("/api/v1/minutes/" + id + "/pdf").header("Authorization", operator.bearer()))
+        .andExpect(status().isForbidden());
+  }
 }

@@ -5,12 +5,16 @@ import co.caudal.application.execution.GetDayClosureUseCase;
 import co.caudal.application.execution.RecordExecutionCommandHandler;
 import co.caudal.application.minutes.FinalizeMinutesCommandHandler;
 import co.caudal.application.minutes.GenerateMinutesCommandHandler;
+import co.caudal.application.minutes.GetMinutesPdfUseCase;
 import co.caudal.application.minutes.GetMinutesUseCase;
 import co.caudal.application.port.out.AqueductPort;
 import co.caudal.application.port.out.ClosurePort;
+import co.caudal.application.port.out.DataAccessLogPort;
+import co.caudal.application.port.out.DocumentRenderingPort;
 import co.caudal.application.port.out.ExecutionPort;
 import co.caudal.application.port.out.MinutesPort;
 import co.caudal.application.port.out.MinutesSourcePort;
+import co.caudal.application.port.out.PrivacyHasherPort;
 import co.caudal.application.port.out.ProposalPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import java.time.Clock;
@@ -55,7 +59,22 @@ class ClosureServicesConfig {
 
   @Bean
   FinalizeMinutesCommandHandler finalizeMinutesCommandHandler(
-      MinutesPort minutes, UnitOfWorkPort unitOfWork, Clock clock) {
-    return new FinalizeMinutesCommandHandler(minutes, unitOfWork, clock);
+      MinutesPort minutes,
+      AqueductPort aqueducts,
+      DocumentRenderingPort documents,
+      UnitOfWorkPort unitOfWork,
+      Clock clock) {
+    return new FinalizeMinutesCommandHandler(minutes, aqueducts, documents, unitOfWork, clock);
+  }
+
+  @Bean
+  GetMinutesPdfUseCase getMinutesPdfUseCase(
+      MinutesPort minutes,
+      AqueductPort aqueducts,
+      DocumentRenderingPort documents,
+      DataAccessLogPort accessLog,
+      PrivacyHasherPort hasher,
+      UnitOfWorkPort unitOfWork) {
+    return new GetMinutesPdfUseCase(minutes, aqueducts, documents, accessLog, hasher, unitOfWork);
   }
 }
