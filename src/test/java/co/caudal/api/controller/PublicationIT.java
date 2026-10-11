@@ -46,6 +46,14 @@ class PublicationIT extends PublishedScheduleIT {
             owner.queryForObject(
                 "SELECT status FROM ops.schedule_proposals WHERE id = ?::uuid", String.class, id))
         .isEqualTo("PUBLISHED");
+    assertThat(
+            owner.queryForObject(
+                "SELECT count(*) FROM audit.audit_log WHERE aqueduct_id = ? AND action ="
+                    + " 'SCHEDULE_PUBLISHED' AND after_state ->> 'proposal_id' = ?",
+                Integer.class,
+                aqueduct,
+                id))
+        .isEqualTo(1);
   }
 
   @Test

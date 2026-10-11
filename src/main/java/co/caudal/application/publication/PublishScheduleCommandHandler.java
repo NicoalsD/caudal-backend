@@ -2,6 +2,7 @@ package co.caudal.application.publication;
 
 import co.caudal.application.aqueduct.AqueductRef;
 import co.caudal.application.command.CommandHandler;
+import co.caudal.application.event.DomainEventPublisher;
 import co.caudal.application.network.SectorView;
 import co.caudal.application.port.out.AqueductPort;
 import co.caudal.application.port.out.NetworkPort;
@@ -9,6 +10,7 @@ import co.caudal.application.port.out.ProposalPort;
 import co.caudal.application.port.out.PublicationPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.schedule.ProposalDetail;
+import co.caudal.domain.event.SchedulePublished;
 import co.caudal.domain.schedule.ProposalState;
 import co.caudal.shared.error.DomainException;
 import co.caudal.shared.error.ErrorCode;
@@ -23,7 +25,8 @@ import java.util.stream.Collectors;
 /**
  * Publishes an approved proposal: it moves it to {@code PUBLISHED} if nobody changed it since the
  * member saw it, and keeps an append-only publication with the message to share. The message has
- * only sectors and hours (docs/Reglas-de-negocio.md, section 13).
+ * only sectors and hours (docs/Reglas-de-negocio.md, section 13). Then it announces {@link
+ * SchedulePublished}.
  *
  * @pattern P13 Command
  */
@@ -35,6 +38,7 @@ public class PublishScheduleCommandHandler
   private final NetworkPort network;
   private final AqueductPort aqueducts;
   private final UnitOfWorkPort unitOfWork;
+  private final DomainEventPublisher events;
   private final Clock clock;
 
   /**
@@ -45,20 +49,24 @@ public class PublishScheduleCommandHandler
    * @param network sector names
    * @param aqueducts name and time zone
    * @param unitOfWork transaction boundary
+   * @param events publishes {@code SchedulePublished}
    * @param clock source of time
    */
+  @SuppressWarnings("checkstyle:ParameterNumber")
   public PublishScheduleCommandHandler(
       ProposalPort proposals,
       PublicationPort publications,
       NetworkPort network,
       AqueductPort aqueducts,
       UnitOfWorkPort unitOfWork,
+      DomainEventPublisher events,
       Clock clock) {
     this.proposals = proposals;
     this.publications = publications;
     this.network = network;
     this.aqueducts = aqueducts;
     this.unitOfWork = unitOfWork;
+    this.events = events;
     this.clock = clock;
   }
 
@@ -86,8 +94,18 @@ public class PublishScheduleCommandHandler
           if (!proposals.transition(command.proposalId(), command.lockVersion(), next.code())) {
             throw new DomainException(ErrorCode.CONFLICT);
           }
-          return publications.insert(
-              aqueduct.id(), command.proposalId(), command.caller().userId(), text, null);
+          PublicationView publication =
+              publications.insert(
+                  aqueduct.id(), command.proposalId(), command.caller().userId(), text, null);
+          events.publish(
+              new SchedulePublished(
+                  aqueduct.id(),
+                  command.proposalId(),
+                  publication.id(),
+                  current.summary().serviceDate(),
+                  command.caller().userId(),
+                  publication.publishedAt()));
+          return publication;
         });
   }
 
