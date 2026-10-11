@@ -620,8 +620,9 @@ Una lectura es una observación del nivel de la regla pintada. Su estatus epist�
 
 ### 7.4 `GET /api/v1/readings/{id}`
 
-- **Permiso:** igual que 7.3.
-- **Respuesta:** la lectura, sus `issues`, y el historial de `corrections` (`corrected_gauge_value`, `reason`, `corrected_by`, `created_at`).
+- **Permiso:** `READING_VIEW`.
+- **Respuesta:** `reading` (con `effective_gauge_value`, la última corrección o el valor original, y `correction_count`), sus `issues`, y el historial de `corrections` de la más antigua a la más reciente (`id`, `corrected_gauge_value`, `reason`, `corrected_by`, `created_at`).
+- **Errores:** `404 NOT_FOUND` (no existe o es de otro acueducto).
 
 ### 7.5 `POST /api/v1/readings/{id}/corrections`
 

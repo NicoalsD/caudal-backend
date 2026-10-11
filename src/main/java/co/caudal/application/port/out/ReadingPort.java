@@ -1,5 +1,6 @@
 package co.caudal.application.port.out;
 
+import co.caudal.application.reading.CorrectionView;
 import co.caudal.application.reading.IssueView;
 import co.caudal.application.reading.LevelPoint;
 import co.caudal.application.reading.ListedReading;
@@ -102,4 +103,12 @@ public interface ReadingPort {
    * @return the reading, or empty
    */
   Optional<LevelPoint> latestEffective(UUID tankId);
+
+  /**
+   * Lists the corrections of a reading, oldest first (the last one gives the effective value).
+   *
+   * @param readingId the reading
+   * @return the corrections
+   */
+  List<CorrectionView> corrections(UUID readingId);
 }

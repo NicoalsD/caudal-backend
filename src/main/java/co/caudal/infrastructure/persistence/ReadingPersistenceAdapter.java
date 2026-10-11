@@ -1,6 +1,7 @@
 package co.caudal.infrastructure.persistence;
 
 import co.caudal.application.port.out.ReadingPort;
+import co.caudal.application.reading.CorrectionView;
 import co.caudal.application.reading.IssueView;
 import co.caudal.application.reading.LevelPoint;
 import co.caudal.application.reading.ListedReading;
@@ -203,5 +204,24 @@ public class ReadingPersistenceAdapter implements ReadingPort {
         rs.getString("source"),
         rs.getString("validation_status"),
         rs.getObject("rule_set_id", UUID.class));
+  }
+
+  @Override
+  public List<CorrectionView> corrections(UUID readingId) {
+    return jdbc.sql(
+            "SELECT id, reading_id, corrected_gauge_value, reason, corrected_by, created_at"
+                + " FROM ops.reading_corrections WHERE reading_id = :reading"
+                + " ORDER BY created_at, id")
+        .param("reading", readingId)
+        .query(
+            (rs, row) ->
+                new CorrectionView(
+                    rs.getObject("id", UUID.class),
+                    rs.getObject("reading_id", UUID.class),
+                    rs.getBigDecimal("corrected_gauge_value"),
+                    rs.getString("reason"),
+                    rs.getObject("corrected_by", UUID.class),
+                    SqlTime.instant(rs, "created_at")))
+        .list();
   }
 }

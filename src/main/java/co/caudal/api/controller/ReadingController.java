@@ -4,6 +4,7 @@ import co.caudal.api.dto.request.CreateReadingRequest;
 import co.caudal.api.dto.request.ReadingBatchRequest;
 import co.caudal.api.dto.response.ReadingBatchResponse;
 import co.caudal.api.dto.response.ReadingCreatedResponse;
+import co.caudal.api.dto.response.ReadingDetailResponse;
 import co.caudal.api.dto.response.ReadingPageResponse;
 import co.caudal.api.mapper.ReadingMapper;
 import co.caudal.api.security.CallerFactory;
@@ -11,6 +12,7 @@ import co.caudal.application.command.CommandBus;
 import co.caudal.application.reading.BatchResult;
 import co.caudal.application.reading.CreateReadingBatchCommand;
 import co.caudal.application.reading.CreateReadingCommand;
+import co.caudal.application.reading.GetReadingUseCase;
 import co.caudal.application.reading.ListReadingsUseCase;
 import co.caudal.application.reading.ReadingFilter;
 import co.caudal.application.reading.RecordedReading;
@@ -33,6 +35,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -47,10 +50,30 @@ public class ReadingController {
 
   private final CommandBus commands;
   private final ListReadingsUseCase list;
+  private final GetReadingUseCase get;
 
-  ReadingController(CommandBus commands, ListReadingsUseCase list) {
+  ReadingController(CommandBus commands, ListReadingsUseCase list, GetReadingUseCase get) {
     this.commands = commands;
     this.list = list;
+    this.get = get;
+  }
+
+  @Operation(
+      summary = "Ver una lectura",
+      description =
+          "La lectura tal como se observó, su valor efectivo (la última corrección o el"
+              + " original), sus advertencias y el historial de correcciones. Requiere el permiso"
+              + " READING_VIEW.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "200", description = "La lectura")
+  @ApiResponse(responseCode = "404", description = "NOT_FOUND: no existe o es de otro acueducto")
+  @GetMapping("/{id}")
+  @PreAuthorize("hasAuthority('READING_VIEW')")
+  public ResponseEntity<ReadingDetailResponse> get(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id, HttpServletRequest http) {
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.noStore())
+        .body(ReadingMapper.toResponse(get.execute(CallerFactory.from(jwt, http), id)));
   }
 
   @Operation(

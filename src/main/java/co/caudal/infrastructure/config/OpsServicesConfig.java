@@ -15,6 +15,7 @@ import co.caudal.application.port.out.SyncBatchPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.reading.CreateReadingBatchCommandHandler;
 import co.caudal.application.reading.CreateReadingCommandHandler;
+import co.caudal.application.reading.GetReadingUseCase;
 import co.caudal.application.reading.ListReadingsUseCase;
 import co.caudal.application.reading.ReadingCursor;
 import co.caudal.application.reading.ReadingRecorder;
@@ -143,5 +144,10 @@ class OpsServicesConfig {
       ReadingRecorder recorder,
       UnitOfWorkPort unitOfWork) {
     return new CreateReadingBatchCommandHandler(ruleSets, batches, recorder, unitOfWork);
+  }
+
+  @Bean
+  GetReadingUseCase getReadingUseCase(ReadingPort readings, UnitOfWorkPort unitOfWork) {
+    return new GetReadingUseCase(readings, unitOfWork);
   }
 }

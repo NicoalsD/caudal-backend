@@ -133,4 +133,33 @@ class ReadingCreationIT extends SessionIT {
                 "SELECT count(*) FROM ops.readings WHERE id = ?", Integer.class, id))
         .isEqualTo(1);
   }
+
+  @Test
+  void aReadingIsShownWithItsIssuesAndNotOutsideItsAqueduct() throws Exception {
+    UUID tank = newTank(demoAqueduct());
+    Session session = login(account("create.detail", "OPERATOR", demoAqueduct()));
+    UUID first = UUID.randomUUID();
+    UUID second = UUID.randomUUID();
+    record(session, first, tank, "2.10", NOW.minus(60, ChronoUnit.MINUTES))
+        .andExpect(status().isCreated());
+    record(session, second, tank, "2.10", NOW.minus(50, ChronoUnit.MINUTES))
+        .andExpect(status().isCreated());
+
+    mvc.perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(
+                    "/api/v1/readings/" + second)
+                .header("Authorization", session.bearer()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.reading.id").value(second.toString()))
+        .andExpect(jsonPath("$.reading.effective_gauge_value").value(2.10))
+        .andExpect(jsonPath("$.reading.correction_count").value(0))
+        .andExpect(jsonPath("$.issues[0].code").value("DUPLICATE"))
+        .andExpect(jsonPath("$.corrections.length()").value(0));
+    Session stranger = login(account("create.detail.out", "OPERATOR"));
+    mvc.perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(
+                    "/api/v1/readings/" + second)
+                .header("Authorization", stranger.bearer()))
+        .andExpect(status().isNotFound());
+  }
 }
