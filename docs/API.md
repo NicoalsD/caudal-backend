@@ -352,8 +352,9 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 - **Permiso:** `USER_MANAGE`.
 - **Cuerpo (todos opcionales):** `full_name` (2 a 80), `status` (`ACTIVE`, `LOCKED`, `DISABLED`).
 - **Respuesta 200:** usuario actualizado.
-- **Efecto:** desactivar o bloquear revoca sus refresh tokens e incrementa `token_version`.
-- **Errores:** `404 NOT_FOUND`, `409 INVALID_STATE_TRANSITION` (estado no permitido).
+- **Efecto:** desactivar o bloquear revoca sus refresh tokens e incrementa `token_version`. `LOCKED` puesto por un administrador no tiene fin (`locked_until` nulo) y dura hasta que alguien envíe `ACTIVE`, que además borra los intentos fallidos y el nivel de bloqueo. `DISABLED` es definitivo y guarda `disabled_at`.
+- **Respuesta 200:** `id`, `username`, `full_name`, `status`, `locked_until`, `must_change_password`, `last_login_at`.
+- **Errores:** `404 NOT_FOUND` (la cuenta no existe o no tiene membresía en el acueducto de la sesión), `409 INVALID_STATE_TRANSITION` (una cuenta `DISABLED` no cambia de estado), `409 CONFLICT` con `details.reason = SELF_LOCKOUT` (un administrador no bloquea ni desactiva su propia cuenta).
 - **Ejemplo:** `{ "status": "DISABLED" }`
 
 ### 3.4 `POST /api/v1/users/{id}/reset-grants`
