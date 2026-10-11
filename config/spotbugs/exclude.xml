@@ -49,6 +49,13 @@
     <Bug pattern="IMPROPER_UNICODE"/>
   </Match>
 
+  <!-- SafeText applies Unicode NFC to free text before checking forbidden characters and
+       lengths, so the checks see the normalized text; the detector warns about the call itself. -->
+  <Match>
+    <Class name="co.caudal.shared.text.SafeText"/>
+    <Bug pattern="IMPROPER_UNICODE"/>
+  </Match>
+
   <!-- The refresh guard reads X-Requested-With and Origin to REJECT requests that do not match
        exact expected values; the header is never trusted as input data. -->
   <Match>
