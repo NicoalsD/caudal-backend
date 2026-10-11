@@ -12,6 +12,8 @@ import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.domain.security.SecurityEvent;
 import co.caudal.domain.security.SecurityEventType;
 import co.caudal.domain.security.Severity;
+import co.caudal.domain.user.AccountState;
+import co.caudal.domain.user.DisabledAccountState;
 import co.caudal.domain.user.InvalidCredentialsException;
 import co.caudal.domain.user.LockoutPolicy;
 import co.caudal.domain.user.LockoutPolicy.LockoutDecision;
@@ -136,13 +138,11 @@ public class LoginUseCase {
           password, usernameHmac, ipHmac, FailureReason.INVALID_CREDENTIALS, null);
     }
     LoginAccount account = found.get();
-    if (LoginAccount.DISABLED.equals(account.status())) {
-      return rejectWithoutAccount(
-          password, usernameHmac, ipHmac, FailureReason.DISABLED, account.id());
-    }
-    if (isLocked(account, now)) {
-      return rejectWithoutAccount(
-          password, usernameHmac, ipHmac, FailureReason.LOCKED, account.id());
+    AccountState state = AccountState.of(account.status(), account.lockedUntil());
+    if (!state.allowsLogin(now)) {
+      FailureReason reason =
+          state instanceof DisabledAccountState ? FailureReason.DISABLED : FailureReason.LOCKED;
+      return rejectWithoutAccount(password, usernameHmac, ipHmac, reason, account.id());
     }
     if (!passwords.matches(password, account.passwordHash())) {
       return registerFailure(account, usernameHmac, ipHmac, now);
@@ -220,12 +220,6 @@ public class LoginUseCase {
                 membership.role(),
                 membership.aqueductId(),
                 account.mustChangePassword())));
-  }
-
-  private static boolean isLocked(LoginAccount account, Instant now) {
-    return LoginAccount.LOCKED.equals(account.status())
-        && account.lockedUntil() != null
-        && account.lockedUntil().isAfter(now);
   }
 
   private static String boundedUsername(String typed) {
