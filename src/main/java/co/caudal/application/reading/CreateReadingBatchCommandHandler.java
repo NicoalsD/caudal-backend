@@ -10,11 +10,14 @@ import co.caudal.application.rules.RuleSetView;
 import co.caudal.shared.error.DomainException;
 import co.caudal.shared.error.ErrorCode;
 import co.caudal.shared.error.FieldValidationException;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -75,12 +78,13 @@ public class CreateReadingBatchCommandHandler
   private BatchResult process(CreateReadingBatchCommand command) {
     RuleSetView rules =
         ruleSets.findActive().orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
-    if (batches.find(command.syncBatchId()).isPresent()) {
-      throw new DomainException(ErrorCode.CONFLICT, Map.of("reason", "SYNC_BATCH_REUSED"));
+    Optional<SyncBatchRecord> existing = batches.find(command.syncBatchId());
+    if (existing.isPresent()) {
+      return replay(command, existing.get(), rules);
     }
     Set<UUID> judged = new HashSet<>();
     Map<UUID, BatchItemResult> results = new HashMap<>();
-    for (ReadingInput input : command.readings()) {
+    for (ReadingInput input : inObservedOrder(command.readings())) {
       try {
         recorder.judge(command.caller(), input, rules, false);
         judged.add(input.id());
@@ -97,7 +101,7 @@ public class CreateReadingBatchCommandHandler
             command.readings().size(),
             command.readings().size() - rejected,
             rejected));
-    for (ReadingInput input : command.readings()) {
+    for (ReadingInput input : inObservedOrder(command.readings())) {
       if (judged.contains(input.id())) {
         results.put(input.id(), store(command.caller(), input, rules, command.syncBatchId()));
       }
@@ -117,9 +121,43 @@ public class CreateReadingBatchCommandHandler
     return new BatchItemResult(input.id(), status, null, null);
   }
 
+  private BatchResult replay(
+      CreateReadingBatchCommand command, SyncBatchRecord stored, RuleSetView rules) {
+    Set<UUID> storedIds = batches.readingIds(stored.id());
+    if (stored.itemsReceived() != command.readings().size()) {
+      throw new DomainException(ErrorCode.CONFLICT, Map.of("reason", "SYNC_BATCH_REUSED"));
+    }
+    Map<UUID, BatchItemResult> results = new HashMap<>();
+    for (ReadingInput input : command.readings()) {
+      BatchItemResult result;
+      try {
+        Verdict verdict = recorder.judge(command.caller(), input, rules, false);
+        if (!verdict.replay() || !storedIds.contains(input.id())) {
+          throw new DomainException(ErrorCode.CONFLICT, Map.of("reason", "SYNC_BATCH_REUSED"));
+        }
+        result = new BatchItemResult(input.id(), BatchItemResult.REPLAYED, null, null);
+      } catch (DomainException refused) {
+        if (refused.code() == ErrorCode.CONFLICT || refused.code() == ErrorCode.DUPLICATE_READING) {
+          throw new DomainException(ErrorCode.CONFLICT, Map.of("reason", "SYNC_BATCH_REUSED"));
+        }
+        result = rejected(input.id(), refused);
+      }
+      results.put(input.id(), result);
+    }
+    return result(command, results, stored.itemsAccepted(), stored.itemsRejected(), true);
+  }
+
   private static BatchItemResult rejected(UUID id, DomainException refused) {
     return new BatchItemResult(
         id, BatchItemResult.REJECTED, refused.code().name(), refused.details());
+  }
+
+  private static List<ReadingInput> inObservedOrder(List<ReadingInput> readings) {
+    List<ReadingInput> ordered = new ArrayList<>(readings);
+    ordered.sort(
+        Comparator.comparing(
+            ReadingInput::observedAt, Comparator.nullsFirst(Comparator.<Instant>naturalOrder())));
+    return ordered;
   }
 
   private static BatchResult result(

@@ -46,7 +46,7 @@ class ReadingBatchIT extends SessionIT {
   }
 
   @Test
-  void eachReadingIsJudgedAloneAndTheBatchIsStored() throws Exception {
+  void eachReadingIsJudgedAloneAndTheBatchIsStoredOnce() throws Exception {
     UUID tank = newTank(demoAqueduct());
     Session session = login(account("batch.main", "OPERATOR", demoAqueduct()));
     UUID batch = UUID.randomUUID();
@@ -54,12 +54,13 @@ class ReadingBatchIT extends SessionIT {
     UUID late = UUID.randomUUID();
     UUID bad = UUID.randomUUID();
     UUID jump = UUID.randomUUID();
+    // Sent out of order on purpose: the jump is only seen if the readings are stored by time.
     List<String> readings =
         List.of(
+            reading(jump, tank, "1.00", NOW.minus(1, ChronoUnit.HOURS)),
             reading(early, tank, "3.00", NOW.minus(3, ChronoUnit.HOURS)),
-            reading(late, tank, "2.95", NOW.minus(2, ChronoUnit.HOURS)),
             reading(bad, tank, "9.00", NOW.minus(2, ChronoUnit.HOURS)),
-            reading(jump, tank, "1.00", NOW.minus(1, ChronoUnit.HOURS)));
+            reading(late, tank, "2.95", NOW.minus(2, ChronoUnit.HOURS)));
 
     send(session, batch, readings)
         .andExpect(status().isOk())
@@ -67,17 +68,23 @@ class ReadingBatchIT extends SessionIT {
         .andExpect(jsonPath("$.items_accepted").value(3))
         .andExpect(jsonPath("$.items_rejected").value(1))
         .andExpect(jsonPath("$.idempotent_replay").value(false))
-        .andExpect(jsonPath("$.results[0].id").value(early.toString()))
-        .andExpect(jsonPath("$.results[0].status").value("ACCEPTED"))
+        .andExpect(jsonPath("$.results[0].id").value(jump.toString()))
+        .andExpect(jsonPath("$.results[0].status").value("FLAGGED"))
         .andExpect(jsonPath("$.results[1].status").value("ACCEPTED"))
         .andExpect(jsonPath("$.results[2].status").value("REJECTED"))
         .andExpect(jsonPath("$.results[2].error.code").value("GAUGE_OUT_OF_RANGE"))
-        .andExpect(jsonPath("$.results[3].status").value("FLAGGED"));
+        .andExpect(jsonPath("$.results[3].status").value("ACCEPTED"));
 
     assertThat(
             owner.queryForObject(
                 "SELECT count(*) FROM ops.readings WHERE sync_batch_id = ?", Integer.class, batch))
         .isEqualTo(3);
+    send(session, batch, readings)
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.idempotent_replay").value(true))
+        .andExpect(jsonPath("$.results[0].status").value("REPLAYED"))
+        .andExpect(jsonPath("$.results[2].status").value("REJECTED"))
+        .andExpect(jsonPath("$.items_accepted").value(3));
     assertThat(
             owner.queryForObject(
                 "SELECT count(*) FROM ops.sync_batches WHERE id = ?", Integer.class, batch))

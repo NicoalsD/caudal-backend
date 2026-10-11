@@ -605,7 +605,8 @@ Una lectura es una observación del nivel de la regla pintada. Su estatus epist�
 - **Cuerpo:** `sync_batch_id` (UUID del cliente, obligatorio) y `readings` (lista de 1 a 100 objetos con los campos de 7.1).
 - **Límite:** cuerpo de 64 KiB.
 - **Respuesta 200:** `sync_batch_id`, `items_received`, `items_accepted`, `items_rejected`, `idempotent_replay` y `results`, uno por lectura en el orden del envío (`id`, `status` = `ACCEPTED`, `FLAGGED`, `REPLAYED` o `REJECTED`). Una lectura inválida no se guarda: su elemento trae `error` con `code` (`GAUGE_OUT_OF_RANGE`, `MISSING_TIMESTAMP`, `FUTURE_TIMESTAMP`, `TOO_OLD`, `NOT_FOUND`, `DUPLICATE_READING` o `VALIDATION_ERROR`) y `details`, y el resto del lote sigue. La app pide corregir antes de reenviar.
-- **Guardado:** `ops.sync_batches` es de solo inserción: se escribe una vez, con sus conteos, antes que sus lecturas, y cada lectura guardada lleva `sync_batch_id`.
+- **Guardado:** `ops.sync_batches` es de solo inserción: se escribe una vez, con sus conteos, antes que sus lecturas, y cada lectura guardada lleva `sync_batch_id`. Las lecturas se guardan en el orden de `observed_at` (así el salto brusco y el duplicado se comparan en orden de tiempo aunque la cola las envíe desordenadas).
+- **Idempotencia:** reenviar el mismo lote (mismo `sync_batch_id`, mismas lecturas) responde `200` con `idempotent_replay: true`, los conteos guardados y `REPLAYED` o el mismo rechazo por lectura, sin guardar nada.
 - **Errores:** `400 VALIDATION_ERROR` (lista vacía, más de 100 lecturas o ids repetidos dentro del lote), `413 PAYLOAD_TOO_LARGE`, `409 CONFLICT` con `details.reason = SYNC_BATCH_REUSED` (`sync_batch_id` existente con otro contenido).
 - **Nota:** un error de una lectura no cancela el lote. Cada lectura se evalúa por separado.
 
