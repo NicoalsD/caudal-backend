@@ -39,4 +39,11 @@ public record ImportReadingsRequest(
     @Schema(description = "Lecturas, con los campos de POST /readings; hasta 5.000.")
         @NotNull
         @Size(min = 1)
-        List<@Valid @NotNull CreateReadingRequest> rows) {}
+        List<@Valid @NotNull CreateReadingRequest> rows)
+    implements ImportEnvelope {
+
+  @Override
+  public int rowCount() {
+    return rows.size();
+  }
+}

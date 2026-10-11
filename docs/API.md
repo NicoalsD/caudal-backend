@@ -1057,11 +1057,11 @@ Permiso: `IMPORT_SIMULATED` (`PROJECT_TEAM`). `aqueduct_id` debe ser el acueduct
 
 ### 17.2 `POST /api/v1/imports/shift-executions`
 
-- Cada fila: `schedule_item_id` (UUID existente), `status`, `actual_start`, `actual_end`, `note`. Quedan con `import_batch_id`.
+- Cada fila: `schedule_item_id` (UUID existente del acueducto), `status` (`COMPLETED`, `PARTIAL` o `NOT_EXECUTED`), `actual_start`, `actual_end` (posterior a `actual_start` si ambos vienen), `note` (hasta 500). Quedan con `import_batch_id`. Un turno que no existe se rechaza con `NOT_FOUND`; un estado o un rango inválido, con `VALIDATION_ERROR`.
 
 ### 17.3 `POST /api/v1/imports/incidents`
 
-- Cada fila: `category_code`, `sector_id`, `description`, `location_hint`, `reported_at`. Se guardan con `source = IMPORT`.
+- Cada fila: `category_code` (activo en `DAMAGE_CATEGORY`), `sector_id` (opcional, del acueducto), `description` (10 a 500), `location_hint` (hasta 120), `reported_at`. Se guardan con `source = IMPORT`, estado `REPORTED` (con su fila en `incident_status_history`) y un código de seguimiento propio del que solo se guarda el hash.
 
 ## 18. Auditoría y seguridad
 

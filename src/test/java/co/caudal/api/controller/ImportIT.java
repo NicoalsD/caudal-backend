@@ -104,4 +104,83 @@ class ImportIT extends SessionIT {
             operator, demoAqueduct(), sha(), List.of(row(tank, "2.00", NOW.minusSeconds(600))))
         .andExpect(status().isForbidden());
   }
+
+  @Test
+  void simulatedIncidentsAreStoredWithTheirOwnTrackingCode() throws Exception {
+    UUID demo = demoAqueduct();
+    Session team = login(account("import.incidents", "PROJECT_TEAM", demo));
+    UUID sector =
+        owner.queryForObject(
+            "SELECT id FROM org.sectors WHERE aqueduct_id = ? ORDER BY code LIMIT 1",
+            UUID.class,
+            demo);
+    String rows =
+        "{\"category_code\":\"LEAK\",\"sector_id\":\""
+            + sector
+            + "\",\"description\":\"Fuga simulada cerca del puente.\",\"reported_at\":\""
+            + NOW.minus(10, ChronoUnit.DAYS)
+            + "\"},{\"category_code\":\"FIRE\",\"description\":\"Categoría que no existe.\","
+            + "\"reported_at\":\""
+            + NOW.minus(9, ChronoUnit.DAYS)
+            + "\"}";
+
+    String body =
+        mvc.perform(
+                post("/api/v1/imports/incidents")
+                    .header("Authorization", team.bearer())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        "{\"aqueduct_id\":\""
+                            + demo
+                            + "\",\"scenario_name\":\"daños\",\"seed\":3,"
+                            + "\"simulator_version\":\"0.1\",\"file_sha256\":\""
+                            + sha()
+                            + "\",\"rows\":["
+                            + rows
+                            + "]}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.rows_accepted").value(1))
+            .andExpect(jsonPath("$.rejections[0].row").value(2))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    UUID importId = UUID.fromString(body.replaceAll(".*\"import_batch_id\":\"([^\"]+)\".*", "$1"));
+    assertThat(
+            owner.queryForObject(
+                "SELECT count(*) FROM ops.incidents WHERE import_batch_id = ? AND source = 'IMPORT'"
+                    + " AND status = 'REPORTED' AND length(tracking_code_hash) = 64",
+                Integer.class,
+                importId))
+        .isEqualTo(1);
+    assertThat(
+            owner.queryForObject(
+                "SELECT kind FROM sim.import_batches WHERE id = ?", String.class, importId))
+        .isEqualTo("INCIDENTS");
+  }
+
+  @Test
+  void aShiftExecutionNeedsAnExistingShift() throws Exception {
+    UUID demo = demoAqueduct();
+    Session team = login(account("import.shifts", "PROJECT_TEAM", demo));
+
+    mvc.perform(
+            post("/api/v1/imports/shift-executions")
+                .header("Authorization", team.bearer())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"aqueduct_id\":\""
+                        + demo
+                        + "\",\"scenario_name\":\"turnos\",\"seed\":4,"
+                        + "\"simulator_version\":\"0.1\",\"file_sha256\":\""
+                        + sha()
+                        + "\",\"rows\":[{\"schedule_item_id\":\""
+                        + UUID.randomUUID()
+                        + "\",\"status\":\"COMPLETED\"},{\"schedule_item_id\":\""
+                        + UUID.randomUUID()
+                        + "\",\"status\":\"MAYBE\"}]}"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.rows_accepted").value(0))
+        .andExpect(jsonPath("$.rejections[0].code").value("NOT_FOUND"))
+        .andExpect(jsonPath("$.rejections[1].code").value("VALIDATION_ERROR"));
+  }
 }

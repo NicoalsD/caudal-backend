@@ -1,19 +1,26 @@
 package co.caudal.api.controller;
 
+import co.caudal.api.dto.request.ImportEnvelope;
+import co.caudal.api.dto.request.ImportIncidentsRequest;
 import co.caudal.api.dto.request.ImportReadingsRequest;
+import co.caudal.api.dto.request.ImportShiftExecutionsRequest;
 import co.caudal.api.dto.response.ImportResponse;
 import co.caudal.api.mapper.ReadingMapper;
 import co.caudal.api.security.CallerFactory;
 import co.caudal.application.command.CommandBus;
+import co.caudal.application.simulation.ImportHistoryCommand;
 import co.caudal.application.simulation.ImportReadingsCommand;
 import co.caudal.application.simulation.ImportRequest;
 import co.caudal.application.simulation.ImportResult;
+import co.caudal.application.simulation.IncidentRow;
+import co.caudal.application.simulation.ShiftExecutionRow;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -45,7 +52,7 @@ public class ImportController {
    * @param body the body
    * @return the import request
    */
-  static ImportRequest request(Jwt jwt, HttpServletRequest http, ImportReadingsRequest body) {
+  static ImportRequest request(Jwt jwt, HttpServletRequest http, ImportEnvelope body) {
     return new ImportRequest(
         CallerFactory.from(jwt, http),
         body.aqueductId(),
@@ -53,7 +60,7 @@ public class ImportController {
         body.seed(),
         body.simulatorVersion().strip(),
         body.fileSha256().toLowerCase(java.util.Locale.ROOT),
-        body.rows().size());
+        body.rowCount());
   }
 
   @Operation(
@@ -82,6 +89,80 @@ public class ImportController {
             new ImportReadingsCommand(
                 request(jwt, http, body),
                 body.rows().stream().map(ReadingMapper::toInput).toList()));
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .cacheControl(CacheControl.noStore())
+        .body(toResponse(result));
+  }
+
+  @Operation(
+      summary = "Importar ejecuciones de turnos simuladas",
+      description =
+          "Solo para acueductos demo y para el acueducto de la sesión. Cada fila necesita un turno"
+              + " existente del horario, un estado (COMPLETED, PARTIAL o NOT_EXECUTED) y, si"
+              + " vienen, una apertura anterior al cierre; una fila rechazada no detiene la"
+              + " importación. Requiere el permiso IMPORT_SIMULATED.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "201", description = "Importación registrada")
+  @ApiResponse(responseCode = "403", description = "FORBIDDEN o DEMO_ONLY")
+  @ApiResponse(responseCode = "409", description = "CONFLICT: el archivo ya se importó")
+  @ApiResponse(responseCode = "422", description = "IMPORT_LIMIT_EXCEEDED: más de 5.000 filas")
+  @PostMapping("/shift-executions")
+  @PreAuthorize("hasAuthority('IMPORT_SIMULATED')")
+  public ResponseEntity<ImportResponse> shiftExecutions(
+      @AuthenticationPrincipal Jwt jwt,
+      @Valid @RequestBody ImportShiftExecutionsRequest body,
+      HttpServletRequest http) {
+    List<ShiftExecutionRow> rows =
+        body.rows().stream()
+            .map(
+                r ->
+                    new ShiftExecutionRow(
+                        r.scheduleItemId(),
+                        r.status(),
+                        r.actualStart() == null ? null : r.actualStart().toInstant(),
+                        r.actualEnd() == null ? null : r.actualEnd().toInstant(),
+                        r.note()))
+            .toList();
+    ImportResult result =
+        commands.dispatch(new ImportHistoryCommand(request(jwt, http, body), rows, List.of()));
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .cacheControl(CacheControl.noStore())
+        .body(toResponse(result));
+  }
+
+  @Operation(
+      summary = "Importar reportes de daño simulados",
+      description =
+          "Solo para acueductos demo y para el acueducto de la sesión. Cada fila necesita una"
+              + " categoría activa de DAMAGE_CATEGORY, una descripción de 10 a 500 caracteres y la"
+              + " fecha del reporte; se guardan con source IMPORT, estado REPORTED y un código de"
+              + " seguimiento propio. Requiere el permiso IMPORT_SIMULATED.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "201", description = "Importación registrada")
+  @ApiResponse(responseCode = "403", description = "FORBIDDEN o DEMO_ONLY")
+  @ApiResponse(responseCode = "409", description = "CONFLICT: el archivo ya se importó")
+  @ApiResponse(responseCode = "422", description = "IMPORT_LIMIT_EXCEEDED: más de 5.000 filas")
+  @PostMapping("/incidents")
+  @PreAuthorize("hasAuthority('IMPORT_SIMULATED')")
+  public ResponseEntity<ImportResponse> incidents(
+      @AuthenticationPrincipal Jwt jwt,
+      @Valid @RequestBody ImportIncidentsRequest body,
+      HttpServletRequest http) {
+    List<IncidentRow> rows =
+        body.rows().stream()
+            .map(
+                r ->
+                    new IncidentRow(
+                        r.categoryCode(),
+                        r.sectorId(),
+                        r.description(),
+                        r.locationHint() == null || r.locationHint().isBlank()
+                            ? null
+                            : r.locationHint().strip(),
+                        r.reportedAt() == null ? null : r.reportedAt().toInstant()))
+            .toList();
+    ImportResult result =
+        commands.dispatch(new ImportHistoryCommand(request(jwt, http, body), List.of(), rows));
     return ResponseEntity.status(HttpStatus.CREATED)
         .cacheControl(CacheControl.noStore())
         .body(toResponse(result));
