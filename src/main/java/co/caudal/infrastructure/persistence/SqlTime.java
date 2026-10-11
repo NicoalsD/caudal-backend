@@ -5,6 +5,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 /** Conversions between SQL timestamps and {@link Instant}. */
 final class SqlTime {
@@ -20,5 +21,10 @@ final class SqlTime {
   /** Converts an instant for a query parameter. */
   static Timestamp timestamp(Instant instant) {
     return instant == null ? null : Timestamp.from(instant);
+  }
+
+  /** Converts an instant for a typed {@code timestamptz} parameter that may be null. */
+  static OffsetDateTime offset(Instant instant) {
+    return instant == null ? null : instant.atOffset(ZoneOffset.UTC);
   }
 }

@@ -4,6 +4,7 @@ import co.caudal.application.port.out.ReadingPort;
 import co.caudal.application.reading.IssueView;
 import co.caudal.application.reading.LevelPoint;
 import co.caudal.application.reading.ListedReading;
+import co.caudal.application.reading.ReadingFilter;
 import co.caudal.application.reading.ReadingView;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
@@ -130,17 +131,29 @@ public class ReadingPersistenceAdapter implements ReadingPort {
   }
 
   @Override
-  public List<ListedReading> list(UUID tankId, Instant before, int limit) {
+  public List<ListedReading> list(ReadingFilter filter, Instant before, UUID beforeId, int limit) {
     return jdbc.sql(
             "SELECT r.id, r.tank_id, r.gauge_value, r.water_appearance_code, r.damage_noticed,"
                 + " r.note, r.observed_at, r.received_at, r.source, r.validation_status,"
                 + " r.rule_set_id, e.gauge_value AS effective_value,"
                 + " (SELECT count(*) FROM ops.reading_corrections c WHERE c.reading_id = r.id)"
                 + " AS corrections FROM ops.readings r JOIN ops.effective_readings e ON e.id ="
-                + " r.id WHERE r.tank_id = :tank AND (CAST(:before AS timestamptz) IS NULL OR"
-                + " r.observed_at < :before) ORDER BY r.observed_at DESC, r.id DESC LIMIT :limit")
-        .param("tank", tankId)
-        .param("before", SqlTime.timestamp(before), java.sql.Types.TIMESTAMP_WITH_TIMEZONE)
+                + " r.id WHERE r.tank_id = :tank"
+                + " AND (CAST(:from AS timestamptz) IS NULL OR r.observed_at >= :from)"
+                + " AND (CAST(:to AS timestamptz) IS NULL OR r.observed_at <= :to)"
+                + " AND (CAST(:status AS varchar) IS NULL OR r.validation_status = :status)"
+                + " AND (CAST(:before AS timestamptz) IS NULL OR"
+                + " (r.observed_at, r.id) < (CAST(:before AS timestamptz), CAST(:beforeId AS uuid)))"
+                + " ORDER BY r.observed_at DESC, r.id DESC LIMIT :limit")
+        .param("tank", filter.tankId())
+        .param("from", SqlTime.offset(filter.from()), java.sql.Types.TIMESTAMP_WITH_TIMEZONE)
+        .param("to", SqlTime.offset(filter.to()), java.sql.Types.TIMESTAMP_WITH_TIMEZONE)
+        .param(
+            "status",
+            filter.status() == null ? null : filter.status().name(),
+            java.sql.Types.VARCHAR)
+        .param("before", SqlTime.offset(before), java.sql.Types.TIMESTAMP_WITH_TIMEZONE)
+        .param("beforeId", beforeId, java.sql.Types.OTHER)
         .param("limit", limit)
         .query(
             (rs, row) ->

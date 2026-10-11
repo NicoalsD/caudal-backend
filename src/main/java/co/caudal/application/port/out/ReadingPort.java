@@ -3,6 +3,7 @@ package co.caudal.application.port.out;
 import co.caudal.application.reading.IssueView;
 import co.caudal.application.reading.LevelPoint;
 import co.caudal.application.reading.ListedReading;
+import co.caudal.application.reading.ReadingFilter;
 import co.caudal.application.reading.ReadingView;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -76,12 +77,13 @@ public interface ReadingPort {
   /**
    * Lists readings of a tank, newest first.
    *
-   * @param tankId the tank
-   * @param before only readings observed strictly before this moment, or null
+   * @param filter the tank and the optional range and status
+   * @param before only readings before this (moment, id) position, or null for the newest
+   * @param beforeId the id that goes with {@code before}
    * @param limit maximum number of readings
    * @return the readings
    */
-  List<ListedReading> list(UUID tankId, Instant before, int limit);
+  List<ListedReading> list(ReadingFilter filter, Instant before, UUID beforeId, int limit);
 
   /**
    * Lists the effective levels of a tank since a moment, oldest first.

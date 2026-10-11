@@ -5,10 +5,13 @@ import co.caudal.application.network.CreateTankCommandHandler;
 import co.caudal.application.network.ListNetworkUseCase;
 import co.caudal.application.port.out.CatalogPort;
 import co.caudal.application.port.out.NetworkPort;
+import co.caudal.application.port.out.PrivacyHasherPort;
 import co.caudal.application.port.out.ReadingPort;
 import co.caudal.application.port.out.RuleSetPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.reading.CreateReadingCommandHandler;
+import co.caudal.application.reading.ListReadingsUseCase;
+import co.caudal.application.reading.ReadingCursor;
 import co.caudal.application.rules.GetCurrentRuleSetUseCase;
 import java.time.Clock;
 import org.springframework.context.annotation.Bean;
@@ -52,5 +55,16 @@ class OpsServicesConfig {
       Clock clock) {
     return new CreateReadingCommandHandler(
         network, ruleSets, readings, catalogs, unitOfWork, clock);
+  }
+
+  @Bean
+  ReadingCursor readingCursor(PrivacyHasherPort hasher) {
+    return new ReadingCursor(hasher);
+  }
+
+  @Bean
+  ListReadingsUseCase listReadingsUseCase(
+      NetworkPort network, ReadingPort readings, ReadingCursor cursors, UnitOfWorkPort unitOfWork) {
+    return new ListReadingsUseCase(network, readings, cursors, unitOfWork);
   }
 }
