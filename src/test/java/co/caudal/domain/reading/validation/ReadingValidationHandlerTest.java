@@ -164,4 +164,46 @@ class ReadingValidationHandlerTest {
         .containsEntry("window_minutes", 30)
         .containsEntry("matched_reading_id", other.toString());
   }
+
+  private static ReadingHistory previousAt(String value, Instant at) {
+    return new ReadingHistory() {
+      @Override
+      public java.util.Optional<java.util.UUID> duplicateOf(
+          BigDecimal v, Instant observedAt, int windowMinutes) {
+        return java.util.Optional.empty();
+      }
+
+      @Override
+      public java.util.Optional<LevelAt> previous(Instant observedAt) {
+        return java.util.Optional.of(new LevelAt(new BigDecimal(value), at));
+      }
+    };
+  }
+
+  @Test
+  void aFastChangeSinceThePreviousReadingIsFlaggedSuddenJump() {
+    List<ReadingIssue> issues =
+        ReadingValidationChain.run(
+            ReadingValidationChain.standard(previousAt("3.00", NOW.minusSeconds(3600))),
+            candidate("2.00", NOW));
+
+    assertThat(issues).hasSize(1);
+    assertThat(issues.getFirst().code()).isEqualTo("SUDDEN_JUMP");
+    assertThat(issues.getFirst().severity()).isEqualTo("WARNING");
+    assertThat((BigDecimal) issues.getFirst().details().get("rate_per_hour"))
+        .isEqualByComparingTo("1.00");
+  }
+
+  @Test
+  void aSlowChangeOrAPreviousAtTheSameMomentIsNotAJump() {
+    assertThat(
+            ReadingValidationChain.run(
+                ReadingValidationChain.standard(previousAt("2.20", NOW.minusSeconds(3600))),
+                candidate("2.00", NOW)))
+        .isEmpty();
+    assertThat(
+            ReadingValidationChain.run(
+                ReadingValidationChain.standard(previousAt("4.00", NOW)), candidate("2.00", NOW)))
+        .isEmpty();
+  }
 }

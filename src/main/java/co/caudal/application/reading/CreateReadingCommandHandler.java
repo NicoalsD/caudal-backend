@@ -8,7 +8,6 @@ import co.caudal.application.port.out.ReadingPort;
 import co.caudal.application.port.out.RuleSetPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.rules.RuleSetView;
-import co.caudal.domain.reading.ReadingRules;
 import co.caudal.domain.reading.validation.ReadingCandidate;
 import co.caudal.domain.reading.validation.ReadingCandidate.ReadingLimits;
 import co.caudal.domain.reading.validation.ReadingHistory;
@@ -21,10 +20,7 @@ import co.caudal.shared.error.FieldValidationException;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -44,7 +40,6 @@ public class CreateReadingCommandHandler
   private static final String SOURCE_MANUAL = "MANUAL_APP";
   private static final String ACCEPTED = "ACCEPTED";
   private static final String FLAGGED = "FLAGGED";
-  private static final String INFO = "INFO";
 
   private final NetworkPort network;
   private final RuleSetPort ruleSets;
@@ -107,9 +102,7 @@ public class CreateReadingCommandHandler
         WATER_APPEARANCE, command.waterAppearanceCode(), command.caller().aqueductId())) {
       throw new FieldValidationException("water_appearance_code", "FIELD_VALUE_NOT_ALLOWED");
     }
-    List<IssueView> issues =
-        new ArrayList<>(found.stream().map(CreateReadingCommandHandler::view).toList());
-    issues.addAll(flags(command, tank, rules, observedAt));
+    List<IssueView> issues = found.stream().map(CreateReadingCommandHandler::view).toList();
     ReadingView reading =
         new ReadingView(
             command.id(),
@@ -163,26 +156,6 @@ public class CreateReadingCommandHandler
         new ReadingLimits(
             rules.maxBackdateDays(), rules.duplicateWindowMinutes(), rules.maxLevelChangePerHour()),
         false);
-  }
-
-  private List<IssueView> flags(
-      CreateReadingCommand command, TankView tank, RuleSetView rules, Instant observedAt) {
-    List<IssueView> issues = new ArrayList<>();
-    readings
-        .previousEffective(tank.id(), observedAt)
-        .map(
-            previous ->
-                ReadingRules.changePerHour(
-                    previous.value(), previous.observedAt(), command.gaugeValue(), observedAt))
-        .filter(rate -> rate != null && rate.compareTo(rules.maxLevelChangePerHour()) > 0)
-        .ifPresent(
-            rate -> {
-              Map<String, Object> details = new LinkedHashMap<>();
-              details.put("rate_per_hour", rate);
-              details.put("max_per_hour", rules.maxLevelChangePerHour());
-              issues.add(new IssueView(IssueView.SUDDEN_JUMP, IssueView.WARNING, details));
-            });
-    return issues;
   }
 
   private RecordedReading replay(ReadingView existing, CreateReadingCommand command, String note) {

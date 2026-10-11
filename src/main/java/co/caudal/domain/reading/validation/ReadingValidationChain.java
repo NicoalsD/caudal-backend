@@ -9,7 +9,7 @@ public final class ReadingValidationChain {
   private ReadingValidationChain() {}
 
   /**
-   * The standard chain: range, moment, duplicate and age.
+   * The standard chain: range, moment, duplicate, sudden jump and age.
    *
    * @param history the earlier readings of the tank
    * @return the first link
@@ -19,6 +19,7 @@ public final class ReadingValidationChain {
     first
         .linkWith(new TimestampHandler())
         .linkWith(new DuplicateHandler(history))
+        .linkWith(new SuddenJumpHandler(history))
         .linkWith(new AgeHandler());
     return first;
   }

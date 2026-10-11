@@ -96,4 +96,18 @@ class ReadingCreationIT extends SessionIT {
         .andExpect(jsonPath("$.issues[0].code").value("DUPLICATE"))
         .andExpect(jsonPath("$.issues[0].details.matched_reading_id").value(first.toString()));
   }
+
+  @Test
+  void aFastDropIsFlaggedSuddenJump() throws Exception {
+    UUID tank = newTank(demoAqueduct());
+    Session session = login(account("create.jump", "OPERATOR", demoAqueduct()));
+    record(session, UUID.randomUUID(), tank, "3.50", NOW.minus(2, ChronoUnit.HOURS))
+        .andExpect(status().isCreated());
+
+    record(session, UUID.randomUUID(), tank, "1.00", NOW.minus(1, ChronoUnit.HOURS))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.reading.validation_status").value("FLAGGED"))
+        .andExpect(jsonPath("$.issues[0].code").value("SUDDEN_JUMP"))
+        .andExpect(jsonPath("$.issues[0].severity").value("WARNING"));
+  }
 }
