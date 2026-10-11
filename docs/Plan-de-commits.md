@@ -129,43 +129,43 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| B193 | `test: verifica la arquitectura hexagonal con ArchUnit` | `Drako2305` | - | Hexagonal | [ ] |
-| B194 | `build: exige cobertura mínima con JaCoCo` | `NicoalsD` | - | - | [ ] |
-| B074 | `feat: valida username con FieldLimits` | `Drako2305` | HU-01 | - | [ ] |
-| B075 | `feat: normaliza contraseñas con Unicode NFKC` | `Drako2305` | HU-02 | - | [ ] |
-| B076 | `feat: codifica contraseñas con Argon2id` | `Drako2305` | HU-01, HU-02 | - | [ ] |
-| B077 | `feat: verifica contraseñas comunes y nombre de usuario` | `Drako2305` | HU-02 | - | [ ] |
-| B078 | `feat: agrega hash señuelo para usuarios inexistentes` | `Drako2305` | HU-01 | - | [ ] |
-| B079 | `feat: emite JWT HS256 con claims de sesión` | `Drako2305` | HU-01 | - | [ ] |
-| B080 | `feat: valida issuer, audience y token_version del JWT` | `Drako2305` | HU-01, HU-05 | - | [ ] |
-| B081 | `feat: rota refresh tokens opacos almacenados como hash` | `Drako2305` | HU-05 | - | [ ] |
-| B082 | `feat: revoca familias al detectar refresh reutilizado` | `Drako2305` | HU-05 | P18 | [ ] |
-| B083 | `feat: configura cookie caudal_rt y protección de Origin` | `Drako2305` | HU-01 | - | [ ] |
-| B084 | `feat: aplica permisos deny-by-default desde iam` | `Drako2305` | HU-04 | - | [ ] |
-| B085 | `feat: filtra membresías por aqueduct_id y user_id` | `Drako2305` | HU-04 | - | [ ] |
-| B086 | `feat: agrega GET /api/v1/auth/me` | `Drako2305` | HU-01 | - | [ ] |
-| B087 | `feat: implementa POST /api/v1/auth/login` | `Drako2305` | HU-01, HU-03 | - | [ ] |
-| B088 | `feat: implementa POST /api/v1/auth/refresh` | `Drako2305` | HU-05 | - | [ ] |
-| B089 | `feat: implementa POST /api/v1/auth/logout` | `Drako2305` | HU-05 | P13 | [ ] |
-| B090 | `feat: implementa POST /api/v1/auth/logout-all` | `Drako2305` | HU-05 | P13 | [ ] |
-| B091 | `feat: implementa POST /api/v1/auth/change-password` | `Drako2305` | HU-02 | P13 | [ ] |
-| B092 | `feat: implementa POST /api/v1/auth/reset-password` | `Drako2305` | HU-02, HU-04 | P13 | [ ] |
-| B093 | `feat: implementa POST /api/v1/users con alta segura` | `Drako2305` | HU-04 | P13 | [ ] |
-| B094 | `feat: implementa PATCH /api/v1/users/{id}` | `Drako2305` | HU-04 | P13 | [ ] |
-| B095 | `feat: implementa GET y POST /api/v1/memberships` | `Drako2305` | HU-04 | - | [ ] |
-| B096 | `feat: implementa DELETE /api/v1/memberships/{id}` | `Drako2305` | HU-04 | P13 | [ ] |
-| B097 | `feat: agrega TOTP cifrado con AES-256-GCM` | `Drako2305` | HU-06 | P06 | [ ] |
-| B098 | `feat: implementa enrolamiento y confirmación MFA` | `Drako2305` | HU-06 | - | [ ] |
-| B099 | `feat: genera y valida códigos MFA de respaldo` | `Drako2305` | HU-06 | - | [ ] |
-| B100 | `feat: implementa estados de bloqueo escalonado de cuenta` | `Drako2305` | HU-03 | P18 | [ ] |
-| B101 | `feat: limita login por IP con Bucket4j y PostgreSQL` | `Drako2305` | HU-03 | - | [ ] |
-| B102 | `feat: agrega AuditingCommandHandler para eventos de seguridad` | `Drako2305` | HU-03, HU-06 | P09 | [ ] |
+| B193 | `test: verifica la arquitectura hexagonal con ArchUnit` | `Drako2305` | - | Hexagonal | [x] |
+| B194 | `build: exige cobertura mínima con JaCoCo` | `NicoalsD` | - | - | [x] |
+| B074 | `feat: valida username con FieldLimits` | `Drako2305` | HU-01 | - | [x] |
+| B075 | `feat: normaliza contraseñas con Unicode NFKC` | `Drako2305` | HU-02 | - | [x] |
+| B076 | `feat: codifica contraseñas con Argon2id` | `Drako2305` | HU-01, HU-02 | - | [x] |
+| B077 | `feat: verifica contraseñas comunes y nombre de usuario` | `Drako2305` | HU-02 | - | [x] |
+| B078 | `feat: agrega hash señuelo para usuarios inexistentes` | `Drako2305` | HU-01 | - | [x] |
+| B079 | `feat: emite JWT HS256 con claims de sesión` | `Drako2305` | HU-01 | - | [x] |
+| B080 | `feat: valida issuer, audience y token_version del JWT` | `Drako2305` | HU-01, HU-05 | - | [x] |
+| B081 | `feat: rota refresh tokens opacos almacenados como hash` | `Drako2305` | HU-05 | - | [x] |
+| B082 | `feat: revoca familias al detectar refresh reutilizado` | `Drako2305` | HU-05 | P18 | [x] |
+| B083 | `feat: configura cookie caudal_rt y protección de Origin` | `Drako2305` | HU-01 | - | [x] |
+| B084 | `feat: aplica permisos deny-by-default desde iam` | `Drako2305` | HU-04 | - | [x] |
+| B085 | `feat: filtra membresías por aqueduct_id y user_id` | `Drako2305` | HU-04 | - | [x] |
+| B086 | `feat: agrega GET /api/v1/auth/me` | `Drako2305` | HU-01 | - | [x] |
+| B087 | `feat: implementa POST /api/v1/auth/login` | `Drako2305` | HU-01, HU-03 | - | [x] |
+| B088 | `feat: implementa POST /api/v1/auth/refresh` | `Drako2305` | HU-05 | - | [x] |
+| B089 | `feat: implementa POST /api/v1/auth/logout` | `Drako2305` | HU-05 | P13 | [x] |
+| B090 | `feat: implementa POST /api/v1/auth/logout-all` | `Drako2305` | HU-05 | P13 | [x] |
+| B091 | `feat: implementa POST /api/v1/auth/change-password` | `Drako2305` | HU-02 | P13 | [x] |
+| B092 | `feat: implementa POST /api/v1/auth/reset-password` | `Drako2305` | HU-02, HU-04 | P13 | [x] |
+| B093 | `feat: implementa POST /api/v1/users con alta segura` | `Drako2305` | HU-04 | P13 | [x] |
+| B094 | `feat: implementa PATCH /api/v1/users/{id}` | `Drako2305` | HU-04 | P13 | [x] |
+| B095 | `feat: implementa GET y POST /api/v1/memberships` | `Drako2305` | HU-04 | - | [x] |
+| B096 | `feat: implementa DELETE /api/v1/memberships/{id}` | `Drako2305` | HU-04 | P13 | [x] |
+| B097 | `feat: agrega TOTP cifrado con AES-256-GCM` | `Drako2305` | HU-06 | P06 | [x] |
+| B098 | `feat: implementa enrolamiento y confirmación MFA` | `Drako2305` | HU-06 | - | [x] |
+| B099 | `feat: genera y valida códigos MFA de respaldo` | `Drako2305` | HU-06 | - | [x] |
+| B100 | `feat: implementa estados de bloqueo escalonado de cuenta` | `Drako2305` | HU-03 | P18 | [x] |
+| B101 | `feat: limita login por IP con Bucket4j y PostgreSQL` | `Drako2305` | HU-03 | - | [x] |
+| B102 | `feat: agrega AuditingCommandHandler para eventos de seguridad` | `Drako2305` | HU-03, HU-06 | P09 | [x] |
 
 ### Fase 4: Reglas y red
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| B103 | `feat: implementa GET /api/v1/rule-sets/current` | `Drako2305` | HU-08 | - | [ ] |
+| B103 | `feat: implementa GET /api/v1/rule-sets/current` | `Drako2305` | HU-08 | - | [x] |
 | B104 | `feat: implementa GET /api/v1/rule-sets` | `Drako2305` | HU-07 | - | [ ] |
 | B105 | `feat: implementa GET /api/v1/rule-sets/{id}` | `Drako2305` | HU-07 | - | [ ] |
 | B106 | `feat: copia reglas con RuleSet.copyForNewVersion()` | `Drako2305` | HU-07 | P05 | [ ] |
@@ -174,9 +174,9 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | B109 | `feat: implementa PATCH /api/v1/rule-sets/{id}` | `Drako2305` | HU-07 | P05 | [ ] |
 | B110 | `feat: activa reglas con ActivateRuleSetCommand` | `Drako2305` | HU-08 | P13 | [ ] |
 | B111 | `feat: agrega DomainEventPublisher para RuleSetActivated` | `Drako2305` | HU-08 | P17 | [ ] |
-| B112 | `feat: gestiona tanques en GET y POST /api/v1/tanks` | `Drako2305` | HU-14 | - | [ ] |
-| B113 | `feat: modela red con NetworkNode` (SectorNode, ValveNode; GET/POST /api/v1/sectors, PATCH /api/v1/sectors/{id}, GET/POST /api/v1/sectors/{id}/valves, PATCH /api/v1/valves/{id}) | `Drako2305` | HU-18 | P08 | [ ] |
-| B114 | `feat: publica GET /api/v1/catalogs/{catalog}` | `Drako2305` | HU-11, HU-27 | P23 | [ ] |
+| B112 | `feat: gestiona tanques en GET y POST /api/v1/tanks` | `Drako2305` | HU-14 | - | [x] |
+| B113 | `feat: modela red con NetworkNode` (SectorNode, ValveNode; GET/POST /api/v1/sectors, PATCH /api/v1/sectors/{id}, GET/POST /api/v1/sectors/{id}/valves, PATCH /api/v1/valves/{id}) | `Drako2305` | HU-18 | P08 | [x] |
+| B114 | `feat: publica GET /api/v1/catalogs/{catalog}` | `Drako2305` | HU-11, HU-27 | P23 | [x] |
 | B115 | `feat: expone GET /api/v1/meta/constraints` | `Drako2305` | HU-02, HU-11 | - | [ ] |
 
 ### Fase 5: Lecturas e importación
@@ -188,9 +188,9 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | B118 | `feat: marca duplicados en ReadingValidationHandler` | `nicomora70` | HU-12 | P12 | [ ] |
 | B119 | `feat: marca saltos bruscos en ReadingValidationHandler` | `nicomora70` | HU-12 | P12 | [ ] |
 | B120 | `feat: agrega idempotencia por UUID en POST /readings` | `nicomora70` | HU-09 | P13 | [ ] |
-| B121 | `feat: implementa POST /api/v1/readings` | `nicomora70` | HU-09, HU-11 | P12 | [ ] |
+| B121 | `feat: implementa POST /api/v1/readings` | `nicomora70` | HU-09, HU-11 | P12 | [x] |
 | B122 | `feat: procesa POST /api/v1/readings/batch por elemento` | `nicomora70` | HU-10 | P13 | [ ] |
-| B123 | `feat: publica GET /api/v1/readings con cursor firmado` | `nicomora70` | HU-09 | - | [ ] |
+| B123 | `feat: publica GET /api/v1/readings con cursor firmado` | `nicomora70` | HU-09 | - | [x] |
 | B124 | `feat: publica GET /api/v1/readings/{id}` | `nicomora70` | HU-09 | - | [ ] |
 | B125 | `feat: agrega POST /api/v1/readings/{id}/corrections` | `nicomora70` | HU-13 | P13 | [ ] |
 | B126 | `feat: calcula effective_readings sin alterar el original` | `nicomora70` | HU-13 | Repository | [ ] |
