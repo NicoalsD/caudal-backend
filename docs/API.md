@@ -698,18 +698,18 @@ La propuesta sigue la máquina de estados de `Reglas-de-negocio.md`, sección 12
 - **Permiso:** `PROPOSAL_GENERATE`.
 - **Cuerpo:** `service_date` (fecha `YYYY-MM-DD`, obligatoria).
 - **Respuesta 201:** propuesta con `status` = `PENDING_REVIEW` (`DRAFT` es solo interno mientras se construye), `available_hours`, `tank_level_snapshot`, `tank_band`, `forecast_run_id`, `strategy_code`, `lock_version`, `items` (`id`, `sector_id`, `sequence`, `start_at`, `end_at`, `origin`, `reasons`) y `unserved_sectors` (sectores sin turno con su motivo, guardado en `schedule_proposals.unserved_sectors`).
-- **Errores:** `422 NO_LEVEL_DATA`, `404 NOT_FOUND` (no hay regla activa), `409 CONFLICT` (por definir: ya existe una propuesta abierta para la fecha).
+- **Errores:** `422 NO_LEVEL_DATA`, `404 NOT_FOUND` (no hay regla activa), `409 CONFLICT` (ya existe una propuesta no rechazada para la fecha), `422 OUTSIDE_OPERATING_WINDOW` (las reglas no abren ese día).
 - **Ejemplo:** `{ "service_date": "2026-10-09" }`
 
 ### 10.2 `GET /api/v1/schedule-proposals`
 
-- **Permiso:** `PROPOSAL_READ`.
+- **Permiso:** `PROPOSAL_VIEW`.
 - **Parámetros:** `service_date_from`, `service_date_to`, `status`, `limit`, `cursor`.
 - **Respuesta:** lista de propuestas (sin `items`).
 
 ### 10.3 `GET /api/v1/schedule-proposals/{id}`
 
-- **Permiso:** `PROPOSAL_READ`.
+- **Permiso:** `PROPOSAL_VIEW`.
 - **Respuesta:** la propuesta completa, como 10.1, con `decisions` (historial de decisiones con motivo) y `snapshot_taken` (si hubo cambios).
 
 ### 10.4 `POST /api/v1/schedule-proposals/{id}/approve`
