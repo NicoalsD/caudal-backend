@@ -1,6 +1,7 @@
 package co.caudal.api.controller;
 
 import co.caudal.api.dto.request.CreateTankRequest;
+import co.caudal.api.dto.request.RequestForecastRequest;
 import co.caudal.api.dto.response.ForecastRunResponse;
 import co.caudal.api.dto.response.ListResponse;
 import co.caudal.api.dto.response.TankResponse;
@@ -11,6 +12,7 @@ import co.caudal.api.security.CallerFactory;
 import co.caudal.application.command.CommandBus;
 import co.caudal.application.facade.TankStatusFacade;
 import co.caudal.application.forecast.GetLatestForecastUseCase;
+import co.caudal.application.forecast.RequestForecastUseCase;
 import co.caudal.application.network.CreateTankCommand;
 import co.caudal.application.network.ListNetworkUseCase;
 import io.swagger.v3.oas.annotations.Operation;
@@ -43,16 +45,46 @@ public class TankController {
   private final CommandBus commands;
   private final TankStatusFacade status;
   private final GetLatestForecastUseCase latest;
+  private final RequestForecastUseCase request;
 
   TankController(
       ListNetworkUseCase network,
       CommandBus commands,
       TankStatusFacade status,
-      GetLatestForecastUseCase latest) {
+      GetLatestForecastUseCase latest,
+      RequestForecastUseCase request) {
     this.network = network;
     this.commands = commands;
     this.status = status;
     this.latest = latest;
+    this.request = request;
+  }
+
+  @Operation(
+      summary = "Pronosticar el tanque ahora",
+      description =
+          "Pide el pronóstico a la IA (Chronos) con las lecturas efectivas de los últimos"
+              + " forecast_context_days. Si la IA no responde a tiempo, falla o el circuito está"
+              + " abierto, la respuesta es la estimación simple con is_fallback en verdadero y el"
+              + " motivo. Cuando la IA responde se guarda también la estimación simple en sombra."
+              + " Hasta 10 por hora por acueducto. Requiere el permiso FORECAST_RUN.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "201", description = "Corrida nueva")
+  @ApiResponse(responseCode = "404", description = "NOT_FOUND: el tanque o la regla no existen")
+  @ApiResponse(responseCode = "422", description = "NO_LEVEL_DATA: no hay lecturas recientes")
+  @ApiResponse(responseCode = "429", description = "RATE_LIMITED: demasiados recálculos")
+  @PostMapping("/{id}/forecasts")
+  @PreAuthorize("hasAuthority('FORECAST_RUN')")
+  public ResponseEntity<ForecastRunResponse> requestForecast(
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID id,
+      @Valid @RequestBody RequestForecastRequest body,
+      HttpServletRequest http) {
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .cacheControl(CacheControl.noStore())
+        .body(
+            ForecastMapper.toResponse(
+                request.execute(CallerFactory.from(jwt, http), id, body.horizonDays())));
   }
 
   @Operation(

@@ -4,15 +4,20 @@ import co.caudal.application.facade.TankStatusFacade;
 import co.caudal.application.forecast.ForecastRunner;
 import co.caudal.application.forecast.Forecaster;
 import co.caudal.application.forecast.GetLatestForecastUseCase;
+import co.caudal.application.forecast.RequestForecastUseCase;
 import co.caudal.application.port.out.AnomalyPort;
 import co.caudal.application.port.out.AqueductPort;
 import co.caudal.application.port.out.ForecastRunPort;
 import co.caudal.application.port.out.NetworkPort;
+import co.caudal.application.port.out.RateLimiterPort;
 import co.caudal.application.port.out.ReadingPort;
 import co.caudal.application.port.out.RuleSetPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
+import co.caudal.application.ratelimit.RateLimit;
 import co.caudal.domain.tank.LeastSquaresTrend;
+import co.caudal.infrastructure.ratelimit.RateLimitProperties;
 import java.time.Clock;
+import java.time.Duration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -63,5 +68,12 @@ class ForecastServicesConfig {
   GetLatestForecastUseCase getLatestForecastUseCase(
       NetworkPort network, ForecastRunPort runs, UnitOfWorkPort unitOfWork) {
     return new GetLatestForecastUseCase(network, runs, unitOfWork);
+  }
+
+  @Bean
+  RequestForecastUseCase requestForecastUseCase(
+      ForecastRunner runner, RateLimiterPort rateLimiter, RateLimitProperties rates) {
+    return new RequestForecastUseCase(
+        runner, rateLimiter, new RateLimit(rates.forecastPerHour(), Duration.ofHours(1)));
   }
 }

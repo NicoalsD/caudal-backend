@@ -6,9 +6,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * Rate limits from the environment (docs/Seguridad.md, section 2.10).
  *
  * @param loginPerMinute logins per IP per minute ({@code RATE_LIMIT_LOGIN_PER_MINUTE})
+ * @param forecastPerHour forecasts per aqueduct per hour ({@code RATE_LIMIT_FORECAST_PER_HOUR})
  */
 @ConfigurationProperties(prefix = "caudal.security.rate-limit")
-public record RateLimitProperties(int loginPerMinute) {
+public record RateLimitProperties(int loginPerMinute, int forecastPerHour) {
 
   /**
    * Refuses a limit below one.
@@ -16,8 +17,8 @@ public record RateLimitProperties(int loginPerMinute) {
    * @throws IllegalArgumentException if a limit is not positive
    */
   public RateLimitProperties {
-    if (loginPerMinute < 1) {
-      throw new IllegalArgumentException("RATE_LIMIT_LOGIN_PER_MINUTE must be positive");
+    if (loginPerMinute < 1 || forecastPerHour < 1) {
+      throw new IllegalArgumentException("Rate limits must be positive");
     }
   }
 }

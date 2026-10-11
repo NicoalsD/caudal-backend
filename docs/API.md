@@ -667,7 +667,8 @@ Una lectura es una observación del nivel de la regla pintada. Su estatus epist�
 - **Permiso:** `FORECAST_RUN`.
 - **Cuerpo:** `horizon_days` (entero de 1 a 3, opcional; por defecto `forecast_horizon_days` de la regla vigente).
 - **Respuesta 201:** corrida nueva con `points` y `is_fallback`. Si la IA no responde o el circuito está abierto, la respuesta es igual, con `is_fallback = true` y `fallback_reason` (`IA_TIMEOUT`, `CIRCUIT_OPEN`, `IA_ERROR` o `INSUFFICIENT_HISTORY`). La estimación simple que se calcula siempre junto a la IA se guarda con `is_fallback = false` y `fallback_reason = SHADOW_BASELINE`; `is_fallback = true` solo cuando reemplaza a la IA.
-- **Errores:** `429 RATE_LIMITED` (10 por hora por acueducto), `503 IA_UNAVAILABLE` (solo si también falla la estimación simple).
+- **Serie:** las lecturas efectivas del tanque de los últimos `forecast_context_days`; la llamada a la IA ocurre fuera de la transacción y respeta los timeouts de `docs/Contrato-IA.md` (2 s y 10 s). Sin `IA_SERVICE_URL` configurada, la respuesta es la estimación simple con `IA_ERROR`.
+- **Errores:** `400 VALIDATION_ERROR` (`horizon_days` fuera de 1 a 3), `404 NOT_FOUND`, `422 NO_LEVEL_DATA` (sin lecturas en la ventana), `429 RATE_LIMITED` (10 por hora por acueducto, con `Retry-After`), `503 IA_UNAVAILABLE` (solo si también falla la estimación simple).
 - **Ejemplo:** `{ "horizon_days": 1 }`
 
 ## 9. Anomalías (`/anomalies`)

@@ -39,6 +39,7 @@ caudal:
     # Integration tests sign in hundreds of times; the limit itself is tested on its own.
     rate-limit:
       login-per-minute: 1000
+      forecast-per-hour: 1000
     reset-grant:
       ttl-minutes: 60
     privacy:
