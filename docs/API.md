@@ -659,7 +659,8 @@ Una lectura es una observación del nivel de la regla pintada. Su estatus epist�
 ### 8.2 `GET /api/v1/tanks/{id}/forecasts/latest`
 
 - **Permiso:** `STATUS_VIEW`.
-- **Respuesta:** la última corrida (`run_id`, `model_name`, `model_version`, `is_fallback`, `fallback_reason`, `created_at`, `context_from`, `context_to`) y sus `points`.
+- **Respuesta:** la última corrida mostrada (`run_id`, `model_name`, `model_version`, `is_fallback`, `fallback_reason`, `horizon_days`, `created_at`, `context_from`, `context_to`) y sus `points` (`target_date`, `p10`, `p50`, `p90`). Nunca devuelve la corrida de sombra (`SHADOW_BASELINE`).
+- **Errores:** `404 NOT_FOUND` (el tanque no existe o nunca se pronosticó).
 
 ### 8.3 `POST /api/v1/tanks/{id}/forecasts`
 

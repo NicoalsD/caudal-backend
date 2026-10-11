@@ -3,6 +3,7 @@ package co.caudal.infrastructure.config;
 import co.caudal.application.facade.TankStatusFacade;
 import co.caudal.application.forecast.ForecastRunner;
 import co.caudal.application.forecast.Forecaster;
+import co.caudal.application.forecast.GetLatestForecastUseCase;
 import co.caudal.application.port.out.AnomalyPort;
 import co.caudal.application.port.out.AqueductPort;
 import co.caudal.application.port.out.ForecastRunPort;
@@ -56,5 +57,11 @@ class ForecastServicesConfig {
         new LeastSquaresTrend(),
         unitOfWork,
         clock);
+  }
+
+  @Bean
+  GetLatestForecastUseCase getLatestForecastUseCase(
+      NetworkPort network, ForecastRunPort runs, UnitOfWorkPort unitOfWork) {
+    return new GetLatestForecastUseCase(network, runs, unitOfWork);
   }
 }

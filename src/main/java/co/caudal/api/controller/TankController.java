@@ -1,6 +1,7 @@
 package co.caudal.api.controller;
 
 import co.caudal.api.dto.request.CreateTankRequest;
+import co.caudal.api.dto.response.ForecastRunResponse;
 import co.caudal.api.dto.response.ListResponse;
 import co.caudal.api.dto.response.TankResponse;
 import co.caudal.api.dto.response.TankStatusResponse;
@@ -9,6 +10,7 @@ import co.caudal.api.mapper.NetworkMapper;
 import co.caudal.api.security.CallerFactory;
 import co.caudal.application.command.CommandBus;
 import co.caudal.application.facade.TankStatusFacade;
+import co.caudal.application.forecast.GetLatestForecastUseCase;
 import co.caudal.application.network.CreateTankCommand;
 import co.caudal.application.network.ListNetworkUseCase;
 import io.swagger.v3.oas.annotations.Operation;
@@ -40,11 +42,37 @@ public class TankController {
   private final ListNetworkUseCase network;
   private final CommandBus commands;
   private final TankStatusFacade status;
+  private final GetLatestForecastUseCase latest;
 
-  TankController(ListNetworkUseCase network, CommandBus commands, TankStatusFacade status) {
+  TankController(
+      ListNetworkUseCase network,
+      CommandBus commands,
+      TankStatusFacade status,
+      GetLatestForecastUseCase latest) {
     this.network = network;
     this.commands = commands;
     this.status = status;
+    this.latest = latest;
+  }
+
+  @Operation(
+      summary = "Último pronóstico del tanque",
+      description =
+          "La última corrida mostrada (la IA si respondió, la estimación simple si la reemplazó;"
+              + " nunca la de sombra) con sus puntos p10, p50 y p90 por día. Requiere el permiso"
+              + " STATUS_VIEW.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "200", description = "Último pronóstico")
+  @ApiResponse(
+      responseCode = "404",
+      description = "NOT_FOUND: el tanque no existe o nunca se pronosticó")
+  @GetMapping("/{id}/forecasts/latest")
+  @PreAuthorize("hasAuthority('STATUS_VIEW')")
+  public ResponseEntity<ForecastRunResponse> latestForecast(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id, HttpServletRequest http) {
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.noStore())
+        .body(ForecastMapper.toResponse(latest.execute(CallerFactory.from(jwt, http), id)));
   }
 
   @Operation(
