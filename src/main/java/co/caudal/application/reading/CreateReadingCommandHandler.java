@@ -11,8 +11,9 @@ import co.caudal.application.rules.RuleSetView;
 import co.caudal.domain.reading.ReadingRules;
 import co.caudal.domain.reading.validation.ReadingCandidate;
 import co.caudal.domain.reading.validation.ReadingCandidate.ReadingLimits;
+import co.caudal.domain.reading.validation.ReadingHistory;
+import co.caudal.domain.reading.validation.ReadingIssue;
 import co.caudal.domain.reading.validation.ReadingValidationChain;
-import co.caudal.domain.reading.validation.ReadingValidationHandler;
 import co.caudal.shared.FieldLimits;
 import co.caudal.shared.error.DomainException;
 import co.caudal.shared.error.ErrorCode;
@@ -25,6 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Validates and stores a reading (docs/Reglas-de-negocio.md, section 8). A reading that breaks the
@@ -50,7 +52,6 @@ public class CreateReadingCommandHandler
   private final CatalogPort catalogs;
   private final UnitOfWorkPort unitOfWork;
   private final Clock clock;
-  private final ReadingValidationHandler chain = ReadingValidationChain.standard();
 
   /**
    * Creates the handler.
@@ -97,13 +98,18 @@ public class CreateReadingCommandHandler
         ruleSets.findActive().orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
     BigDecimal value = command.gaugeValue();
     Instant now = clock.instant();
-    ReadingValidationChain.run(chain, candidate(command, tank, rules, now));
+    List<ReadingIssue> found =
+        ReadingValidationChain.run(
+            ReadingValidationChain.standard(history(command, tank)),
+            candidate(command, tank, rules, now));
     Instant observedAt = command.observedAt();
     if (!catalogs.isActiveCode(
         WATER_APPEARANCE, command.waterAppearanceCode(), command.caller().aqueductId())) {
       throw new FieldValidationException("water_appearance_code", "FIELD_VALUE_NOT_ALLOWED");
     }
-    List<IssueView> issues = flags(command, tank, rules, observedAt);
+    List<IssueView> issues =
+        new ArrayList<>(found.stream().map(CreateReadingCommandHandler::view).toList());
+    issues.addAll(flags(command, tank, rules, observedAt));
     ReadingView reading =
         new ReadingView(
             command.id(),
@@ -126,6 +132,26 @@ public class CreateReadingCommandHandler
     return new RecordedReading(readings.findById(reading.id()).orElse(reading), issues, false);
   }
 
+  private ReadingHistory history(CreateReadingCommand command, TankView tank) {
+    return new ReadingHistory() {
+      @Override
+      public Optional<UUID> duplicateOf(BigDecimal value, Instant observedAt, int windowMinutes) {
+        return readings.findDuplicate(tank.id(), value, observedAt, windowMinutes, command.id());
+      }
+
+      @Override
+      public Optional<LevelAt> previous(Instant observedAt) {
+        return readings
+            .previousEffective(tank.id(), observedAt)
+            .map(level -> new LevelAt(level.value(), level.observedAt()));
+      }
+    };
+  }
+
+  private static IssueView view(ReadingIssue issue) {
+    return new IssueView(issue.code(), issue.severity(), issue.details());
+  }
+
   private static ReadingCandidate candidate(
       CreateReadingCommand command, TankView tank, RuleSetView rules, Instant now) {
     return new ReadingCandidate(
@@ -142,20 +168,6 @@ public class CreateReadingCommandHandler
   private List<IssueView> flags(
       CreateReadingCommand command, TankView tank, RuleSetView rules, Instant observedAt) {
     List<IssueView> issues = new ArrayList<>();
-    readings
-        .findDuplicate(
-            tank.id(),
-            command.gaugeValue(),
-            observedAt,
-            rules.duplicateWindowMinutes(),
-            command.id())
-        .ifPresent(
-            matched -> {
-              Map<String, Object> details = new LinkedHashMap<>();
-              details.put("window_minutes", rules.duplicateWindowMinutes());
-              details.put("matched_reading_id", matched.toString());
-              issues.add(new IssueView(IssueView.DUPLICATE, INFO, details));
-            });
     readings
         .previousEffective(tank.id(), observedAt)
         .map(

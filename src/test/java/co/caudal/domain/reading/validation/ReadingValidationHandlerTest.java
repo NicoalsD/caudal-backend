@@ -85,7 +85,7 @@ class ReadingValidationHandlerTest {
 
   @Test
   void aMissingOrFutureMomentIsRejected() {
-    ReadingValidationHandler chain = ReadingValidationChain.standard();
+    ReadingValidationHandler chain = ReadingValidationChain.standard(ReadingHistory.empty());
 
     assertThatThrownBy(() -> ReadingValidationChain.run(chain, candidate("1.00", null)))
         .extracting(ReadingValidationHandlerTest::codeOf)
@@ -100,7 +100,7 @@ class ReadingValidationHandlerTest {
 
   @Test
   void anOldReadingIsRejectedUnlessItIsDemoHistory() {
-    ReadingValidationHandler chain = ReadingValidationChain.standard();
+    ReadingValidationHandler chain = ReadingValidationChain.standard(ReadingHistory.empty());
     Instant eightDaysAgo = NOW.minusSeconds(8L * 24 * 3600);
 
     assertThatThrownBy(() -> ReadingValidationChain.run(chain, candidate("1.00", eightDaysAgo)))
@@ -130,8 +130,38 @@ class ReadingValidationHandlerTest {
     assertThatThrownBy(
             () ->
                 ReadingValidationChain.run(
-                    ReadingValidationChain.standard(), candidate("9.00", null)))
+                    ReadingValidationChain.standard(ReadingHistory.empty()),
+                    candidate("9.00", null)))
         .extracting(ReadingValidationHandlerTest::codeOf)
         .isEqualTo(ErrorCode.GAUGE_OUT_OF_RANGE);
+  }
+
+  @Test
+  void aRepeatedValueInsideTheWindowIsFlaggedNotRejected() {
+    java.util.UUID other = java.util.UUID.randomUUID();
+    ReadingHistory history =
+        new ReadingHistory() {
+          @Override
+          public java.util.Optional<java.util.UUID> duplicateOf(
+              BigDecimal value, Instant observedAt, int windowMinutes) {
+            return windowMinutes == 30 ? java.util.Optional.of(other) : java.util.Optional.empty();
+          }
+
+          @Override
+          public java.util.Optional<LevelAt> previous(Instant observedAt) {
+            return java.util.Optional.empty();
+          }
+        };
+
+    List<ReadingIssue> issues =
+        ReadingValidationChain.run(
+            ReadingValidationChain.standard(history), candidate("2.10", NOW.minusSeconds(60)));
+
+    assertThat(issues).hasSize(1);
+    assertThat(issues.getFirst().code()).isEqualTo("DUPLICATE");
+    assertThat(issues.getFirst().severity()).isEqualTo("INFO");
+    assertThat(issues.getFirst().details())
+        .containsEntry("window_minutes", 30)
+        .containsEntry("matched_reading_id", other.toString());
   }
 }

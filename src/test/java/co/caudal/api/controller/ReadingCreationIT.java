@@ -81,4 +81,19 @@ class ReadingCreationIT extends SessionIT {
         .andExpect(jsonPath("$.error.code").value("TOO_OLD"))
         .andExpect(jsonPath("$.error.details.max_backdate_days").value(7));
   }
+
+  @Test
+  void theSameValueWithAnotherIdInsideTheWindowIsFlaggedDuplicate() throws Exception {
+    UUID tank = newTank(demoAqueduct());
+    Session session = login(account("create.duplicate", "OPERATOR", demoAqueduct()));
+    UUID first = UUID.randomUUID();
+    record(session, first, tank, "2.10", NOW.minus(60, ChronoUnit.MINUTES))
+        .andExpect(status().isCreated());
+
+    record(session, UUID.randomUUID(), tank, "2.10", NOW.minus(40, ChronoUnit.MINUTES))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.reading.validation_status").value("FLAGGED"))
+        .andExpect(jsonPath("$.issues[0].code").value("DUPLICATE"))
+        .andExpect(jsonPath("$.issues[0].details.matched_reading_id").value(first.toString()));
+  }
 }

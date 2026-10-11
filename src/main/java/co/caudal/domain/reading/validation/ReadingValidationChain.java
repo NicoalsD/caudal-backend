@@ -9,13 +9,17 @@ public final class ReadingValidationChain {
   private ReadingValidationChain() {}
 
   /**
-   * The standard chain.
+   * The standard chain: range, moment, duplicate and age.
    *
+   * @param history the earlier readings of the tank
    * @return the first link
    */
-  public static ReadingValidationHandler standard() {
+  public static ReadingValidationHandler standard(ReadingHistory history) {
     ReadingValidationHandler first = new GaugeRangeHandler();
-    first.linkWith(new TimestampHandler()).linkWith(new AgeHandler());
+    first
+        .linkWith(new TimestampHandler())
+        .linkWith(new DuplicateHandler(history))
+        .linkWith(new AgeHandler());
     return first;
   }
 
