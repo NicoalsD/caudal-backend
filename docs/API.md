@@ -319,7 +319,7 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 
 - **Permiso:** autenticado.
 - **Cuerpo:** `aqueduct_id` (UUID, obligatorio).
-- **Respuesta 200:** `access_token` nuevo con `aqueduct_id` del acueducto indicado. Un JWT lleva un solo acueducto (el activo).
+- **Respuesta 200:** `access_token` nuevo con `aqueduct_id` del acueducto indicado y el rol de la membresía vigente en él, `token_type` y `expires_in`. Un JWT lleva un solo acueducto (el activo). El refresh token no cambia: al refrescar, la sesión vuelve al primer acueducto vigente.
 - **Errores:** `403 FORBIDDEN` (la membresía no está vigente o no existe).
 - **Ejemplo:** `{ "aqueduct_id": "0190f3a2-0000-7000-8000-0000000000bb" }`
 

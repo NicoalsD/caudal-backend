@@ -15,6 +15,7 @@ import co.caudal.api.error.ApiExceptionHandler;
 import co.caudal.api.filter.RequestIdFilter;
 import co.caudal.application.auth.LogoutAllCommand;
 import co.caudal.application.auth.LogoutCommand;
+import co.caudal.application.auth.SwitchAqueductUseCase;
 import co.caudal.application.command.CommandBus;
 import co.caudal.application.command.Done;
 import co.caudal.infrastructure.config.MessagesConfig;
@@ -44,6 +45,7 @@ class AuthSessionControllerWebTest {
 
   @Autowired private MockMvc mvc;
   @MockitoBean private CommandBus commands;
+  @MockitoBean private SwitchAqueductUseCase switchAqueduct;
 
   private static org.springframework.test.web.servlet.request.RequestPostProcessor session() {
     return jwt()
