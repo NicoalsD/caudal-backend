@@ -1,6 +1,7 @@
 package co.caudal.infrastructure.persistence;
 
 import co.caudal.application.port.out.RuleSetPort;
+import co.caudal.application.rules.RuleSetSummary;
 import co.caudal.application.rules.RuleSetView;
 import co.caudal.application.rules.RuleSetView.BandView;
 import co.caudal.application.rules.RuleSetView.SectorSettingView;
@@ -8,6 +9,7 @@ import co.caudal.application.rules.RuleSetView.ValveOrderView;
 import co.caudal.application.rules.RuleSetView.WindowView;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
@@ -47,6 +49,29 @@ public class RuleSetPersistenceAdapter implements RuleSetPort {
         .query(this::head)
         .optional()
         .map(this::withChildren);
+  }
+
+  @Override
+  public List<RuleSetSummary> list(String status, Integer beforeVersion, int limit) {
+    return jdbc.sql(
+            "SELECT id, version, status, valid_from, valid_to, activated_at, based_on_rule_set_id"
+                + " FROM org.rule_sets WHERE (CAST(:status AS varchar) IS NULL OR status = :status)"
+                + " AND (CAST(:before AS integer) IS NULL OR version < :before)"
+                + " ORDER BY version DESC LIMIT :limit")
+        .param("status", status, Types.VARCHAR)
+        .param("before", beforeVersion, Types.INTEGER)
+        .param("limit", limit)
+        .query(
+            (rs, row) ->
+                new RuleSetSummary(
+                    rs.getObject("id", UUID.class),
+                    rs.getInt("version"),
+                    rs.getString("status"),
+                    SqlTime.instant(rs, "valid_from"),
+                    SqlTime.instant(rs, "valid_to"),
+                    SqlTime.instant(rs, "activated_at"),
+                    rs.getObject("based_on_rule_set_id", UUID.class)))
+        .list();
   }
 
   private RuleSetView head(ResultSet rs, int row) throws SQLException {

@@ -520,9 +520,9 @@ Las reglas se leen en la app offline para validar lecturas, así que `GET /rule-
 
 ### 6.2 `GET /api/v1/rule-sets`
 
-- **Permiso:** `RULESET_PROPOSE` o `RULESET_EDIT`.
+- **Permiso:** `RULESET_VIEW`.
 - **Parámetros:** `status` (`DRAFT`, `ACTIVE`, `SUPERSEDED`, `DISCARDED`), `limit`, `cursor`.
-- **Respuesta:** lista de `id`, `version`, `status`, `valid_from`, `valid_to`, `activated_at`, `based_on_rule_set_id`.
+- **Respuesta:** `items` de la versión más nueva a la más antigua, con `id`, `version`, `status`, `valid_from`, `valid_to`, `activated_at`, `based_on_rule_set_id`, y `next_cursor`.
 
 ### 6.3 `GET /api/v1/rule-sets/{id}`
 

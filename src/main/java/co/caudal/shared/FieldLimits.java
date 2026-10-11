@@ -270,5 +270,8 @@ public final class FieldLimits {
   /** Bytes of the AES-256-GCM key that encrypts TOTP secrets. */
   public static final int MFA_ENCRYPTION_KEY_BYTES = 32;
 
+  /** Status of a version of the rules (docs/Reglas-de-negocio.md, section 1). */
+  public static final String RULE_SET_STATUS_PATTERN = "^(DRAFT|ACTIVE|SUPERSEDED|DISCARDED)$";
+
   private FieldLimits() {}
 }

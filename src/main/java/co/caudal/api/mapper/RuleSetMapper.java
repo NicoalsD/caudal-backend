@@ -1,7 +1,9 @@
 package co.caudal.api.mapper;
 
 import co.caudal.api.dto.response.RuleSetResponse;
+import co.caudal.api.dto.response.RuleSetSummaryResponse;
 import co.caudal.application.rules.GetCurrentRuleSetUseCase.CurrentRuleSet;
+import co.caudal.application.rules.RuleSetSummary;
 import co.caudal.application.rules.RuleSetView;
 
 /** Maps the rules to the response DTO. */
@@ -66,5 +68,22 @@ public final class RuleSetMapper {
             .toList(),
         gauge,
         current.serverTime());
+  }
+
+  /**
+   * Maps a version in a list.
+   *
+   * @param summary the version
+   * @return the response
+   */
+  public static RuleSetSummaryResponse toResponse(RuleSetSummary summary) {
+    return new RuleSetSummaryResponse(
+        summary.id(),
+        summary.version(),
+        summary.status(),
+        summary.validFrom(),
+        summary.validTo(),
+        summary.activatedAt(),
+        summary.basedOnRuleSetId());
   }
 }

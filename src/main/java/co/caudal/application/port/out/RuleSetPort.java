@@ -1,6 +1,8 @@
 package co.caudal.application.port.out;
 
+import co.caudal.application.rules.RuleSetSummary;
 import co.caudal.application.rules.RuleSetView;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -24,4 +26,14 @@ public interface RuleSetPort {
    * @return the version with its children, or empty
    */
   Optional<RuleSetView> findById(UUID id);
+
+  /**
+   * Lists versions of the aqueduct of the session, newest first.
+   *
+   * @param status only this status, or null for all
+   * @param beforeVersion only versions with a lower number, or null from the newest
+   * @param limit maximum number of versions
+   * @return the versions
+   */
+  List<RuleSetSummary> list(String status, Integer beforeVersion, int limit);
 }
