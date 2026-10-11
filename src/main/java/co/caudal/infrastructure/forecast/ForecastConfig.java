@@ -1,6 +1,7 @@
 package co.caudal.infrastructure.forecast;
 
 import co.caudal.application.forecast.BaselineForecaster;
+import co.caudal.application.forecast.ShadowBaselineForecaster;
 import co.caudal.application.port.out.ForecastServicePort;
 import co.caudal.application.port.out.ForecasterPort;
 import co.caudal.domain.forecast.NaivePersistenceStrategy;
@@ -39,6 +40,7 @@ class ForecastConfig {
   @Bean
   ForecasterPort forecaster(
       ForecastServicePort service, CircuitBreaker breaker, BaselineForecaster baseline) {
-    return new RemoteForecasterProxy(service, breaker, baseline);
+    return new ShadowBaselineForecaster(
+        new RemoteForecasterProxy(service, breaker, baseline), baseline);
   }
 }
