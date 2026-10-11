@@ -21,6 +21,9 @@ import co.caudal.application.port.out.MembershipPort;
 import co.caudal.application.port.out.MfaFactorPort;
 import co.caudal.application.port.out.PasswordHasherPort;
 import co.caudal.application.port.out.PrivacyHasherPort;
+import co.caudal.application.port.out.RateLimiterPort;
+import co.caudal.application.ratelimit.RateLimit;
+import co.caudal.application.ratelimit.RateLimitDecision;
 import co.caudal.domain.security.SecurityEventType;
 import co.caudal.domain.user.InvalidCredentialsException;
 import co.caudal.domain.user.LockoutPolicy;
@@ -56,6 +59,7 @@ class LoginUseCaseTest {
   private final DirectUnitOfWork unitOfWork = new DirectUnitOfWork();
   private final MfaFactorPort mfaFactors = mock(MfaFactorPort.class);
   private final MfaVerifier mfa = mock(MfaVerifier.class);
+  private final RateLimiterPort rateLimiter = mock(RateLimiterPort.class);
 
   private final LoginUseCase useCase =
       new LoginUseCase(
@@ -70,13 +74,15 @@ class LoginUseCaseTest {
               events,
               mfaFactors,
               mfa,
+              rateLimiter,
               unitOfWork),
           new LockoutPolicy(5, Duration.ofMinutes(15), Duration.ofHours(24)),
           new LoginSettings(
               Duration.ofMinutes(15),
               20,
               Duration.ofMinutes(15),
-              role -> "OPERATOR".equals(role) ? Duration.ofDays(30) : Duration.ofDays(7)),
+              role -> "OPERATOR".equals(role) ? Duration.ofDays(30) : Duration.ofDays(7),
+              new RateLimit(5, Duration.ofMinutes(1))),
           clock);
 
   private LoginAccount account(String status, Instant lockedUntil, int level) {
@@ -97,6 +103,7 @@ class LoginUseCaseTest {
   }
 
   private void givenWorld(LoginAccount account, boolean passwordMatches) {
+    when(rateLimiter.tryConsume(anyString(), any())).thenReturn(RateLimitDecision.allow());
     when(hasher.hmac(anyString())).thenAnswer(call -> "hmac:" + call.getArgument(0));
     when(hasher.hmac("203.0.113.9")).thenReturn(IP_HMAC);
     when(accounts.findByUsername("test.operator")).thenReturn(Optional.ofNullable(account));
@@ -367,5 +374,24 @@ class LoginUseCaseTest {
                 "test.operator", "clave-correcta-larga", "203.0.113.9", "JUnit", "123456"));
 
     assertThat(result.accessToken().value()).isEqualTo("jwt-value");
+  }
+
+  @Test
+  void overTheRateOfTheIpAnswersRateLimitedWithRetryAfterAndRecordsIt() {
+    givenWorld(account("ACTIVE", null, 0), true);
+    when(rateLimiter.tryConsume(eq("login-ip:" + IP_HMAC), any()))
+        .thenReturn(new RateLimitDecision(false, Duration.ofMillis(11_200)));
+
+    assertThatThrownBy(() -> useCase.execute(input("test.operator", "clave-correcta-larga")))
+        .isInstanceOf(DomainException.class)
+        .satisfies(
+            failure -> {
+              DomainException domain = (DomainException) failure;
+              assertThat(domain.code()).isEqualTo(ErrorCode.RATE_LIMITED);
+              assertThat(domain.details()).containsEntry("retry_after_seconds", 12L);
+            });
+    assertThat(lastAttempt().failureReason()).isEqualTo(FailureReason.RATE_LIMITED);
+    assertThat(events.recorded).anyMatch(event -> event.type() == SecurityEventType.RATE_LIMITED);
+    verify(passwords, never()).matches(any(), anyString());
   }
 }

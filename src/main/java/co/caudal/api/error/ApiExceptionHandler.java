@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.context.MessageSource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
@@ -45,6 +46,9 @@ public class ApiExceptionHandler {
 
   private static final Logger LOG = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
+  /** Detail of a {@code RATE_LIMITED} error that also goes in the {@code Retry-After} header. */
+  static final String RETRY_AFTER_DETAIL = "retry_after_seconds";
+
   private static final Set<String> REQUIRED_CONSTRAINTS = Set.of("NotNull", "NotBlank", "NotEmpty");
   private static final Set<String> FORMAT_CONSTRAINTS = Set.of("Pattern", "Email", "Digits");
   private static final Set<String> RANGE_CONSTRAINTS =
@@ -70,7 +74,16 @@ public class ApiExceptionHandler {
 
   @ExceptionHandler(DomainException.class)
   ResponseEntity<ErrorResponse> handleDomain(DomainException ex, HttpServletRequest request) {
-    return build(ex.code(), ex.details(), ex.messageArguments(), request);
+    ResponseEntity<ErrorResponse> response =
+        build(ex.code(), ex.details(), ex.messageArguments(), request);
+    Object retryAfter = ex.details().get(RETRY_AFTER_DETAIL);
+    if (ex.code() == ErrorCode.RATE_LIMITED && retryAfter instanceof Number seconds) {
+      return ResponseEntity.status(response.getStatusCode())
+          .headers(response.getHeaders())
+          .header(HttpHeaders.RETRY_AFTER, Long.toString(seconds.longValue()))
+          .body(response.getBody());
+    }
+    return response;
   }
 
   @ExceptionHandler(MethodArgumentNotValidException.class)

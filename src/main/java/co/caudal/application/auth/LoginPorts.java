@@ -8,6 +8,7 @@ import co.caudal.application.port.out.MembershipPort;
 import co.caudal.application.port.out.MfaFactorPort;
 import co.caudal.application.port.out.PasswordHasherPort;
 import co.caudal.application.port.out.PrivacyHasherPort;
+import co.caudal.application.port.out.RateLimiterPort;
 import co.caudal.application.port.out.SecurityEventPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 
@@ -24,6 +25,7 @@ import co.caudal.application.port.out.UnitOfWorkPort;
  * @param events security events
  * @param mfaFactors second factors of the accounts
  * @param mfa checks second factor codes
+ * @param rateLimiter shared rate limits
  * @param unitOfWork transaction boundary
  */
 public record LoginPorts(
@@ -37,4 +39,5 @@ public record LoginPorts(
     SecurityEventPort events,
     MfaFactorPort mfaFactors,
     MfaVerifier mfa,
+    RateLimiterPort rateLimiter,
     UnitOfWorkPort unitOfWork) {}

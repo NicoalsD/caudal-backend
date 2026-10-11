@@ -10,8 +10,10 @@ import co.caudal.application.port.out.MembershipPort;
 import co.caudal.application.port.out.MfaFactorPort;
 import co.caudal.application.port.out.PasswordHasherPort;
 import co.caudal.application.port.out.PrivacyHasherPort;
+import co.caudal.application.port.out.RateLimiterPort;
 import co.caudal.application.port.out.SecurityEventPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
+import co.caudal.application.ratelimit.RateLimitDecision;
 import co.caudal.domain.security.SecurityEvent;
 import co.caudal.domain.security.SecurityEventType;
 import co.caudal.domain.security.Severity;
@@ -41,12 +43,14 @@ import java.util.UUID;
  * every path that reaches the password step spends one Argon2id verification (a decoy hash when
  * there is no usable account), so neither the message nor the time reveals which one it was.
  * Failures are recorded and committed before the error is raised. The only different answer is
- * {@code RATE_LIMITED} when one IP has too many failed attempts, which is decided before the
- * password is looked at.
+ * {@code RATE_LIMITED}, decided before the password is looked at: when one IP goes over the rate of
+ * logins (a Bucket4j bucket shared by every instance, with {@code Retry-After}) or has too many
+ * failed attempts in the window.
  */
 public class LoginUseCase {
 
   private static final String UNKNOWN_IP = "unknown";
+  private static final String RATE_KEY_PREFIX = "login-ip:";
 
   private final LoginAccountPort accounts;
   private final LoginAttemptPort attempts;
@@ -58,6 +62,7 @@ public class LoginUseCase {
   private final SecurityEventPort events;
   private final MfaFactorPort mfaFactors;
   private final MfaVerifier mfa;
+  private final RateLimiterPort rateLimiter;
   private final UnitOfWorkPort unitOfWork;
   private final LockoutPolicy lockout;
   private final LoginSettings settings;
@@ -83,6 +88,7 @@ public class LoginUseCase {
     this.events = ports.events();
     this.mfaFactors = ports.mfaFactors();
     this.mfa = ports.mfa();
+    this.rateLimiter = ports.rateLimiter();
     this.unitOfWork = ports.unitOfWork();
     this.lockout = lockout;
     this.settings = settings;
@@ -103,6 +109,16 @@ public class LoginUseCase {
     NormalizedPassword password = NormalizedPassword.of(input.password());
     Optional<Username> username = Username.tryParse(input.username());
     String usernameHmac = hasher.hmac(boundedUsername(input.username()));
+    RateLimitDecision rate = rateLimiter.tryConsume(RATE_KEY_PREFIX + ipHmac, settings.ipRate());
+    if (!rate.allowed()) {
+      unitOfWork.execute(
+          () -> {
+            rejectRateLimited(usernameHmac, ipHmac, "login_rate");
+            return null;
+          });
+      throw new DomainException(
+          ErrorCode.RATE_LIMITED, Map.of("retry_after_seconds", rate.retryAfterSeconds()));
+    }
 
     Step step =
         unitOfWork.execute(
@@ -130,16 +146,7 @@ public class LoginUseCase {
     Instant now = clock.instant();
     if (attempts.countFailuresByIp(ipHmac, now.minus(settings.ipWindow()))
         >= settings.ipMaxAttempts()) {
-      attempts.record(
-          new LoginAttempt(null, usernameHmac, ipHmac, false, FailureReason.RATE_LIMITED));
-      events.record(
-          new SecurityEvent(
-              SecurityEventType.RATE_LIMITED,
-              Severity.LOW,
-              null,
-              null,
-              ipHmac,
-              Map.of("scope", "login_ip")));
+      rejectRateLimited(usernameHmac, ipHmac, "login_ip");
       return Step.fail(new DomainException(ErrorCode.RATE_LIMITED));
     }
     Optional<LoginAccount> found = username.flatMap(name -> accounts.findByUsername(name.value()));
@@ -176,6 +183,19 @@ public class LoginUseCase {
       }
     }
     return Step.authenticated(account);
+  }
+
+  private void rejectRateLimited(String usernameHmac, String ipHmac, String scope) {
+    attempts.record(
+        new LoginAttempt(null, usernameHmac, ipHmac, false, FailureReason.RATE_LIMITED));
+    events.record(
+        new SecurityEvent(
+            SecurityEventType.RATE_LIMITED,
+            Severity.LOW,
+            null,
+            null,
+            ipHmac,
+            Map.of("scope", scope)));
   }
 
   private Step rejectWithoutAccount(

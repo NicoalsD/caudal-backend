@@ -177,7 +177,7 @@ Las colecciones son paginadas con cursor opaco firmado.
 | Recálculo de pronóstico | 10 por hora por acueducto | Hechos, sección 11 |
 | Otros grupos (importación, lectura pública, evaluación) | Por definir | |
 
-Respuesta al exceder un límite: `429 RATE_LIMITED` con `Retry-After`. El contador vive en PostgreSQL (`iam.rate_limit_buckets`) para que sea compartido entre instancias.
+Respuesta al exceder un límite: `429 RATE_LIMITED` con la cabecera `Retry-After` (segundos, redondeados hacia arriba) y el mismo valor en `details.retry_after_seconds`. El contador es un bucket de Bucket4j en PostgreSQL (`iam.rate_limit_buckets`, con bloqueos *advisory*) para que sea compartido entre instancias. La clave nunca lleva la IP en claro: es `login-ip:` más su HMAC. El límite de login cuenta todos los intentos, exitosos o no, y se decide antes de mirar la contraseña.
 
 Campo `text` con normalización: NFC, recorte de espacios, colapso de espacios internos en nombres. Se rechazan caracteres de control (salvo `\n` en textos largos), caracteres bidi (U+202A a U+202E, U+2066 a U+2069) y de ancho cero (U+200B a U+200F, U+FEFF).
 

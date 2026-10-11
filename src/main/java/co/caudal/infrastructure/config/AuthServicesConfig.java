@@ -25,16 +25,19 @@ import co.caudal.application.port.out.PasswordHistoryPort;
 import co.caudal.application.port.out.PasswordResetGrantPort;
 import co.caudal.application.port.out.PermissionPort;
 import co.caudal.application.port.out.PrivacyHasherPort;
+import co.caudal.application.port.out.RateLimiterPort;
 import co.caudal.application.port.out.RefreshTokenPort;
 import co.caudal.application.port.out.SecurityEventPort;
 import co.caudal.application.port.out.TokenVersionPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.port.out.UserAccountPort;
 import co.caudal.application.port.out.UserProfilePort;
+import co.caudal.application.ratelimit.RateLimit;
 import co.caudal.application.user.CreateUserCommandHandler;
 import co.caudal.application.user.ResetGrantSettings;
 import co.caudal.domain.user.LockoutPolicy;
 import co.caudal.domain.user.PasswordPolicy;
+import co.caudal.infrastructure.ratelimit.RateLimitProperties;
 import co.caudal.infrastructure.security.Argon2Properties;
 import co.caudal.infrastructure.security.LoginProperties;
 import co.caudal.infrastructure.security.RefreshProperties;
@@ -81,9 +84,11 @@ class AuthServicesConfig {
       SecurityEventPort events,
       MfaFactorPort mfaFactors,
       MfaVerifier mfa,
+      RateLimiterPort rateLimiter,
       UnitOfWorkPort unitOfWork,
       LoginProperties login,
       RefreshProperties refresh,
+      RateLimitProperties rates,
       Clock clock) {
     Duration lock = Duration.ofMinutes(login.lockMinutes());
     LockoutPolicy policy =
@@ -94,7 +99,8 @@ class AuthServicesConfig {
             lock,
             login.ipMaxAttempts(),
             Duration.ofMinutes(login.ipWindowMinutes()),
-            refresh::ttlFor);
+            refresh::ttlFor,
+            new RateLimit(rates.loginPerMinute(), Duration.ofMinutes(1)));
     return new LoginUseCase(
         new LoginPorts(
             accounts,
@@ -107,6 +113,7 @@ class AuthServicesConfig {
             events,
             mfaFactors,
             mfa,
+            rateLimiter,
             unitOfWork),
         policy,
         settings,

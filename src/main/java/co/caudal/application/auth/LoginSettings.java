@@ -1,5 +1,6 @@
 package co.caudal.application.auth;
 
+import co.caudal.application.ratelimit.RateLimit;
 import java.time.Duration;
 import java.util.function.Function;
 
@@ -10,6 +11,11 @@ import java.util.function.Function;
  * @param ipMaxAttempts failed attempts from one IP that block it
  * @param ipWindow time window of the IP limit
  * @param refreshTtl lifetime of the refresh token for a role
+ * @param ipRate rate limit of logins from one IP, counted for every attempt
  */
 public record LoginSettings(
-    Duration window, int ipMaxAttempts, Duration ipWindow, Function<String, Duration> refreshTtl) {}
+    Duration window,
+    int ipMaxAttempts,
+    Duration ipWindow,
+    Function<String, Duration> refreshTtl,
+    RateLimit ipRate) {}
