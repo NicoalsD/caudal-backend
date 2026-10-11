@@ -2,6 +2,7 @@ package co.caudal.application.port.out;
 
 import co.caudal.application.schedule.ProposalDetail;
 import co.caudal.application.schedule.ProposalSummary;
+import co.caudal.domain.schedule.ProposalMemento;
 import co.caudal.domain.schedule.ScheduleProposal;
 import java.time.LocalDate;
 import java.util.List;
@@ -71,4 +72,12 @@ public interface ProposalPort {
    */
   void insertDecision(
       UUID aqueductId, UUID proposalId, String decision, String reason, UUID decidedBy);
+
+  /**
+   * Stores the snapshot of a proposal before its first change.
+   *
+   * @param aqueductId the aqueduct
+   * @param memento the snapshot
+   */
+  void saveSnapshot(UUID aqueductId, ProposalMemento memento);
 }

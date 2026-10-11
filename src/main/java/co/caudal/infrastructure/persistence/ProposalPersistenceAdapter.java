@@ -8,6 +8,7 @@ import co.caudal.application.schedule.ProposalSummary;
 import co.caudal.application.schedule.ReasonTexts;
 import co.caudal.application.schedule.ReasonView;
 import co.caudal.application.schedule.UnservedView;
+import co.caudal.domain.schedule.ProposalMemento;
 import co.caudal.domain.schedule.ProposedTurn;
 import co.caudal.domain.schedule.ScheduleProposal;
 import co.caudal.domain.schedule.TurnReason;
@@ -15,6 +16,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -187,6 +189,39 @@ public class ProposalPersistenceAdapter implements ProposalPort {
         .param("decision", decision)
         .param("reason", reason, Types.VARCHAR)
         .param("by", decidedBy)
+        .update();
+  }
+
+  @Override
+  public void saveSnapshot(UUID aqueductId, ProposalMemento memento) {
+    Map<String, Object> snapshot = new LinkedHashMap<>();
+    snapshot.put("proposal_id", memento.proposalId().toString());
+    snapshot.put("lock_version", memento.lockVersion());
+    snapshot.put("strategy_code", memento.strategyCode());
+    snapshot.put(
+        "items",
+        memento.items().stream()
+            .map(
+                i ->
+                    Map.of(
+                        "item_id", i.itemId().toString(),
+                        "sector_id", i.sectorId().toString(),
+                        "sequence", i.sequence(),
+                        "start_at", i.start().toString(),
+                        "end_at", i.end().toString(),
+                        "origin", i.origin(),
+                        "reasons",
+                            i.reasons().stream()
+                                .map(r -> Map.of("code", r.code(), "params", r.params()))
+                                .toList()))
+            .toList());
+    jdbc.sql(
+            "INSERT INTO ops.proposal_snapshots (aqueduct_id, proposal_id, snapshot, taken_at)"
+                + " VALUES (:aqueduct, :proposal, CAST(:snapshot AS jsonb), :at)")
+        .param("aqueduct", aqueductId)
+        .param("proposal", memento.proposalId())
+        .param("snapshot", json.writeValueAsString(snapshot))
+        .param("at", SqlTime.offset(memento.takenAt()), Types.TIMESTAMP_WITH_TIMEZONE)
         .update();
   }
 

@@ -4,6 +4,9 @@ import co.caudal.application.aqueduct.AqueductRef;
 import co.caudal.application.auth.Caller;
 import co.caudal.application.port.out.AqueductPort;
 import co.caudal.application.port.out.ProposalPort;
+import co.caudal.domain.schedule.ProposalMemento;
+import co.caudal.domain.schedule.ScheduleItemSnapshot;
+import co.caudal.domain.schedule.TurnReason;
 import co.caudal.shared.error.DomainException;
 import co.caudal.shared.error.ErrorCode;
 import java.time.Clock;
@@ -71,6 +74,40 @@ public class ProposalDecisions {
     }
     proposals.insertDecision(caller.aqueductId(), id, status, reason, caller.userId());
     return proposals.find(id, today(caller)).orElseThrow();
+  }
+
+  /**
+   * Keeps the proposal as the system made it, the first time the Board changes it. The caretaker of
+   * the memento: it stores it but never looks inside.
+   *
+   * @param caller who decides
+   * @param detail the proposal before the change
+   */
+  void snapshotOnce(Caller caller, ProposalDetail detail) {
+    if (detail.snapshotTaken()) {
+      return;
+    }
+    proposals.saveSnapshot(
+        caller.aqueductId(),
+        new ProposalMemento(
+            detail.summary().id(),
+            detail.summary().lockVersion(),
+            detail.summary().strategyCode(),
+            detail.items().stream()
+                .map(
+                    i ->
+                        new ScheduleItemSnapshot(
+                            i.id(),
+                            i.sectorId(),
+                            i.sequence(),
+                            i.startAt(),
+                            i.endAt(),
+                            i.origin(),
+                            i.reasons().stream()
+                                .map(r -> new TurnReason(r.code(), r.params()))
+                                .toList()))
+                .toList(),
+            clock.instant()));
   }
 
   private LocalDate today(Caller caller) {
