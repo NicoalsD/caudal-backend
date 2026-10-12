@@ -331,5 +331,11 @@ public final class FieldLimits {
   /** Longest period of one minutes document, in days, so a request never reads years of data. */
   public static final int MINUTES_MAX_DAYS = 366;
 
+  /** Days the evaluation looks back when no period is asked for. */
+  public static final int EVALUATION_DEFAULT_DAYS = 90;
+
+  /** Longest period of one evaluation, in days. */
+  public static final int EVALUATION_MAX_DAYS = 366;
+
   private FieldLimits() {}
 }
