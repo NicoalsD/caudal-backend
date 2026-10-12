@@ -27,11 +27,34 @@ jobs:
           java-version: '25'
           cache: maven
 
-      - name: Compila, ejecuta pruebas (Testcontainers), Spotless, Checkstyle y SpotBugs
+      - name: Verifica el Docker disponible para Testcontainers
+        run: docker info --format '{{.ServerVersion}}'
+
+      # Una sola ruta de verificación: surefire (unitarias), failsafe (*IT.java con
+      # Testcontainers, fase integration-test) y JaCoCo (cobertura fusionada) corren en verify.
+      - name: Compila, ejecuta pruebas, Spotless, Checkstyle y SpotBugs
         run: ./mvnw -B -ntp verify
 
-      - name: Guarda los reportes de pruebas si algo falla
-        if: failure()
+      - name: Resume los resultados de pruebas
+        if: always()
+        run: |
+          {
+            echo "## Pruebas"
+            for kind in surefire failsafe; do
+              dir="target/${kind}-reports"
+              [ -d "$dir" ] || { echo "- ${kind}: sin reportes"; continue; }
+              total=0; failed=0; errors=0
+              for f in "$dir"/TEST-*.xml; do
+                [ -f "$f" ] || continue
+                read -r t fl er < <(python3 -c 'import sys,xml.etree.ElementTree as E;r=E.parse(sys.argv[1]).getroot();print(r.get("tests",0),r.get("failures",0),r.get("errors",0))' "$f")
+                total=$((total + t)); failed=$((failed + fl)); errors=$((errors + er))
+              done
+              echo "- ${kind}: ${total} pruebas, ${failed} fallos, ${errors} errores"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Guarda los reportes de pruebas (unitarias e integración)
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: reportes-de-pruebas
@@ -39,3 +62,15 @@ jobs:
             target/surefire-reports/
             target/failsafe-reports/
           retention-days: 7
+          if-no-files-found: warn
+
+      - name: Guarda la cobertura fusionada (JaCoCo)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cobertura-jacoco
+          path: |
+            target/site/jacoco/
+            target/jacoco-merged.exec
+          retention-days: 7
+          if-no-files-found: warn
