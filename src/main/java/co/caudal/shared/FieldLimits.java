@@ -380,6 +380,9 @@ public final class FieldLimits {
   /** Statuses a person may set on an incident; REPORTED is only the first status. */
   public static final String INCIDENT_CHANGE_PATTERN = "^(VERIFYING|CONFIRMED|RESOLVED|DISMISSED)$";
 
+  /** Scopes of an authorization of a summary for an entity. */
+  public static final String SUMMARY_SCOPE_PATTERN = "^(MONTHLY_SUMMARY|MINUTES)$";
+
   /** Sources of an incident. */
   public static final String INCIDENT_SOURCE_PATTERN = "^(PUBLIC_FORM|OPERATOR|ANOMALY|IMPORT)$";
 
