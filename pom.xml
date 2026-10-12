@@ -418,6 +418,9 @@
                 <format>JSON</format>
               </formats>
               <outputDirectory>${project.build.directory}/dependency-check</outputDirectory>
+              <suppressionFiles>
+                <suppressionFile>${project.basedir}/config/dependency-check/suppressions.xml</suppressionFile>
+              </suppressionFiles>
             </configuration>
           </plugin>
         </plugins>
