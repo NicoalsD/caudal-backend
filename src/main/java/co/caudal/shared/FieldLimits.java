@@ -337,6 +337,12 @@ public final class FieldLimits {
   /** Longest period of one evaluation, in days. */
   public static final int EVALUATION_MAX_DAYS = 366;
 
+  /** Bytes of an Ed25519 public key (RFC 8032). */
+  public static final int ED25519_PUBLIC_KEY_BYTES = 32;
+
+  /** Characters of an Ed25519 public key in base64url without padding. */
+  public static final int ED25519_PUBLIC_KEY_CHARS = 43;
+
   /** Maximum length of the firmware version of a device ({@code varchar(30)} in the DB). */
   public static final int FIRMWARE_VERSION_MAX = 30;
 

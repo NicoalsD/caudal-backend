@@ -1,5 +1,6 @@
 package co.caudal.infrastructure.persistence;
 
+import co.caudal.application.device.DeviceKeyView;
 import co.caudal.application.device.DeviceView;
 import co.caudal.application.port.out.DevicePort;
 import co.caudal.domain.device.DeviceKind;
@@ -65,6 +66,62 @@ public class DevicePersistenceAdapter implements DevicePort {
         .param("id", id)
         .query(DevicePersistenceAdapter::device)
         .single();
+  }
+
+  @Override
+  public void retireActiveKey(UUID deviceId, int graceDays) {
+    jdbc.sql(
+            "UPDATE devices.device_keys SET revoked_at = now() + make_interval(days => :days)"
+                + " WHERE device_id = :device AND revoked_at IS NULL")
+        .param("days", graceDays)
+        .param("device", deviceId)
+        .update();
+  }
+
+  @Override
+  public Optional<DeviceKeyView> insertKey(
+      UUID deviceId, UUID aqueductId, String publicKey, String fingerprint) {
+    return jdbc.sql(
+            "INSERT INTO devices.device_keys (aqueduct_id, device_id, public_key, fingerprint)"
+                + " VALUES (:aqueduct, :device, :key, :fingerprint) ON CONFLICT DO NOTHING"
+                + " RETURNING id, fingerprint, activated_at")
+        .param("aqueduct", aqueductId)
+        .param("device", deviceId)
+        .param("key", publicKey)
+        .param("fingerprint", fingerprint)
+        .query(DevicePersistenceAdapter::key)
+        .optional();
+  }
+
+  @Override
+  public Optional<DeviceKeyView> revokeKey(UUID deviceId, UUID keyId) {
+    return jdbc.sql(
+            "UPDATE devices.device_keys SET revoked_at = now()"
+                + " WHERE id = :key AND device_id = :device"
+                + " AND (revoked_at IS NULL OR revoked_at > now())"
+                + " RETURNING id, fingerprint, activated_at")
+        .param("key", keyId)
+        .param("device", deviceId)
+        .query(DevicePersistenceAdapter::key)
+        .optional();
+  }
+
+  @Override
+  public boolean hasKey(UUID deviceId, UUID keyId) {
+    return jdbc.sql(
+                "SELECT count(*) FROM devices.device_keys WHERE id = :key AND device_id = :device")
+            .param("key", keyId)
+            .param("device", deviceId)
+            .query(Long.class)
+            .single()
+        > 0;
+  }
+
+  private static DeviceKeyView key(ResultSet rs, int row) throws SQLException {
+    return new DeviceKeyView(
+        rs.getObject("id", UUID.class),
+        rs.getString("fingerprint"),
+        SqlTime.instant(rs, "activated_at"));
   }
 
   private static DeviceView device(ResultSet rs, int row) throws SQLException {
