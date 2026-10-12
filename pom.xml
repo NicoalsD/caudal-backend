@@ -413,6 +413,8 @@
               <failBuildOnCVSS>${dependency-check.fail-cvss}</failBuildOnCVSS>
               <nvdApiKeyEnvironmentVariable>NVD_API_KEY</nvdApiKeyEnvironmentVariable>
               <assemblyAnalyzerEnabled>false</assemblyAnalyzerEnabled>
+              <!-- OSS Index now requires an account; NVD and the GitHub dependency review cover the scan. -->
+              <ossindexAnalyzerEnabled>false</ossindexAnalyzerEnabled>
               <formats>
                 <format>HTML</format>
                 <format>JSON</format>
