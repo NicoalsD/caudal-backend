@@ -290,8 +290,8 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | B185 | `ci: bloquea dependencias vulnerables en Maven` | `NicoalsD` | - | - | [x] |
 | B186 | `build: configura imagen Docker de producción` | `NicoalsD` | - | - | [x] |
 | B187 | `ci: despliega API en Render desde develop` | `NicoalsD` | - | - | [x] |
-| B188 | `feat: agrega pruebas de autorización y aislamiento RLS` | `nicomora70` | HU-04, HU-35 | - | [ ] |
-| B189 | `test: verifica redacción de secretos en logs y errores` | `nicomora70` | HU-01, HU-05 | - | [ ] |
+| B188 | `feat: agrega pruebas de autorización y aislamiento RLS` | `nicomora70` | HU-04, HU-35 | - | [x] |
+| B189 | `test: verifica redacción de secretos en logs y errores` | `nicomora70` | HU-01, HU-05 | - | [x] |
 | B190 | `docs: documenta endurecimiento y versión v1.0.0` | `NicoalsD` | - | - | [ ] |
 
 ## `caudal-frontend`
