@@ -78,7 +78,8 @@ class AuditingCommandHandlerTest {
     verify(auditLog).append(entry.capture());
     assertThat(entry.getValue())
         .isEqualTo(
-            new AuditEntry(AQUEDUCT, USER, "RENAME_TANK", "tank", "tank-42", "hmac:203.0.113.5"));
+            new AuditEntry(
+                AQUEDUCT, USER, "RENAME_TANK", "tank", "tank-42", "hmac:203.0.113.5", null));
     assertThat(audited.commandType()).isEqualTo(RenameTankCommand.class);
   }
 

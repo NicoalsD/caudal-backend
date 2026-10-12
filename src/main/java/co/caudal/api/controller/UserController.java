@@ -1,15 +1,19 @@
 package co.caudal.api.controller;
 
 import co.caudal.api.dto.request.CreateUserRequest;
+import co.caudal.api.dto.request.IssueResetGrantRequest;
 import co.caudal.api.dto.request.UpdateUserRequest;
 import co.caudal.api.dto.response.CreatedUserResponse;
 import co.caudal.api.dto.response.ManagedUserResponse;
 import co.caudal.api.dto.response.PageResponse;
+import co.caudal.api.dto.response.ResetGrantResponse;
 import co.caudal.api.mapper.UserMapper;
 import co.caudal.api.security.CallerFactory;
 import co.caudal.application.command.CommandBus;
 import co.caudal.application.pagination.Page;
 import co.caudal.application.user.CreateUserCommand;
+import co.caudal.application.user.IssueResetGrantCommand;
+import co.caudal.application.user.IssuedResetGrant;
 import co.caudal.application.user.ListUsersUseCase;
 import co.caudal.application.user.ManagedUser;
 import co.caudal.application.user.UpdateUserCommand;
@@ -160,5 +164,37 @@ public class UserController {
     return ResponseEntity.ok()
         .cacheControl(CacheControl.noStore())
         .body(UserMapper.toResponse(user));
+  }
+
+  @Operation(
+      summary = "Emitir un código de restablecimiento",
+      description =
+          "Genera un código de un solo uso para que la persona fije una contraseña nueva con POST"
+              + " /auth/reset-password. Los códigos anteriores sin usar dejan de servir. Solo se"
+              + " guarda el SHA-256 del código; se muestra una sola vez. Requiere el permiso"
+              + " USER_MANAGE.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "201", description = "Código emitido")
+  @ApiResponse(responseCode = "403", description = "FORBIDDEN: falta el permiso USER_MANAGE")
+  @ApiResponse(
+      responseCode = "404",
+      description = "NOT_FOUND: la cuenta no existe o no pertenece al acueducto")
+  @ApiResponse(
+      responseCode = "409",
+      description = "INVALID_STATE_TRANSITION: la cuenta está desactivada")
+  @ApiResponse(responseCode = "422", description = "REASON_REQUIRED: falta el motivo")
+  @PostMapping("/{id}/reset-grants")
+  @PreAuthorize("hasAuthority('USER_MANAGE')")
+  public ResponseEntity<ResetGrantResponse> issueResetGrant(
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID id,
+      @Valid @RequestBody IssueResetGrantRequest request,
+      HttpServletRequest http) {
+    IssuedResetGrant grant =
+        commands.dispatch(
+            new IssueResetGrantCommand(CallerFactory.from(jwt, http), id, request.reason()));
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .cacheControl(CacheControl.noStore())
+        .body(new ResetGrantResponse(grant.id(), grant.code(), grant.expiresAt()));
   }
 }

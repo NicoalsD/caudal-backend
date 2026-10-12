@@ -319,7 +319,7 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 
 - **Permiso:** autenticado.
 - **Cuerpo:** `aqueduct_id` (UUID, obligatorio).
-- **Respuesta 200:** `access_token` nuevo con `aqueduct_id` del acueducto indicado. Un JWT lleva un solo acueducto (el activo).
+- **Respuesta 200:** `access_token` nuevo con `aqueduct_id` del acueducto indicado y el rol de la membresía vigente en él, `token_type` y `expires_in`. Un JWT lleva un solo acueducto (el activo). El refresh token no cambia: al refrescar, la sesión vuelve al primer acueducto vigente.
 - **Errores:** `403 FORBIDDEN` (la membresía no está vigente o no existe).
 - **Ejemplo:** `{ "aqueduct_id": "0190f3a2-0000-7000-8000-0000000000bb" }`
 
@@ -368,8 +368,8 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 
 - **Permiso:** `USER_MANAGE`.
 - **Cuerpo:** `reason` (texto, 10 a 500, `FieldLimits.REASON`).
-- **Respuesta 201:** `id`, `code` (se muestra una sola vez), `expires_at`. Solo se guarda el hash SHA-256 del código.
-- **Errores:** `422 REASON_REQUIRED`.
+- **Respuesta 201:** `id`, `code` (se muestra una sola vez), `expires_at`. Solo se guarda el hash SHA-256 del código. Los códigos anteriores de la cuenta que no se usaron quedan revocados (`revoked_at`), así solo sirve el último.
+- **Errores:** `422 REASON_REQUIRED`, `404 NOT_FOUND` (la cuenta no existe o no tiene membresía en el acueducto), `409 INVALID_STATE_TRANSITION` (cuenta `DISABLED`).
 - **Ejemplo:** `{ "code": "ABCD-2345", "expires_at": "2026-10-09T10:00:00-05:00" }` (valores ficticios)
 
 ### 3.5 `GET /api/v1/memberships`
@@ -397,7 +397,7 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 ### 4.1 `GET /api/v1/meta/constraints`
 
 - **Permiso:** público.
-- **Respuesta:** los límites de `FieldLimits` que el frontend usa para armar sus esquemas Zod. Cada campo: `min`, `max`, `pattern` (si aplica).
+- **Respuesta:** los límites de `FieldLimits` que el frontend usa para armar sus esquemas Zod. Cada campo: `min`, `max`, `pattern` (si aplica) y topes propios (`max_lines`, `integer_digits`, `fraction_digits`, `default`). Campos: `username`, `password`, `person_name`, `place_name`, `sector.code`, `valve.code`, `valve.location_hint`, `reading.note`, `reading.gauge_value`, `reason`, `incident.description`, `catalog.code`, `tracking_code`, `reset_code`, `mfa_code`, `aqueduct.slug`, `page.limit`, `list.items`, `rule_set.bands`, `forecast.horizon_days`, `text`, `body.bytes`. Se puede guardar en caché una hora (`Cache-Control: max-age=3600, public`). Los parámetros de negocio no están aquí: viven en las reglas (`GET /rule-sets/current`).
 - **Ejemplo:**
 
 ```json
@@ -415,14 +415,15 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 ### 4.3 `GET /api/v1/privacy-notice/current`
 
 - **Permiso:** autenticado.
-- **Respuesta:** `version`, `text_es`, `text_sha256`, `effective_at`.
+- **Respuesta:** `version`, `text_es`, `text_sha256`, `effective_at`. La vigente es la versión más alta con `effective_at` ya cumplido. La semilla (V49) trae la versión 1, un borrador que requiere revisión jurídica.
+- **Errores:** `404 NOT_FOUND` (no hay aviso vigente).
 
 ### 4.4 `POST /api/v1/privacy-notice/accept`
 
 - **Permiso:** autenticado.
 - **Cuerpo:** `version` (entero, obligatorio, debe ser la versión vigente).
-- **Respuesta 201:** `user_id`, `version`, `accepted_at`.
-- **Errores:** `409 CONFLICT` (la versión ya no es la vigente).
+- **Respuesta 201:** `user_id`, `version`, `accepted_at`. Se guarda la IP en HMAC. Aceptar otra vez la misma versión devuelve la primera aceptación. `GET /auth/me` muestra la última versión aceptada en `privacy_accepted_version`.
+- **Errores:** `409 CONFLICT` con `details.current_version` (la versión ya no es la vigente).
 
 ## 5. Red: tanques, sectores y válvulas
 
@@ -457,17 +458,18 @@ La red (tanques, sectores y válvulas) la gestiona `BOARD_ADMIN` (`NETWORK_MANAG
 
 ### 5.4 `POST /api/v1/sectors`
 
-- **Permiso:** `BOARD_ADMIN`.
-- **Cuerpo:** `code` (texto, 2 a 20, `^[A-Z0-9-]+$`, único en el acueducto; `FieldLimits.SECTOR_CODE`), `name` (2 a 60), `parent_sector_id` (UUID, opcional), `households_count` (entero, mayor o igual a 0, por defecto 0).
+- **Permiso:** `NETWORK_MANAGE` (`BOARD_ADMIN`).
+- **Cuerpo:** `code` (texto, 2 a 20, `^[A-Z0-9-]+$`, único en el acueducto; `FieldLimits.SECTOR_CODE`), `name` (2 a 60), `parent_sector_id` (UUID, opcional, sector del mismo acueducto), `households_count` (entero, mayor o igual a 0, por defecto 0).
 - **Respuesta 201:** sector creado.
-- **Errores:** `409 CONFLICT` (código repetido en el acueducto).
+- **Errores:** `400 VALIDATION_ERROR` (formato o `parent_sector_id` que no es del acueducto), `409 CONFLICT` (código repetido en el acueducto).
 - **Ejemplo:** `{ "code": "SEC-01", "name": "Sector Ejemplo", "households_count": 12 }`
 
 ### 5.5 `PATCH /api/v1/sectors/{id}`
 
-- **Permiso:** `BOARD_ADMIN`.
-- **Cuerpo (todos opcionales):** `name` (2 a 60), `households_count` (mayor o igual a 0), `is_active`. El `code` no cambia (propuesta).
+- **Permiso:** `NETWORK_MANAGE` (`BOARD_ADMIN`).
+- **Cuerpo (todos opcionales):** `name` (2 a 60), `households_count` (mayor o igual a 0), `is_active`. El `code` no cambia.
 - **Respuesta 200:** sector actualizado.
+- **Errores:** `404 NOT_FOUND` (no existe o es de otro acueducto).
 
 ### 5.6 `GET /api/v1/sectors/{id}/valves`
 
@@ -476,7 +478,7 @@ La red (tanques, sectores y válvulas) la gestiona `BOARD_ADMIN` (`NETWORK_MANAG
 
 ### 5.7 `POST /api/v1/sectors/{id}/valves`
 
-- **Permiso:** `BOARD_ADMIN`.
+- **Permiso:** `NETWORK_MANAGE` (`BOARD_ADMIN`).
 - **Cuerpo:**
 
 | Campo | Tipo | Oblig. | Límites |
@@ -488,13 +490,19 @@ La red (tanques, sectores y válvulas) la gestiona `BOARD_ADMIN` (`NETWORK_MANAG
 | `fail_safe_position` | texto | No | `KEEP`, `OPEN` o `CLOSED`. Por defecto `KEEP`. |
 
 - **Respuesta 201:** válvula creada.
-- **Errores:** `409 CONFLICT` (código repetido en el sector).
+- **Errores:** `404 NOT_FOUND` (el sector no existe o es de otro acueducto), `409 CONFLICT` (código repetido en el sector).
 
 ### 5.8 `PATCH /api/v1/valves/{id}`
 
-- **Permiso:** `BOARD_ADMIN`.
-- **Cuerpo (todos opcionales):** `name`, `location_hint`, `is_motorized`, `fail_safe_position`, `is_active`. El `code` no cambia.
+- **Permiso:** `NETWORK_MANAGE` (`BOARD_ADMIN`).
+- **Cuerpo (todos opcionales):** `name`, `location_hint` (vacío la borra), `is_motorized`, `fail_safe_position`, `is_active`. El `code` no cambia.
 - **Respuesta 200:** válvula actualizada.
+- **Errores:** `404 NOT_FOUND` (no existe o es de un sector de otro acueducto).
+
+### 5.9 `GET /api/v1/network`
+
+- **Permiso:** `NETWORK_VIEW`.
+- **Respuesta:** `items`, los sectores de primer nivel como árbol (patrón Composite, `NetworkNode`): cada parte tiene `kind` (`SECTOR` o `VALVE`), `id`, `code`, `name`, `is_active`, `households` (viviendas de la parte y de todo lo que contiene), `active_valves` (válvulas activas de todo lo que contiene) y `children` (primero sus válvulas, luego sus subsectores). Un sector inactivo no suma viviendas ni válvulas. Un sector con un padre desconocido o que cierra un ciclo aparece en el primer nivel.
 
 ## 6. Reglas de la Junta (`/rule-sets`)
 
@@ -520,29 +528,30 @@ Las reglas se leen en la app offline para validar lecturas, así que `GET /rule-
 
 ### 6.2 `GET /api/v1/rule-sets`
 
-- **Permiso:** `RULESET_PROPOSE` o `RULESET_EDIT`.
+- **Permiso:** `RULESET_VIEW`.
 - **Parámetros:** `status` (`DRAFT`, `ACTIVE`, `SUPERSEDED`, `DISCARDED`), `limit`, `cursor`.
-- **Respuesta:** lista de `id`, `version`, `status`, `valid_from`, `valid_to`, `activated_at`, `based_on_rule_set_id`.
+- **Respuesta:** `items` de la versión más nueva a la más antigua, con `id`, `version`, `status`, `valid_from`, `valid_to`, `activated_at`, `based_on_rule_set_id`, y `next_cursor`.
 
 ### 6.3 `GET /api/v1/rule-sets/{id}`
 
-- **Permiso:** igual que 6.2.
-- **Respuesta:** la versión completa, como 6.1, incluidos `change_reason`, `created_by` y `activated_by`.
+- **Permiso:** `RULESET_VIEW`.
+- **Respuesta:** la versión completa, como 6.1 (sin `gauge` ni `server_time`), más `status`, `based_on_rule_set_id`, `valid_to`, `change_reason`, `created_by`, `created_at`, `activated_by` y `activated_at`.
+- **Errores:** `404 NOT_FOUND` (no existe o es de otro acueducto).
 
 ### 6.4 `POST /api/v1/rule-sets`
 
-- **Permiso:** `RULESET_PROPOSE`.
+- **Permiso:** `RULESET_DRAFT` (`BOARD_ADMIN` y `BOARD_MEMBER`).
 - **Cuerpo:** `change_reason` (texto, opcional en el borrador; si viene, 10 a 500). Se exige al activar (6.6). Ver `Reglas-de-negocio.md`, sección 7.
-- **Respuesta 201:** borrador copia de la versión `ACTIVE` (patrón Prototype, sección 1.1 de reglas). `BOARD_ADMIN` y `BOARD_MEMBER` pueden crearlo.
-- **Errores:** `409 CONFLICT` (por definir: ya existe un borrador abierto).
+- **Respuesta 201:** borrador copia de la versión `ACTIVE` con el número siguiente y `based_on_rule_set_id` (patrón Prototype, sección 1.1 de reglas), con la forma de 6.3.
+- **Errores:** `404 NOT_FOUND` (no hay versión activa que copiar), `409 CONFLICT` con `details.reason = DRAFT_EXISTS` (ya existe un borrador abierto; un acueducto tiene uno a la vez).
 - **Ejemplo:** `{ "change_reason": "Sube la reserva de 1,00 a 1,20 por la temporada seca." }`
 
 ### 6.5 `PATCH /api/v1/rule-sets/{id}`
 
-- **Permiso:** `RULESET_EDIT`.
-- **Cuerpo (todos opcionales, solo en `DRAFT`):** escalares de la sección 6.1 (`reserve_level`, `max_daily_service_hours`, etc.), y listas que reemplazan a las actuales: `bands` (hasta 10 elementos), `sectors`, `valve_order`, `operating_windows` (hasta 100).
-- **Respuesta 200:** borrador actualizado con `lock_version` (propuesta).
-- **Errores:** `409 RULE_SET_IMMUTABLE` (no es `DRAFT`), `400 VALIDATION_ERROR` (rangos), `422 RULE_SET_INVALID` (solo al activar).
+- **Permiso:** `RULESET_DRAFT`.
+- **Cuerpo (todos opcionales, solo en `DRAFT`):** `change_reason`, escalares de la sección 6.1 (`reserve_level`, `max_daily_service_hours`, etc.), y listas que reemplazan a las actuales: `bands` (1 a 10 elementos; `priority_only` es falso si no llega), `sectors` (`is_included` verdadero y `is_priority` falso si no llegan), `valve_order`, `operating_windows` (hasta 100).
+- **Respuesta 200:** borrador actualizado, con la forma de 6.3.
+- **Errores:** `409 RULE_SET_IMMUTABLE` (no es `DRAFT`), `400 VALIDATION_ERROR` (rangos y valores de enumeraciones), `422 RULE_SET_INVALID` con `details.constraint` cuando la base de datos rechaza el cambio (bandas solapadas `rule_level_bands_no_overlap`, sector o válvula de otro acueducto, orden repetido). La cobertura del rango del tanque se valida al activar (6.6).
 - **Ejemplo:** `{ "reserve_level": 1.20 }`
 
 ### 6.6 `POST /api/v1/rule-sets/{id}/activate`
@@ -550,7 +559,8 @@ Las reglas se leen en la app offline para validar lecturas, así que `GET /rule-
 - **Permiso:** `RULESET_ACTIVATE` (solo `BOARD_ADMIN`).
 - **Cuerpo:** `change_reason` (texto, 10 a 500, obligatorio, `FieldLimits.REASON`). Ver `Reglas-de-negocio.md`, sección 7.
 - **Respuesta 200:** versión `ACTIVE` con `valid_from`. La versión anterior queda `SUPERSEDED`.
-- **Errores:** `422 RULE_SET_INVALID` (validación de bandas, cobertura y rangos), `422 REASON_REQUIRED`, `409 INVALID_STATE_TRANSITION` (no es `DRAFT`).
+- **Errores:** `422 RULE_SET_INVALID` con `details.violations` (lista de `code`: `NO_BANDS`, `BAND_EMPTY`, `BAND_OVERLAP`, `BAND_GAP` con `tank_id` y `gaps` `from`/`to`, `BAND_HOURS_OUT_OF_RANGE`, `SHIFT_LENGTH_INVALID`, `DAILY_HOURS_OUT_OF_RANGE`, `VALVE_ORDER_MISSING` con `valve_ids`), `422 REASON_REQUIRED` (falta el motivo o no tiene 10 a 500 caracteres después de recortar), `409 INVALID_STATE_TRANSITION` (no es `DRAFT`), `404 NOT_FOUND`.
+- **Transacción:** valida, marca la versión vigente `SUPERSEDED` con `valid_to` igual al `valid_from` de la nueva y pone el borrador en `ACTIVE` con `activated_by`, `activated_at` y `change_reason`. Si algo falla no cambia nada.
 - **Ejemplo:** `{ "change_reason": "Se activa la reserva de 1,20 aprobada en la reunión de octubre." }`
 
 ## 7. Lecturas del tanque (`/readings`)

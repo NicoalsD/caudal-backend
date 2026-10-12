@@ -23,6 +23,10 @@ public class NetworkPersistenceAdapter implements NetworkPort {
   private static final String SECTOR_COLUMNS =
       "SELECT id, code, name, parent_sector_id, households_count, is_active FROM org.sectors";
 
+  private static final String VALVE_COLUMNS =
+      "SELECT v.id, v.code, v.name, v.location_hint, v.is_motorized, v.fail_safe_position,"
+          + " v.is_active FROM org.valves v";
+
   private final JdbcClient jdbc;
 
   NetworkPersistenceAdapter(JdbcClient jdbc) {
@@ -84,21 +88,101 @@ public class NetworkPersistenceAdapter implements NetworkPort {
 
   @Override
   public List<ValveView> valves(UUID sectorId) {
-    return jdbc.sql(
-            "SELECT id, code, name, location_hint, is_motorized, fail_safe_position, is_active"
-                + " FROM org.valves WHERE sector_id = :sectorId ORDER BY code")
+    return jdbc.sql(VALVE_COLUMNS + " WHERE v.sector_id = :sectorId ORDER BY v.code")
         .param("sectorId", sectorId)
-        .query(
-            (rs, row) ->
-                new ValveView(
-                    rs.getObject("id", UUID.class),
-                    rs.getString("code"),
-                    rs.getString("name"),
-                    rs.getString("location_hint"),
-                    rs.getBoolean("is_motorized"),
-                    rs.getString("fail_safe_position"),
-                    rs.getBoolean("is_active")))
+        .query(NetworkPersistenceAdapter::valve)
         .list();
+  }
+
+  @Override
+  public Optional<ValveView> valve(UUID valveId) {
+    // The join with org.sectors, which has row level security, hides valves of other aqueducts.
+    return jdbc.sql(VALVE_COLUMNS + " JOIN org.sectors s ON s.id = v.sector_id WHERE v.id = :id")
+        .param("id", valveId)
+        .query(NetworkPersistenceAdapter::valve)
+        .optional();
+  }
+
+  @Override
+  public Optional<ValveView> insertValve(
+      UUID sectorId,
+      String code,
+      String name,
+      String locationHint,
+      boolean motorized,
+      String failSafePosition) {
+    return jdbc.sql(
+            "INSERT INTO org.valves AS v (sector_id, code, name, location_hint, is_motorized,"
+                + " fail_safe_position) VALUES (:sector, :code, :name, :hint, :motorized, :failSafe)"
+                + " ON CONFLICT (sector_id, code) DO NOTHING RETURNING v.id, v.code, v.name,"
+                + " v.location_hint, v.is_motorized, v.fail_safe_position, v.is_active")
+        .param("sector", sectorId)
+        .param("code", code)
+        .param("name", name)
+        .param("hint", locationHint, java.sql.Types.VARCHAR)
+        .param("motorized", motorized)
+        .param("failSafe", failSafePosition)
+        .query(NetworkPersistenceAdapter::valve)
+        .optional();
+  }
+
+  @Override
+  public ValveView updateValve(ValveView valve) {
+    return jdbc.sql(
+            "UPDATE org.valves AS v SET name = :name, location_hint = :hint,"
+                + " is_motorized = :motorized, fail_safe_position = :failSafe, is_active = :active"
+                + " WHERE v.id = :id RETURNING v.id, v.code, v.name, v.location_hint,"
+                + " v.is_motorized, v.fail_safe_position, v.is_active")
+        .param("name", valve.name())
+        .param("hint", valve.locationHint(), java.sql.Types.VARCHAR)
+        .param("motorized", valve.motorized())
+        .param("failSafe", valve.failSafePosition())
+        .param("active", valve.active())
+        .param("id", valve.id())
+        .query(NetworkPersistenceAdapter::valve)
+        .single();
+  }
+
+  private static ValveView valve(ResultSet rs, int row) throws SQLException {
+    return new ValveView(
+        rs.getObject("id", UUID.class),
+        rs.getString("code"),
+        rs.getString("name"),
+        rs.getString("location_hint"),
+        rs.getBoolean("is_motorized"),
+        rs.getString("fail_safe_position"),
+        rs.getBoolean("is_active"));
+  }
+
+  @Override
+  public Optional<SectorView> insertSector(
+      UUID aqueductId, String code, String name, UUID parentSectorId, int householdsCount) {
+    return jdbc.sql(
+            "INSERT INTO org.sectors (aqueduct_id, code, name, parent_sector_id, households_count)"
+                + " VALUES (:aqueduct, :code, :name, :parent, :households)"
+                + " ON CONFLICT (aqueduct_id, code) DO NOTHING"
+                + " RETURNING id, code, name, parent_sector_id, households_count, is_active")
+        .param("aqueduct", aqueductId)
+        .param("code", code)
+        .param("name", name)
+        .param("parent", parentSectorId, java.sql.Types.OTHER)
+        .param("households", householdsCount)
+        .query(NetworkPersistenceAdapter::sector)
+        .optional();
+  }
+
+  @Override
+  public SectorView updateSector(UUID sectorId, String name, int householdsCount, boolean active) {
+    return jdbc.sql(
+            "UPDATE org.sectors SET name = :name, households_count = :households,"
+                + " is_active = :active, updated_at = now() WHERE id = :id"
+                + " RETURNING id, code, name, parent_sector_id, households_count, is_active")
+        .param("name", name)
+        .param("households", householdsCount)
+        .param("active", active)
+        .param("id", sectorId)
+        .query(NetworkPersistenceAdapter::sector)
+        .single();
   }
 
   private static TankView tank(ResultSet rs, int row) throws SQLException {

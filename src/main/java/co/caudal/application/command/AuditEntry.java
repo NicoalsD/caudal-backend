@@ -1,5 +1,6 @@
 package co.caudal.application.command;
 
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -11,6 +12,7 @@ import java.util.UUID;
  * @param entityType kind of the entity
  * @param entityId id of the entity
  * @param ipHmac HMAC of the address of the caller, or null
+ * @param afterState what the entity looks like after the change, or null
  */
 public record AuditEntry(
     UUID aqueductId,
@@ -18,4 +20,11 @@ public record AuditEntry(
     String action,
     String entityType,
     String entityId,
-    String ipHmac) {}
+    String ipHmac,
+    Map<String, Object> afterState) {
+
+  /** Freezes the state. */
+  public AuditEntry {
+    afterState = afterState == null ? null : Map.copyOf(afterState);
+  }
+}

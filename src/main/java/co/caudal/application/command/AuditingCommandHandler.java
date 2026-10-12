@@ -92,7 +92,8 @@ public final class AuditingCommandHandler<C extends Command<R>, R> implements Co
             actionOf(command),
             command.auditEntityType(),
             typed.auditEntityId(result),
-            ipHmacOf(command));
+            ipHmacOf(command),
+            null);
     unitOfWork.executeAs(
         command.caller().scope(),
         () -> {

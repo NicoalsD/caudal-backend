@@ -13,6 +13,7 @@ import co.caudal.application.auth.RefreshTokenService;
 import co.caudal.application.auth.ResetPasswordCommandHandler;
 import co.caudal.application.auth.ResetPasswordPorts;
 import co.caudal.application.auth.SessionInvalidator;
+import co.caudal.application.auth.SwitchAqueductUseCase;
 import co.caudal.application.mfa.MfaVerifier;
 import co.caudal.application.port.out.AccessTokenIssuerPort;
 import co.caudal.application.port.out.LoginAccountPort;
@@ -213,5 +214,15 @@ class AuthServicesConfig {
       Clock clock) {
     return new CreateUserCommandHandler(
         accounts, memberships, grants, passwords, settings, unitOfWork, clock);
+  }
+
+  @Bean
+  SwitchAqueductUseCase switchAqueductUseCase(
+      MembershipPort memberships,
+      TokenVersionPort tokenVersions,
+      AccessTokenIssuerPort accessTokens,
+      UnitOfWorkPort unitOfWork,
+      Clock clock) {
+    return new SwitchAqueductUseCase(memberships, tokenVersions, accessTokens, unitOfWork, clock);
   }
 }

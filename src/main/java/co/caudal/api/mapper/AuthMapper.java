@@ -4,6 +4,7 @@ import co.caudal.api.dto.response.CurrentUserResponse;
 import co.caudal.api.dto.response.LoginResponse;
 import co.caudal.api.dto.response.RefreshResponse;
 import co.caudal.application.auth.CurrentUser;
+import co.caudal.application.auth.IssuedAccessToken;
 import co.caudal.application.auth.LoginResult;
 import co.caudal.application.auth.RefreshResult;
 
@@ -43,8 +44,17 @@ public final class AuthMapper {
    * @return the response, without the refresh token
    */
   public static RefreshResponse toResponse(RefreshResult result) {
-    return new RefreshResponse(
-        result.accessToken().value(), TOKEN_TYPE, result.accessToken().timeToLive().toSeconds());
+    return toResponse(result.accessToken());
+  }
+
+  /**
+   * Maps a new access token alone.
+   *
+   * @param token the token
+   * @return the response
+   */
+  public static RefreshResponse toResponse(IssuedAccessToken token) {
+    return new RefreshResponse(token.value(), TOKEN_TYPE, token.timeToLive().toSeconds());
   }
 
   /**

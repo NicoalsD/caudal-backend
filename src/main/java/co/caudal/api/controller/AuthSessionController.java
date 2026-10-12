@@ -1,15 +1,21 @@
 package co.caudal.api.controller;
 
+import co.caudal.api.dto.request.SwitchAqueductRequest;
+import co.caudal.api.dto.response.RefreshResponse;
+import co.caudal.api.mapper.AuthMapper;
 import co.caudal.api.security.CallerFactory;
 import co.caudal.api.security.RefreshCookieFactory;
+import co.caudal.application.auth.IssuedAccessToken;
 import co.caudal.application.auth.LogoutAllCommand;
 import co.caudal.application.auth.LogoutCommand;
+import co.caudal.application.auth.SwitchAqueductUseCase;
 import co.caudal.application.command.CommandBus;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +23,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -28,10 +35,36 @@ public class AuthSessionController {
 
   private final CommandBus commands;
   private final RefreshCookieFactory cookies;
+  private final SwitchAqueductUseCase switchAqueduct;
 
-  AuthSessionController(CommandBus commands, RefreshCookieFactory cookies) {
+  AuthSessionController(
+      CommandBus commands, RefreshCookieFactory cookies, SwitchAqueductUseCase switchAqueduct) {
     this.commands = commands;
     this.cookies = cookies;
+    this.switchAqueduct = switchAqueduct;
+  }
+
+  @Operation(
+      summary = "Cambiar de acueducto",
+      description =
+          "Emite un access token nuevo con el aqueduct_id indicado y el rol de la membresía"
+              + " vigente de la persona en ese acueducto. Un JWT lleva un solo acueducto. El"
+              + " refresh token no cambia.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "200", description = "Access token del otro acueducto")
+  @ApiResponse(
+      responseCode = "403",
+      description = "FORBIDDEN: no hay una membresía vigente en ese acueducto")
+  @PostMapping("/switch-aqueduct")
+  public ResponseEntity<RefreshResponse> switchAqueduct(
+      @AuthenticationPrincipal Jwt jwt,
+      @Valid @RequestBody SwitchAqueductRequest request,
+      HttpServletRequest http) {
+    IssuedAccessToken token =
+        switchAqueduct.execute(CallerFactory.from(jwt, http), request.aqueductId());
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.noStore())
+        .body(AuthMapper.toResponse(token));
   }
 
   @Operation(

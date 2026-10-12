@@ -160,4 +160,69 @@ class UserAdministrationIT extends SessionIT {
     mvc.perform(get("/api/v1/users?status=GONE").header("Authorization", session.bearer()))
         .andExpect(status().isBadRequest());
   }
+
+  @Test
+  void aResetCodeLetsThePersonSetANewPasswordAndReplacesTheOldOne() throws Exception {
+    Account admin = account("grant.admin", "BOARD_ADMIN");
+    Account operator = account("grant.operator", "OPERATOR", admin.aqueductId());
+    Session session = login(admin);
+    String body = "{\"reason\":\"Olvidó la contraseña y lo pidió hoy.\"}";
+
+    String first =
+        mvc.perform(
+                post("/api/v1/users/" + operator.userId() + "/reset-grants")
+                    .header("Authorization", session.bearer())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body))
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString()
+            .replaceAll(".*\"code\":\"([^\"]+)\".*", "$1");
+    String second =
+        mvc.perform(
+                post("/api/v1/users/" + operator.userId() + "/reset-grants")
+                    .header("Authorization", session.bearer())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body))
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString()
+            .replaceAll(".*\"code\":\"([^\"]+)\".*", "$1");
+
+    String reset =
+        "{\"username\":\"grant.operator\",\"code\":\"%s\",\"new_password\":\"una-clave-nueva-larga\"}";
+    mvc.perform(
+            post("/api/v1/auth/reset-password")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(String.format(reset, first)))
+        .andExpect(status().is4xxClientError());
+    mvc.perform(
+            post("/api/v1/auth/reset-password")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(String.format(reset, second)))
+        .andExpect(status().is2xxSuccessful());
+  }
+
+  @Test
+  void aResetCodeNeedsAReasonAndAnAccountOfTheAqueduct() throws Exception {
+    Account admin = account("grant.rules", "BOARD_ADMIN");
+    Account stranger = account("grant.stranger", "OPERATOR");
+    Session session = login(admin);
+
+    mvc.perform(
+            post("/api/v1/users/" + admin.userId() + "/reset-grants")
+                .header("Authorization", session.bearer())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"reason\":\"corto\"}"))
+        .andExpect(status().isUnprocessableContent())
+        .andExpect(jsonPath("$.error.code").value("REASON_REQUIRED"));
+    mvc.perform(
+            post("/api/v1/users/" + stranger.userId() + "/reset-grants")
+                .header("Authorization", session.bearer())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"reason\":\"Un motivo suficiente.\"}"))
+        .andExpect(status().isNotFound());
+  }
 }

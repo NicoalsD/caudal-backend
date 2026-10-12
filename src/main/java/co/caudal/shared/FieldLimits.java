@@ -270,5 +270,31 @@ public final class FieldLimits {
   /** Bytes of the AES-256-GCM key that encrypts TOTP secrets. */
   public static final int MFA_ENCRYPTION_KEY_BYTES = 32;
 
+  /** Status of a version of the rules (docs/Reglas-de-negocio.md, section 1). */
+  public static final String RULE_SET_STATUS_PATTERN = "^(DRAFT|ACTIVE|SUPERSEDED|DISCARDED)$";
+
+  /** Level bands of a version of the rules (HIGH, LOW and CRITICAL fit with room to spare). */
+  public static final int RULE_BANDS_MAX = 10;
+
+  /** Band codes of a version of the rules. */
+  public static final String RULE_BAND_PATTERN = "^(HIGH|LOW|CRITICAL)$";
+
+  /** Reserve policies of a version of the rules. */
+  public static final String RESERVE_POLICY_PATTERN =
+      "^(NONE|REDUCE_TO_CRITICAL_BAND|PRIORITY_ONLY)$";
+
+  /** Shift allocation strategies of a version of the rules. */
+  public static final String ALLOCATION_STRATEGY_PATTERN =
+      "^(PRIORITY_THEN_LONGEST_WAIT|EQUAL_SPLIT)$";
+
+  /** Integer digits of an hour amount ({@code numeric(4,2)}). */
+  public static final int HOURS_INTEGER_DIGITS_MAX = 2;
+
+  /** Positions a valve takes when its device loses control. */
+  public static final String FAIL_SAFE_POSITION_PATTERN = "^(KEEP|OPEN|CLOSED)$";
+
+  /** A single line of text: no line breaks. */
+  public static final String SINGLE_LINE_PATTERN = "^[^\\r\\n]*$";
+
   private FieldLimits() {}
 }

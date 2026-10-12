@@ -222,5 +222,10 @@ class ResetPasswordCommandHandlerTest {
     public boolean markUsed(UUID grantId, Instant now) {
       return false;
     }
+
+    @Override
+    public int revokeOpen(UUID userId, Instant now) {
+      return real.revokeOpen(userId, now);
+    }
   }
 }

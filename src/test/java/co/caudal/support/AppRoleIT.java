@@ -105,6 +105,77 @@ public abstract class AppRoleIT {
         "Tanque " + UUID.randomUUID().toString().substring(0, 8));
   }
 
+  /**
+   * Creates an aqueduct like the demo one but empty of readings: a tank from 0.00 to 5.00, two
+   * sectors with one valve each and an ACTIVE version 1 of the rules with the seed bands (CRITICAL
+   * 0 to 1.5, LOW 1.5 to 3.5, HIGH 3.5 to 5). Returns its id.
+   */
+  protected UUID newAqueductWithRules() {
+    UUID aqueduct = newAqueduct();
+    UUID system =
+        owner.queryForObject(
+            "SELECT id FROM iam.users WHERE username = 'caudal.system'", UUID.class);
+    owner.update(
+        "INSERT INTO org.tanks (aqueduct_id, name, gauge_min, gauge_max, gauge_step,"
+            + " capacity_liters) VALUES (?, 'Tanque principal', 0.00, 5.00, 0.05, 20000)",
+        aqueduct);
+    for (String code : new String[] {"ALTO", "BAJO"}) {
+      UUID sector =
+          owner.queryForObject(
+              "INSERT INTO org.sectors (aqueduct_id, code, name, households_count)"
+                  + " VALUES (?, ?, ?, 10) RETURNING id",
+              UUID.class,
+              aqueduct,
+              code,
+              "Sector " + code);
+      owner.update(
+          "INSERT INTO org.valves (sector_id, code, name) VALUES (?, ?, ?)",
+          sector,
+          "V-" + code,
+          "Válvula " + code);
+    }
+    UUID ruleSet =
+        owner.queryForObject(
+            "INSERT INTO org.rule_sets (aqueduct_id, version, status, reserve_level,"
+                + " max_daily_service_hours, min_shift_hours, max_shift_hours,"
+                + " duplicate_window_minutes, max_level_change_per_hour, stale_reading_hours,"
+                + " max_backdate_days, forecast_horizon_days, forecast_context_days,"
+                + " trend_threshold_per_day, created_by) VALUES (?, 1, 'DRAFT', 1.00, 16.00, 1.00,"
+                + " 4.00, 30, 0.50, 12, 7, 3, 30, 0.20, ?) RETURNING id",
+            UUID.class,
+            aqueduct,
+            system);
+    owner.update(
+        "INSERT INTO org.rule_level_bands (rule_set_id, band, min_level, max_level,"
+            + " daily_service_hours, priority_only) VALUES (?, 'CRITICAL', 0.00, 1.50, 3.00, true),"
+            + " (?, 'LOW', 1.50, 3.50, 8.00, false), (?, 'HIGH', 3.50, 5.00, 16.00, false)",
+        ruleSet,
+        ruleSet,
+        ruleSet);
+    owner.update(
+        "INSERT INTO org.rule_sector_settings (rule_set_id, sector_id, is_included, is_priority,"
+            + " priority_rank) SELECT ?, id, true, code = 'ALTO', CASE WHEN code = 'ALTO' THEN 1"
+            + " END FROM org.sectors WHERE aqueduct_id = ?",
+        ruleSet,
+        aqueduct);
+    owner.update(
+        "INSERT INTO org.rule_valve_orders (rule_set_id, valve_id, sequence_order)"
+            + " SELECT ?, v.id, row_number() OVER (ORDER BY s.code) FROM org.valves v"
+            + " JOIN org.sectors s ON s.id = v.sector_id WHERE s.aqueduct_id = ?",
+        ruleSet,
+        aqueduct);
+    owner.update(
+        "INSERT INTO org.rule_operating_windows (rule_set_id, day_of_week, start_time, end_time)"
+            + " VALUES (?, NULL, '05:00', '21:00')",
+        ruleSet);
+    owner.update(
+        "UPDATE org.rule_sets SET status = 'ACTIVE', valid_from = now(), activated_by = ?,"
+            + " activated_at = now(), change_reason = 'Versión inicial de prueba.' WHERE id = ?",
+        system,
+        ruleSet);
+    return aqueduct;
+  }
+
   /** Grants a role to an account in an aqueduct, valid from the given instant. */
   protected UUID newMembership(
       UUID user, UUID aqueduct, String role, Instant validFrom, Instant validTo) {

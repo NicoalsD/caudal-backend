@@ -3,13 +3,18 @@ package co.caudal.infrastructure.config;
 import co.caudal.application.auth.SessionInvalidator;
 import co.caudal.application.pagination.SignedCursorCodec;
 import co.caudal.application.port.out.MembershipAdminPort;
+import co.caudal.application.port.out.PasswordResetGrantPort;
 import co.caudal.application.port.out.PrivacyHasherPort;
+import co.caudal.application.port.out.PrivacyNoticePort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.port.out.UserAccountPort;
 import co.caudal.application.port.out.UserAdminPort;
+import co.caudal.application.privacy.PrivacyNoticeService;
 import co.caudal.application.user.GrantMembershipCommandHandler;
+import co.caudal.application.user.IssueResetGrantCommandHandler;
 import co.caudal.application.user.ListMembershipsUseCase;
 import co.caudal.application.user.ListUsersUseCase;
+import co.caudal.application.user.ResetGrantSettings;
 import co.caudal.application.user.RevokeMembershipCommandHandler;
 import co.caudal.application.user.UpdateUserCommandHandler;
 import java.time.Clock;
@@ -56,5 +61,21 @@ class UserAdminServicesConfig {
       UnitOfWorkPort unitOfWork,
       Clock clock) {
     return new RevokeMembershipCommandHandler(memberships, accounts, unitOfWork, clock);
+  }
+
+  @Bean
+  IssueResetGrantCommandHandler issueResetGrantCommandHandler(
+      UserAdminPort users,
+      PasswordResetGrantPort grants,
+      ResetGrantSettings settings,
+      UnitOfWorkPort unitOfWork,
+      Clock clock) {
+    return new IssueResetGrantCommandHandler(users, grants, settings, unitOfWork, clock);
+  }
+
+  @Bean
+  PrivacyNoticeService privacyNoticeService(
+      PrivacyNoticePort notices, PrivacyHasherPort hasher, UnitOfWorkPort unitOfWork, Clock clock) {
+    return new PrivacyNoticeService(notices, hasher, unitOfWork, clock);
   }
 }

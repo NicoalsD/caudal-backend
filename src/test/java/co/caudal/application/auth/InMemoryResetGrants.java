@@ -54,4 +54,11 @@ class InMemoryResetGrants implements PasswordResetGrantPort {
     }
     return false;
   }
+
+  @Override
+  public int revokeOpen(UUID userId, Instant now) {
+    int before = grants.size();
+    grants.removeIf(g -> g.userId.equals(userId) && g.usedAt == null);
+    return before - grants.size();
+  }
 }

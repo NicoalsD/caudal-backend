@@ -1,8 +1,11 @@
 package co.caudal.infrastructure.config;
 
 import co.caudal.application.catalog.GetCatalogUseCase;
+import co.caudal.application.event.DomainEventPublisher;
 import co.caudal.application.network.CreateTankCommandHandler;
 import co.caudal.application.network.ListNetworkUseCase;
+import co.caudal.application.network.SectorCommandHandlers;
+import co.caudal.application.network.ValveCommandHandlers;
 import co.caudal.application.pagination.SignedCursorCodec;
 import co.caudal.application.port.out.CatalogPort;
 import co.caudal.application.port.out.NetworkPort;
@@ -12,7 +15,12 @@ import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.reading.CreateReadingCommandHandler;
 import co.caudal.application.reading.ListReadingsUseCase;
 import co.caudal.application.reading.ReadingCursor;
+import co.caudal.application.rules.ActivateRuleSetCommandHandler;
+import co.caudal.application.rules.CreateRuleSetDraftCommandHandler;
 import co.caudal.application.rules.GetCurrentRuleSetUseCase;
+import co.caudal.application.rules.GetRuleSetUseCase;
+import co.caudal.application.rules.ListRuleSetsUseCase;
+import co.caudal.application.rules.UpdateRuleSetDraftCommandHandler;
 import java.time.Clock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -66,5 +74,62 @@ class OpsServicesConfig {
   ListReadingsUseCase listReadingsUseCase(
       NetworkPort network, ReadingPort readings, ReadingCursor cursors, UnitOfWorkPort unitOfWork) {
     return new ListReadingsUseCase(network, readings, cursors, unitOfWork);
+  }
+
+  @Bean
+  ListRuleSetsUseCase listRuleSetsUseCase(
+      RuleSetPort ruleSets, SignedCursorCodec cursors, UnitOfWorkPort unitOfWork) {
+    return new ListRuleSetsUseCase(ruleSets, cursors, unitOfWork);
+  }
+
+  @Bean
+  GetRuleSetUseCase getRuleSetUseCase(RuleSetPort ruleSets, UnitOfWorkPort unitOfWork) {
+    return new GetRuleSetUseCase(ruleSets, unitOfWork);
+  }
+
+  @Bean
+  CreateRuleSetDraftCommandHandler createRuleSetDraftCommandHandler(
+      RuleSetPort ruleSets, UnitOfWorkPort unitOfWork) {
+    return new CreateRuleSetDraftCommandHandler(ruleSets, unitOfWork);
+  }
+
+  @Bean
+  UpdateRuleSetDraftCommandHandler updateRuleSetDraftCommandHandler(
+      RuleSetPort ruleSets, UnitOfWorkPort unitOfWork) {
+    return new UpdateRuleSetDraftCommandHandler(ruleSets, unitOfWork);
+  }
+
+  @Bean
+  ActivateRuleSetCommandHandler activateRuleSetCommandHandler(
+      RuleSetPort ruleSets,
+      NetworkPort network,
+      DomainEventPublisher events,
+      UnitOfWorkPort unitOfWork,
+      Clock clock) {
+    return new ActivateRuleSetCommandHandler(ruleSets, network, events, unitOfWork, clock);
+  }
+
+  @Bean
+  SectorCommandHandlers.Create createSectorCommandHandler(
+      NetworkPort network, UnitOfWorkPort unitOfWork) {
+    return new SectorCommandHandlers.Create(network, unitOfWork);
+  }
+
+  @Bean
+  SectorCommandHandlers.Update updateSectorCommandHandler(
+      NetworkPort network, UnitOfWorkPort unitOfWork) {
+    return new SectorCommandHandlers.Update(network, unitOfWork);
+  }
+
+  @Bean
+  ValveCommandHandlers.Create createValveCommandHandler(
+      NetworkPort network, UnitOfWorkPort unitOfWork) {
+    return new ValveCommandHandlers.Create(network, unitOfWork);
+  }
+
+  @Bean
+  ValveCommandHandlers.Update updateValveCommandHandler(
+      NetworkPort network, UnitOfWorkPort unitOfWork) {
+    return new ValveCommandHandlers.Update(network, unitOfWork);
   }
 }
