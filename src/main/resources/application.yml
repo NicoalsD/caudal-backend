@@ -69,6 +69,8 @@ caudal:
   devices:
     key-rotation-days: ${DEVICE_KEY_ROTATION_DAYS:7}
     requests-per-minute: ${DEVICE_REQUESTS_PER_MINUTE:60}
+    valve-open-lead-minutes: ${DEVICE_VALVE_OPEN_LEAD_MINUTES:2}
+    valve-command-window-minutes: ${DEVICE_VALVE_COMMAND_WINDOW_MINUTES:10}
   security:
     # Access token (JWT HS256). Secret, issuer and audience have no default: without them the
     # application does not start.

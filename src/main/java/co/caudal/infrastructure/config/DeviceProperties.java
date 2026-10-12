@@ -9,9 +9,17 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *     DEVICE_KEY_ROTATION_DAYS}); zero revokes it at once
  * @param requestsPerMinute signed requests a device may make per minute ({@code
  *     DEVICE_REQUESTS_PER_MINUTE}, 60 by default)
+ * @param valveOpenLeadMinutes minutes before a shift when its OPEN command may run ({@code
+ *     DEVICE_VALVE_OPEN_LEAD_MINUTES}, 2 by default)
+ * @param valveCommandWindowMinutes minutes after the moment of a valve command when it expires
+ *     ({@code DEVICE_VALVE_COMMAND_WINDOW_MINUTES}, 10 by default)
  */
 @ConfigurationProperties(prefix = "caudal.devices")
-public record DeviceProperties(int keyRotationDays, int requestsPerMinute) {
+public record DeviceProperties(
+    int keyRotationDays,
+    int requestsPerMinute,
+    int valveOpenLeadMinutes,
+    int valveCommandWindowMinutes) {
 
   /**
    * Refuses a negative period and a rate that allows no request.
@@ -24,6 +32,9 @@ public record DeviceProperties(int keyRotationDays, int requestsPerMinute) {
     }
     if (requestsPerMinute < 1) {
       throw new IllegalArgumentException("Requests per minute must be at least one");
+    }
+    if (valveOpenLeadMinutes < 0 || valveCommandWindowMinutes < 1) {
+      throw new IllegalArgumentException("Valve command minutes must be positive");
     }
   }
 }

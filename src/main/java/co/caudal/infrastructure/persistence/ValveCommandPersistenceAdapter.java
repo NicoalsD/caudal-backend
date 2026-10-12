@@ -7,6 +7,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -75,6 +76,24 @@ public class ValveCommandPersistenceAdapter implements ValveCommandPort {
         .param("detail", detail, Types.VARCHAR)
         .param("at", SqlTime.timestamp(occurredAt))
         .update();
+  }
+
+  @Override
+  public List<ValveCommandView> pendingOfDay(UUID aqueductId, LocalDate day, UUID proposalId) {
+    return jdbc.sql(
+            "SELECT vc.id, vc.aqueduct_id, vc.device_id, vc.valve_id, vc.command, vc.status,"
+                + " vc.not_before, vc.expires_at FROM devices.valve_commands vc"
+                + " JOIN ops.schedule_items si ON si.id = vc.schedule_item_id"
+                + " AND si.aqueduct_id = vc.aqueduct_id"
+                + " JOIN ops.schedule_proposals sp ON sp.id = si.proposal_id"
+                + " WHERE vc.aqueduct_id = :aqueduct AND vc.status = 'PENDING'"
+                + " AND sp.service_date = :day AND sp.id <> :proposal"
+                + " ORDER BY vc.not_before, vc.id")
+        .param("aqueduct", aqueductId)
+        .param("day", day)
+        .param("proposal", proposalId)
+        .query(ValveCommandPersistenceAdapter::command)
+        .list();
   }
 
   @Override

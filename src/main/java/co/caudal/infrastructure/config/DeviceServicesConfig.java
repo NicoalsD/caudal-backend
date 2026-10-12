@@ -4,6 +4,7 @@ import co.caudal.application.device.DeviceCommandHandlers;
 import co.caudal.application.device.DeviceKeyCommandHandlers;
 import co.caudal.application.device.auth.DeviceAuthenticator;
 import co.caudal.application.device.command.ManualValveCommandHandler;
+import co.caudal.application.device.command.ValveCommandScheduler;
 import co.caudal.application.device.command.ValveCommandService;
 import co.caudal.application.device.telemetry.DeviceTelemetryService;
 import co.caudal.application.event.DomainEventPublisher;
@@ -20,6 +21,7 @@ import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.port.out.ValveCommandPort;
 import co.caudal.application.reading.ReadingRecorder;
 import java.time.Clock;
+import java.time.Duration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -74,6 +76,24 @@ class DeviceServicesConfig {
       ValveCommandPort commands,
       UnitOfWorkPort unitOfWork) {
     return new ManualValveCommandHandler(devices, network, commands, unitOfWork);
+  }
+
+  @Bean
+  ValveCommandScheduler valveCommandScheduler(
+      ValveCommandPort commands,
+      DevicePort devices,
+      NetworkPort network,
+      RuleSetPort ruleSets,
+      DeviceProperties properties,
+      Clock clock) {
+    return new ValveCommandScheduler(
+        commands,
+        devices,
+        network,
+        ruleSets,
+        Duration.ofMinutes(properties.valveOpenLeadMinutes()),
+        Duration.ofMinutes(properties.valveCommandWindowMinutes()),
+        clock);
   }
 
   @Bean

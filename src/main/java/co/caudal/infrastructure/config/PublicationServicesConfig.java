@@ -1,5 +1,6 @@
 package co.caudal.infrastructure.config;
 
+import co.caudal.application.device.command.ValveCommandScheduler;
 import co.caudal.application.event.DomainEventPublisher;
 import co.caudal.application.incident.DamageReportCommandHandler;
 import co.caudal.application.incident.PublicFormGuard;
@@ -47,9 +48,18 @@ class PublicationServicesConfig {
       DocumentRenderingPort documents,
       UnitOfWorkPort unitOfWork,
       DomainEventPublisher events,
+      ValveCommandScheduler valveCommands,
       Clock clock) {
     return new PublishScheduleCommandHandler(
-        proposals, publications, network, aqueducts, documents, unitOfWork, events, clock);
+        proposals,
+        publications,
+        network,
+        aqueducts,
+        documents,
+        unitOfWork,
+        events,
+        valveCommands,
+        clock);
   }
 
   @Bean

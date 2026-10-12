@@ -3,6 +3,7 @@ package co.caudal.application.port.out;
 import co.caudal.application.device.command.NewValveCommand;
 import co.caudal.application.device.command.ValveCommandView;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -53,6 +54,17 @@ public interface ValveCommandPort {
    */
   void insertEvent(
       UUID aqueductId, UUID commandId, String event, String detail, Instant occurredAt);
+
+  /**
+   * Lists the commands still PENDING that come from the schedule items of other proposals of the
+   * same service day, so that a new publication can cancel them.
+   *
+   * @param aqueductId the aqueduct
+   * @param day the service day
+   * @param proposalId the proposal being published, whose commands are left out
+   * @return the commands, possibly empty
+   */
+  List<ValveCommandView> pendingOfDay(UUID aqueductId, LocalDate day, UUID proposalId);
 
   /**
    * Stores a new command in {@code PENDING}. A command of the same valve with the same {@code
