@@ -143,17 +143,21 @@ public class IncidentController {
       description =
           "Mueve el incidente según las transiciones de las reglas: REPORTED a VERIFYING o"
               + " DISMISSED; VERIFYING a CONFIRMED o DISMISSED; CONFIRMED a RESOLVED. Descartar"
-              + " exige una nota de 10 a 500 caracteres. Cada cambio queda en el historial del"
-              + " incidente. Requiere el permiso INCIDENT_MANAGE.")
+              + " exige una nota de 10 a 500 caracteres y el permiso INCIDENT_MANAGE (solo la"
+              + " Junta); el fontanero puede avanzar el incidente. Cada cambio queda en el historial"
+              + " del incidente. Requiere el permiso INCIDENT_CREATE o INCIDENT_MANAGE.")
   @SecurityRequirement(name = "bearerAuth")
   @ApiResponse(responseCode = "200", description = "Incidente actualizado")
+  @ApiResponse(
+      responseCode = "403",
+      description = "FORBIDDEN: descartar exige el permiso INCIDENT_MANAGE")
   @ApiResponse(responseCode = "404", description = "NOT_FOUND: el incidente no existe")
   @ApiResponse(
       responseCode = "409",
       description = "INVALID_STATE_TRANSITION: transición no permitida; CONFLICT si cambió antes")
   @ApiResponse(responseCode = "422", description = "REASON_REQUIRED: descarte sin nota válida")
   @PatchMapping("/{id}/status")
-  @PreAuthorize("hasAuthority('INCIDENT_MANAGE')")
+  @PreAuthorize("hasAnyAuthority('INCIDENT_CREATE', 'INCIDENT_MANAGE')")
   public ResponseEntity<IncidentResponse> changeStatus(
       @AuthenticationPrincipal Jwt jwt,
       @PathVariable UUID id,

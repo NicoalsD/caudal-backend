@@ -8,6 +8,7 @@ import co.caudal.application.pagination.SignedCursorCodec;
 import co.caudal.application.port.out.CatalogPort;
 import co.caudal.application.port.out.IncidentPort;
 import co.caudal.application.port.out.NetworkPort;
+import co.caudal.application.port.out.PermissionPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -38,7 +39,7 @@ class IncidentServicesConfig {
 
   @Bean
   UpdateIncidentStatusCommandHandler updateIncidentStatusCommandHandler(
-      IncidentPort incidents, UnitOfWorkPort unitOfWork) {
-    return new UpdateIncidentStatusCommandHandler(incidents, unitOfWork);
+      IncidentPort incidents, PermissionPort permissions, UnitOfWorkPort unitOfWork) {
+    return new UpdateIncidentStatusCommandHandler(incidents, permissions, unitOfWork);
   }
 }

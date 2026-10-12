@@ -102,13 +102,47 @@ class IncidentStatusIT extends SessionIT {
   }
 
   @Test
-  void theOperatorCannotChangeStatusAndInvalidBodiesAreRefused() throws Exception {
+  void theOperatorAdvancesButCannotDismiss() throws Exception {
     UUID aqueduct = newAqueductWithRules();
     UUID id = incident(aqueduct, "REPORTED");
+    UUID dismissable = incident(aqueduct, "REPORTED");
     Session operator = login(account("incident.status.operator", "OPERATOR", aqueduct));
+
+    change(operator, id, "{\"status\":\"VERIFYING\"}")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("VERIFYING"));
+    change(operator, id, "{\"status\":\"CONFIRMED\"}")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("CONFIRMED"));
+    change(operator, id, "{\"status\":\"RESOLVED\"}")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("RESOLVED"));
+    change(operator, dismissable, "{\"status\":\"DISMISSED\",\"note\":\"Era agua de lluvia.\"}")
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+    assertThat(
+            owner.queryForObject(
+                "SELECT status FROM ops.incidents WHERE id = ?", String.class, dismissable))
+        .isEqualTo("REPORTED");
+  }
+
+  @Test
+  void theBoardMemberDismissesWithAReason() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    UUID id = incident(aqueduct, "VERIFYING");
+    Session board = login(account("incident.status.member", "BOARD_MEMBER", aqueduct));
+
+    change(board, id, "{\"status\":\"DISMISSED\",\"note\":\"Era agua de lluvia.\"}")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("DISMISSED"));
+  }
+
+  @Test
+  void invalidBodiesAreRefused() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    UUID id = incident(aqueduct, "REPORTED");
     Session board = login(account("incident.status.checks", "BOARD_MEMBER", aqueduct));
 
-    change(operator, id, "{\"status\":\"VERIFYING\"}").andExpect(status().isForbidden());
     change(board, id, "{\"status\":\"REPORTED\"}").andExpect(status().isBadRequest());
     change(board, id, "{\"status\":\"FOO\"}").andExpect(status().isBadRequest());
     change(board, id, "{\"note\":\"Sin estado.\"}").andExpect(status().isBadRequest());
