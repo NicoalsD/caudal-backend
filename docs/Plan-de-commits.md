@@ -292,7 +292,7 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | B187 | `ci: despliega API en Render desde develop` | `NicoalsD` | - | - | [x] |
 | B188 | `feat: agrega pruebas de autorización y aislamiento RLS` | `nicomora70` | HU-04, HU-35 | - | [x] |
 | B189 | `test: verifica redacción de secretos en logs y errores` | `nicomora70` | HU-01, HU-05 | - | [x] |
-| B190 | `docs: documenta endurecimiento y versión v1.0.0` | `NicoalsD` | - | - | [ ] |
+| B190 | `docs: documenta endurecimiento y versión v1.0.0` | `NicoalsD` | - | - | [x] |
 
 ## `caudal-frontend`
 
