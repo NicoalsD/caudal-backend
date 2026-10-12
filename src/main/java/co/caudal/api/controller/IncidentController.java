@@ -1,6 +1,7 @@
 package co.caudal.api.controller;
 
 import co.caudal.api.dto.request.CreateIncidentRequest;
+import co.caudal.api.dto.request.UpdateIncidentStatusRequest;
 import co.caudal.api.dto.response.IncidentResponse;
 import co.caudal.api.dto.response.PageResponse;
 import co.caudal.api.security.CallerFactory;
@@ -9,6 +10,7 @@ import co.caudal.application.incident.CreateIncidentCommand;
 import co.caudal.application.incident.IncidentFilter;
 import co.caudal.application.incident.IncidentView;
 import co.caudal.application.incident.ListIncidentsUseCase;
+import co.caudal.application.incident.UpdateIncidentStatusCommand;
 import co.caudal.application.pagination.Page;
 import co.caudal.shared.FieldLimits;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,6 +31,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -132,5 +136,33 @@ public class IncidentController {
     return ResponseEntity.status(HttpStatus.CREATED)
         .cacheControl(CacheControl.noStore())
         .body(toResponse(incident));
+  }
+
+  @Operation(
+      summary = "Cambiar el estado de un incidente",
+      description =
+          "Mueve el incidente según las transiciones de las reglas: REPORTED a VERIFYING o"
+              + " DISMISSED; VERIFYING a CONFIRMED o DISMISSED; CONFIRMED a RESOLVED. Descartar"
+              + " exige una nota de 10 a 500 caracteres. Cada cambio queda en el historial del"
+              + " incidente. Requiere el permiso INCIDENT_MANAGE.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "200", description = "Incidente actualizado")
+  @ApiResponse(responseCode = "404", description = "NOT_FOUND: el incidente no existe")
+  @ApiResponse(
+      responseCode = "409",
+      description = "INVALID_STATE_TRANSITION: transición no permitida; CONFLICT si cambió antes")
+  @ApiResponse(responseCode = "422", description = "REASON_REQUIRED: descarte sin nota válida")
+  @PatchMapping("/{id}/status")
+  @PreAuthorize("hasAuthority('INCIDENT_MANAGE')")
+  public ResponseEntity<IncidentResponse> changeStatus(
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID id,
+      @Valid @RequestBody UpdateIncidentStatusRequest request,
+      HttpServletRequest http) {
+    IncidentView incident =
+        commands.dispatch(
+            new UpdateIncidentStatusCommand(
+                CallerFactory.from(jwt, http), id, request.status(), request.note()));
+    return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(toResponse(incident));
   }
 }

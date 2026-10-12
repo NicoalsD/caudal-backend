@@ -3,6 +3,7 @@ package co.caudal.infrastructure.config;
 import co.caudal.application.incident.CreateIncidentCommandHandler;
 import co.caudal.application.incident.IncidentCursor;
 import co.caudal.application.incident.ListIncidentsUseCase;
+import co.caudal.application.incident.UpdateIncidentStatusCommandHandler;
 import co.caudal.application.pagination.SignedCursorCodec;
 import co.caudal.application.port.out.CatalogPort;
 import co.caudal.application.port.out.IncidentPort;
@@ -33,5 +34,11 @@ class IncidentServicesConfig {
       IncidentPort incidents,
       UnitOfWorkPort unitOfWork) {
     return new CreateIncidentCommandHandler(catalogs, network, incidents, unitOfWork);
+  }
+
+  @Bean
+  UpdateIncidentStatusCommandHandler updateIncidentStatusCommandHandler(
+      IncidentPort incidents, UnitOfWorkPort unitOfWork) {
+    return new UpdateIncidentStatusCommandHandler(incidents, unitOfWork);
   }
 }

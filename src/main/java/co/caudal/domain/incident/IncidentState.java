@@ -61,6 +61,23 @@ public sealed interface IncidentState
   }
 
   /**
+   * Moves to the status a person asks for, when the rules allow that move.
+   *
+   * @param target the status to set: VERIFYING, CONFIRMED, RESOLVED or DISMISSED
+   * @return the next state
+   * @throws DomainException with {@code INVALID_STATE_TRANSITION} when the rules do not allow it
+   */
+  default IncidentState moveTo(String target) {
+    return switch (target) {
+      case "VERIFYING" -> verify();
+      case "CONFIRMED" -> confirm();
+      case "RESOLVED" -> resolve();
+      case "DISMISSED" -> dismiss();
+      default -> throw refused(String.valueOf(target));
+    };
+  }
+
+  /**
    * The damage is real.
    *
    * @return the next state

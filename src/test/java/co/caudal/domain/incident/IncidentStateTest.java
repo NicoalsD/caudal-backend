@@ -47,4 +47,15 @@ class IncidentStateTest {
       assertThat(IncidentState.of(status).code()).isEqualTo(status);
     }
   }
+
+  @Test
+  void aRequestedStatusMovesOnlyWhenTheRulesAllowIt() {
+    assertThat(IncidentState.of("REPORTED").moveTo("VERIFYING").code()).isEqualTo("VERIFYING");
+    assertThat(IncidentState.of("VERIFYING").moveTo("CONFIRMED").code()).isEqualTo("CONFIRMED");
+    assertThat(IncidentState.of("CONFIRMED").moveTo("RESOLVED").code()).isEqualTo("RESOLVED");
+    assertThatThrownBy(() -> IncidentState.of("CONFIRMED").moveTo("DISMISSED"))
+        .isInstanceOf(DomainException.class);
+    assertThatThrownBy(() -> IncidentState.of("REPORTED").moveTo("REPORTED"))
+        .isInstanceOf(DomainException.class);
+  }
 }

@@ -38,6 +38,20 @@ public interface IncidentPort {
   Optional<TrackedReport> findByTrackingHash(String trackingCodeHash);
 
   /**
+   * Moves an incident from one status to another and appends its row to the history. The change
+   * happens only if the incident still has the expected status, so two people cannot both move it
+   * from the same state.
+   *
+   * @param id the incident
+   * @param fromStatus the status the incident must have now
+   * @param toStatus the new status
+   * @param note the note of the change, or null
+   * @param changedBy who changes it
+   * @return true if it changed, false if its status was not {@code fromStatus} any more
+   */
+  boolean changeStatus(UUID id, String fromStatus, String toStatus, String note, UUID changedBy);
+
+  /**
    * Lists incidents, the newest report first. Only the columns of {@link IncidentView} are read.
    *
    * @param filter the optional filters

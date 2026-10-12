@@ -61,6 +61,35 @@ public class IncidentPersistenceAdapter implements IncidentPort {
   }
 
   @Override
+  public boolean changeStatus(
+      UUID id, String fromStatus, String toStatus, String note, UUID changedBy) {
+    Optional<UUID> aqueductId =
+        jdbc.sql(
+                "UPDATE ops.incidents SET status = :to WHERE id = :id AND status = :from"
+                    + " RETURNING aqueduct_id")
+            .param("to", toStatus)
+            .param("id", id)
+            .param("from", fromStatus)
+            .query(UUID.class)
+            .optional();
+    if (aqueductId.isEmpty()) {
+      return false;
+    }
+    jdbc.sql(
+            "INSERT INTO ops.incident_status_history (aqueduct_id, incident_id, from_status,"
+                + " to_status, note, changed_by) VALUES (:aqueduct, :incident, :from, :to,"
+                + " :note, :by)")
+        .param("aqueduct", aqueductId.get())
+        .param("incident", id)
+        .param("from", fromStatus)
+        .param("to", toStatus)
+        .param("note", note, Types.VARCHAR)
+        .param("by", changedBy, Types.OTHER)
+        .update();
+    return true;
+  }
+
+  @Override
   public Optional<IncidentView> find(UUID id) {
     return jdbc.sql(COLUMNS + " WHERE id = :id")
         .param("id", id)
