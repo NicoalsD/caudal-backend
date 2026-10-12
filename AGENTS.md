@@ -43,6 +43,7 @@ Solo esas tres cuentas. El cambio de cuenta e identidad, las ramas y los PR est�
 - Un commit por unidad lógica. Nada de commits gigantes, vacíos o genéricos.
 - Activa el hook: `git config core.hooksPath .githooks`.
 - Ramas Git Flow desde `develop`; PR con plantilla; merge commit (no squash, no rebase).
+- **Todo PR se fusiona** en cuanto sus checks estén en verde, con merge commit y con la cuenta de su autor (`gh auth switch` a esa cuenta antes de `gh pr merge`); ningún agente deja PR abiertos. Pasos: [`.agents/workflow.md`](.agents/workflow.md#4-pull-requests-y-fusión-obligatorio).
 - **Prohibido atribuir el trabajo a una IA**: sin `Co-Authored-By` de Claude u otra IA y sin "Generated with ..." en commits, PR ni releases.
 
 ### 3.2 Sin valores quemados
