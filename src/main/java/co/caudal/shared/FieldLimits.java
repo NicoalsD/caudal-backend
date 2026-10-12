@@ -337,5 +337,14 @@ public final class FieldLimits {
   /** Longest period of one evaluation, in days. */
   public static final int EVALUATION_MAX_DAYS = 366;
 
+  /** Maximum length of the firmware version of a device ({@code varchar(30)} in the DB). */
+  public static final int FIRMWARE_VERSION_MAX = 30;
+
+  /** Kinds of device: level sensor, valve actuator or gateway. */
+  public static final String DEVICE_KIND_PATTERN = "^(LEVEL_SENSOR|VALVE_ACTUATOR|GATEWAY)$";
+
+  /** Statuses a person may set on a device. */
+  public static final String DEVICE_STATUS_PATTERN = "^(ACTIVE|SUSPENDED|RETIRED)$";
+
   private FieldLimits() {}
 }
