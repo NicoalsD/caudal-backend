@@ -1,0 +1,96 @@
+package co.caudal.api.controller;
+
+import co.caudal.api.dto.response.IncidentResponse;
+import co.caudal.api.dto.response.PageResponse;
+import co.caudal.api.security.CallerFactory;
+import co.caudal.application.incident.IncidentFilter;
+import co.caudal.application.incident.IncidentView;
+import co.caudal.application.incident.ListIncidentsUseCase;
+import co.caudal.application.pagination.Page;
+import co.caudal.shared.FieldLimits;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
+import java.time.Instant;
+import java.util.UUID;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+/** Incidents: damage reports of the aqueduct (docs/API.md, section 12). */
+@RestController
+@RequestMapping("/api/v1/incidents")
+@Tag(name = "Incidentes", description = "Reportes de daño del acueducto y su estado.")
+public class IncidentController {
+
+  private final ListIncidentsUseCase list;
+
+  IncidentController(ListIncidentsUseCase list) {
+    this.list = list;
+  }
+
+  static IncidentResponse toResponse(IncidentView incident) {
+    return new IncidentResponse(
+        incident.id(),
+        incident.source(),
+        incident.categoryCode(),
+        incident.sectorId(),
+        incident.description(),
+        incident.locationHint(),
+        incident.status(),
+        incident.reportedAt());
+  }
+
+  @Operation(
+      summary = "Listar los incidentes",
+      description =
+          "Incidentes del acueducto de la sesión, del más reciente al más antiguo. Filtros"
+              + " opcionales status, source, sector_id, from y to (fecha de reporte). Se pagina"
+              + " con limit y un cursor firmado. Nunca devuelve datos del reportante. Requiere el"
+              + " permiso INCIDENT_VIEW.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "200", description = "Página de incidentes")
+  @ApiResponse(responseCode = "400", description = "VALIDATION_ERROR o CURSOR_INVALID")
+  @GetMapping
+  @PreAuthorize("hasAuthority('INCIDENT_VIEW')")
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public ResponseEntity<PageResponse<IncidentResponse>> list(
+      @AuthenticationPrincipal Jwt jwt,
+      @RequestParam(required = false) @Pattern(regexp = FieldLimits.INCIDENT_STATUS_PATTERN)
+          String status,
+      @RequestParam(required = false) @Pattern(regexp = FieldLimits.INCIDENT_SOURCE_PATTERN)
+          String source,
+      @RequestParam(name = "sector_id", required = false) UUID sectorId,
+      @RequestParam(required = false) Instant from,
+      @RequestParam(required = false) Instant to,
+      @RequestParam(defaultValue = "" + FieldLimits.PAGE_LIMIT_DEFAULT)
+          @Min(FieldLimits.PAGE_LIMIT_MIN)
+          @Max(FieldLimits.PAGE_LIMIT_MAX)
+          int limit,
+      @RequestParam(required = false) String cursor,
+      HttpServletRequest http) {
+    Page<IncidentView> page =
+        list.execute(
+            CallerFactory.from(jwt, http),
+            new IncidentFilter(status, source, sectorId, from, to),
+            limit,
+            cursor);
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.noStore())
+        .body(
+            new PageResponse<>(
+                page.items().stream().map(IncidentController::toResponse).toList(),
+                page.nextCursor()));
+  }
+}

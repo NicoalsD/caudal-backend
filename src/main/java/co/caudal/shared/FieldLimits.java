@@ -373,6 +373,16 @@ public final class FieldLimits {
   public static final String ANOMALY_KIND_PATTERN =
       "^(POSSIBLE_LEAK|SENSOR_FAULT|STALE_DATA|SUSPECTED_DUPLICATE|ABNORMAL_DROP)$";
 
+  /** Statuses of an incident (docs/Reglas-de-negocio.md, section 15). */
+  public static final String INCIDENT_STATUS_PATTERN =
+      "^(REPORTED|VERIFYING|CONFIRMED|RESOLVED|DISMISSED)$";
+
+  /** Statuses a person may set on an incident; REPORTED is only the first status. */
+  public static final String INCIDENT_CHANGE_PATTERN = "^(VERIFYING|CONFIRMED|RESOLVED|DISMISSED)$";
+
+  /** Sources of an incident. */
+  public static final String INCIDENT_SOURCE_PATTERN = "^(PUBLIC_FORM|OPERATOR|ANOMALY|IMPORT)$";
+
   /** Status of a proposal of shifts. */
   public static final String PROPOSAL_STATUS_PATTERN =
       "^(PENDING_REVIEW|APPROVED|APPROVED_WITH_CHANGES|REJECTED|PUBLISHED|CLOSED)$";
