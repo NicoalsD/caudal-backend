@@ -29,4 +29,18 @@ public class DataAccessLogPersistenceAdapter implements DataAccessLogPort {
         .param("ip", ipHmac, Types.VARCHAR)
         .update();
   }
+
+  @Override
+  public void recordSummary(UUID aqueductId, UUID userId, UUID summaryShareId, String ipHmac) {
+    jdbc.sql(
+            "INSERT INTO audit.data_access_log (aqueduct_id, user_id, resource, resource_id,"
+                + " summary_share_id, ip_hmac) VALUES (:aqueduct, :user, 'SUMMARY', :id, :share,"
+                + " :ip)")
+        .param("aqueduct", aqueductId)
+        .param("user", userId)
+        .param("id", summaryShareId.toString())
+        .param("share", summaryShareId)
+        .param("ip", ipHmac, Types.VARCHAR)
+        .update();
+  }
 }

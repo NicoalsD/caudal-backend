@@ -65,6 +65,12 @@ caudal:
       failure-threshold: ${CIRCUIT_BREAKER_FAILURE_THRESHOLD:5}
       open-seconds: ${CIRCUIT_BREAKER_OPEN_SECONDS:60}
       half-open-calls: ${CIRCUIT_BREAKER_HALF_OPEN_CALLS:2}
+  # Field devices (docs/Protocolo-de-dispositivos.md, section 1.3).
+  devices:
+    key-rotation-days: ${DEVICE_KEY_ROTATION_DAYS:7}
+    requests-per-minute: ${DEVICE_REQUESTS_PER_MINUTE:60}
+    valve-open-lead-minutes: ${DEVICE_VALVE_OPEN_LEAD_MINUTES:2}
+    valve-command-window-minutes: ${DEVICE_VALVE_COMMAND_WINDOW_MINUTES:10}
   security:
     # Access token (JWT HS256). Secret, issuer and audience have no default: without them the
     # application does not start.

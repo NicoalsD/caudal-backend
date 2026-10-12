@@ -85,15 +85,16 @@ public final class AuditingCommandHandler<C extends Command<R>, R> implements Co
   @SuppressWarnings("unchecked")
   private void recordSuccess(AuditableCommand<?> command, R result) {
     AuditableCommand<R> typed = (AuditableCommand<R>) command;
+    String action = typed.auditAction();
     AuditEntry entry =
         new AuditEntry(
             command.caller().aqueductId(),
             command.caller().userId(),
-            actionOf(command),
+            action == null ? actionOf(command) : action,
             command.auditEntityType(),
             typed.auditEntityId(result),
             ipHmacOf(command),
-            null);
+            typed.auditAfterState(result));
     unitOfWork.executeAs(
         command.caller().scope(),
         () -> {

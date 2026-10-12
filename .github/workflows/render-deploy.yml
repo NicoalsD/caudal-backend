@@ -1,0 +1,54 @@
+name: render-deploy
+
+# Despliega la API en Render solo cuando el CI de develop termina bien (workflow_run).
+# render.yaml tiene autoDeployTrigger "off": este disparador es el único despliegue automático.
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [develop]
+  workflow_dispatch:
+
+# Ningún permiso del GITHUB_TOKEN: el despliegue usa solo la URL secreta del hook.
+permissions: {}
+
+# Un despliegue a la vez; no se cancela uno en curso para no dejar Render a medias.
+concurrency:
+  group: render-deploy-develop
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: dispara el despliegue del API en Render
+    if: >-
+      (github.event_name == 'workflow_run'
+        && github.event.workflow_run.conclusion == 'success'
+        && github.event.workflow_run.event == 'push'
+        && github.event.workflow_run.head_branch == 'develop')
+      || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/develop')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Sin el secreto el paso termina bien y omite el despliegue (no falla el pipeline).
+      - name: Verifica que el secreto del hook exista
+        id: hook
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -n "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice title=Render::Falta el secreto RENDER_DEPLOY_HOOK_URL (Settings > Secrets > Actions); despliegue omitido."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # La URL no se imprime: el hook funciona como una contraseña.
+      - name: Llama al deploy hook de Render
+        if: steps.hook.outputs.present == 'true'
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          curl --fail --silent --show-error --max-time 30 -X POST -o /dev/null \
+            "$RENDER_DEPLOY_HOOK_URL"
+          echo "Despliegue solicitado a Render para develop (commit ${DEPLOY_SHA::7})."

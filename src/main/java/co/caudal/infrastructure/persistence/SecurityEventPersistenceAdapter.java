@@ -3,6 +3,7 @@ package co.caudal.infrastructure.persistence;
 import co.caudal.api.filter.RequestIdFilter;
 import co.caudal.application.port.out.SecurityEventPort;
 import co.caudal.domain.security.SecurityEvent;
+import java.sql.Types;
 import org.slf4j.MDC;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
@@ -18,8 +19,8 @@ public class SecurityEventPersistenceAdapter implements SecurityEventPort {
 
   private static final String INSERT =
       "INSERT INTO iam.security_events (aqueduct_id, type, severity, actor_user_id, ip_hmac,"
-          + " request_id, details) VALUES (:aqueductId, :type, :severity, :actorUserId, :ipHmac,"
-          + " :requestId, CAST(:details AS jsonb))";
+          + " request_id, details, device_id) VALUES (:aqueductId, :type, :severity, :actorUserId,"
+          + " :ipHmac, :requestId, CAST(:details AS jsonb), :deviceId)";
 
   private final JdbcClient jdbc;
   private final JsonMapper json;
@@ -39,6 +40,7 @@ public class SecurityEventPersistenceAdapter implements SecurityEventPort {
         .param("ipHmac", event.ipHmac())
         .param("requestId", MDC.get(RequestIdFilter.MDC_KEY))
         .param("details", json.writeValueAsString(event.details()))
+        .param("deviceId", event.deviceId(), Types.OTHER)
         .update();
   }
 }

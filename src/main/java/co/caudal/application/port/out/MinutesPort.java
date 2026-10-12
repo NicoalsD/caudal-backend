@@ -3,6 +3,7 @@ package co.caudal.application.port.out;
 import co.caudal.application.minutes.MinutesView;
 import co.caudal.domain.minutes.Minutes;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -46,4 +47,14 @@ public interface MinutesPort {
    * @return the hash, or empty if the chain is empty
    */
   Optional<String> auditHeadHash();
+
+  /**
+   * Tells whether a final minutes covers every day of a period.
+   *
+   * @param from first day of the period
+   * @param to last day of the period
+   * @return true if a {@code FINAL} minutes starts on or before {@code from} and ends on or after
+   *     {@code to}
+   */
+  boolean hasFinalCovering(LocalDate from, LocalDate to);
 }

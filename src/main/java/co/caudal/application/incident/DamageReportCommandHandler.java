@@ -109,7 +109,8 @@ public class DamageReportCommandHandler
                   description,
                   location,
                   code.hash(),
-                  command.ipAddress() == null ? null : hasher.hmac(command.ipAddress())));
+                  command.ipAddress() == null ? null : hasher.hmac(command.ipAddress()),
+                  null));
         });
     return receipt(code);
   }

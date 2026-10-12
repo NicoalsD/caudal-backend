@@ -60,6 +60,17 @@ public class MinutesPersistenceAdapter implements MinutesPort {
   }
 
   @Override
+  public boolean hasFinalCovering(LocalDate from, LocalDate to) {
+    return jdbc.sql(
+            "SELECT EXISTS (SELECT 1 FROM reporting.minutes WHERE status = 'FINAL'"
+                + " AND period_from <= :from AND period_to >= :to)")
+        .param("from", from)
+        .param("to", to)
+        .query(Boolean.class)
+        .single();
+  }
+
+  @Override
   public Optional<MinutesView> find(UUID id) {
     return jdbc.sql(COLUMNS + " WHERE id = :id").param("id", id).query(this::view).optional();
   }

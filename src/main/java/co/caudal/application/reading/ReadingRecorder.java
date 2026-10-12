@@ -98,6 +98,21 @@ public class ReadingRecorder {
    * @throws DomainException if the reading is refused
    */
   public Verdict judge(Caller caller, ReadingInput input, RuleSetView rules, boolean ageExempt) {
+    return judgeFor(caller.aqueductId(), input, rules, ageExempt);
+  }
+
+  /**
+   * Judges a reading of an aqueduct without a person behind it, such as one sent by a sensor.
+   *
+   * @param aqueductId the aqueduct of the tank
+   * @param input the reading
+   * @param rules the active rules
+   * @param ageExempt true for simulated history of a demo aqueduct
+   * @return the verdict
+   * @throws DomainException if the reading is refused
+   */
+  public Verdict judgeFor(
+      UUID aqueductId, ReadingInput input, RuleSetView rules, boolean ageExempt) {
     TankView tank =
         network
             .tank(input.tankId())
@@ -111,8 +126,7 @@ public class ReadingRecorder {
         ReadingValidationChain.run(
             ReadingValidationChain.standard(history(input, tank)),
             candidate(input, tank, rules, ageExempt));
-    if (!catalogs.isActiveCode(
-        WATER_APPEARANCE, input.waterAppearanceCode(), caller.aqueductId())) {
+    if (!catalogs.isActiveCode(WATER_APPEARANCE, input.waterAppearanceCode(), aqueductId)) {
       throw new FieldValidationException("water_appearance_code", "FIELD_VALUE_NOT_ALLOWED");
     }
     return new Verdict(input, tank, null, found.stream().map(ReadingRecorder::view).toList());
@@ -130,6 +144,22 @@ public class ReadingRecorder {
    */
   public RecordedReading store(
       Caller caller, Verdict verdict, RuleSetView rules, ReadingOrigin origin) {
+    return storeFor(caller.aqueductId(), caller.userId(), verdict, rules, origin);
+  }
+
+  /**
+   * Stores a judged reading of an aqueduct, recorded by an account or by no one (a sensor).
+   *
+   * @param aqueductId the aqueduct of the tank
+   * @param recordedBy the account, or null for a sensor
+   * @param verdict the verdict of {@link #judgeFor}
+   * @param rules the active rules
+   * @param origin the source and the batch, import or device it came in
+   * @return the stored reading
+   * @throws DomainException with {@code DUPLICATE_READING} if the id was taken meanwhile
+   */
+  public RecordedReading storeFor(
+      UUID aqueductId, UUID recordedBy, Verdict verdict, RuleSetView rules, ReadingOrigin origin) {
     if (verdict.replay()) {
       return new RecordedReading(
           verdict.replayOf(), readings.issues(verdict.replayOf().id()), true);
@@ -148,11 +178,11 @@ public class ReadingRecorder {
             origin.source(),
             verdict.issues().isEmpty() ? ACCEPTED : FLAGGED,
             rules.id());
-    if (!readings.insert(caller.aqueductId(), reading, caller.userId(), origin)) {
+    if (!readings.insert(aqueductId, reading, recordedBy, origin)) {
       throw new DomainException(ErrorCode.DUPLICATE_READING);
     }
     for (IssueView issue : verdict.issues()) {
-      readings.insertIssue(caller.aqueductId(), reading.id(), issue);
+      readings.insertIssue(aqueductId, reading.id(), issue);
     }
     return new RecordedReading(
         readings.findById(reading.id()).orElse(reading), verdict.issues(), false);

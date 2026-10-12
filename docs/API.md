@@ -219,7 +219,7 @@ Los permisos de la tabla siguiente son los que se usan en las secciones de recur
 | `INCIDENT_CREATE`, `INCIDENT_READ` | Sí | Sí | Sí | Sí | No | No (solo público) |
 | `MINUTES_GENERATE`, `MINUTES_READ`, `SUMMARY_SHARE_MANAGE` | Sí | Sí (sin compartir) | No | No | No | No |
 | `SUMMARY_READ` | Sí | Sí | No | No | Sí (solo autorizados) | No |
-| `EVALUATION_READ`, `IMPORT_RUN`, `AUDIT_READ`, `DEVICE_REGISTER` | Sí | No | No | Sí | No | No |
+| `EVALUATION_READ`, `IMPORT_RUN`, `AUDIT_READ`, `DEVICE_MANAGE` | Sí | No | No | Sí | No | No |
 | `VALVE_COMMAND_MANUAL` | Sí | No | No | No | No | No |
 
 Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla responde a la matriz de la sección 9 de los hechos. Los nombres de permisos son propuesta y se confirman al cargar `iam.permissions` (Fase 2).
@@ -991,7 +991,7 @@ Las rutas de telemetría y comandos no usan JWT. Cada petición lleva firma Ed25
 
 ### 16.4 `POST /api/v1/devices`
 
-- **Permiso:** `DEVICE_REGISTER`.
+- **Permiso:** `DEVICE_MANAGE`.
 - **Cuerpo:**
 
 | Campo | Tipo | Oblig. | Límites |
@@ -1006,21 +1006,21 @@ Las rutas de telemetría y comandos no usan JWT. Cada petición lleva firma Ed25
 
 ### 16.5 `POST /api/v1/devices/{id}/keys`
 
-- **Permiso:** `DEVICE_REGISTER`.
+- **Permiso:** `DEVICE_MANAGE`.
 - **Cuerpo:** `public_key` (texto, base64url sin relleno, 43 caracteres que decodifican a 32 bytes).
 - **Respuesta 201:** `key_id`, `fingerprint` (SHA-256 de la clave en hexadecimal, 64 caracteres) y `activated_at`. La clave anterior, si existía, sigue válida 7 días (configurable) y después queda revocada. Para revocarla antes, ver `DELETE /devices/{id}/keys/{keyId}`.
 - **Errores:** `422 INVALID_KEY`, `409 CONFLICT` (la misma clave ya está registrada).
 
 ### 16.7 `PATCH /api/v1/devices/{id}`
 
-- **Permiso:** `DEVICE_REGISTER`.
+- **Permiso:** `DEVICE_MANAGE`.
 - **Cuerpo:** `status` (`ACTIVE`, `SUSPENDED` o `RETIRED`, obligatorio).
 - **Respuesta 200:** dispositivo actualizado. Un dispositivo `SUSPENDED` o `RETIRED` no acepta telemetría ni entrega comandos (`403 DEVICE_INACTIVE`).
 - **Ejemplo:** `{ "status": "SUSPENDED" }`
 
 ### 16.8 `DELETE /api/v1/devices/{id}/keys/{keyId}`
 
-- **Permiso:** `DEVICE_REGISTER`.
+- **Permiso:** `DEVICE_MANAGE`.
 - **Respuesta 204.** Revoca la clave: hace `UPDATE` de `revoked_at`, no borra la fila. Desde ese momento las firmas con esa clave dejan de aceptarse.
 - **Errores:** `404 NOT_FOUND`, `409 CONFLICT` (la clave ya estaba revocada).
 
@@ -1165,10 +1165,10 @@ Permiso: `IMPORT_SIMULATED` (`PROJECT_TEAM`). `aqueduct_id` debe ser el acueduct
 | Dispositivos | POST | `/devices/telemetry` | Firma |
 | Dispositivos | GET | `/devices/commands` | Firma |
 | Dispositivos | POST | `/devices/commands/{id}/ack` | Firma |
-| Dispositivos | POST | `/devices` | `DEVICE_REGISTER` |
-| Dispositivos | POST | `/devices/{id}/keys` | `DEVICE_REGISTER` |
-| Dispositivos | PATCH | `/devices/{id}` | `DEVICE_REGISTER` |
-| Dispositivos | DELETE | `/devices/{id}/keys/{keyId}` | `DEVICE_REGISTER` |
+| Dispositivos | POST | `/devices` | `DEVICE_MANAGE` |
+| Dispositivos | POST | `/devices/{id}/keys` | `DEVICE_MANAGE` |
+| Dispositivos | PATCH | `/devices/{id}` | `DEVICE_MANAGE` |
+| Dispositivos | DELETE | `/devices/{id}/keys/{keyId}` | `DEVICE_MANAGE` |
 | Válvulas | POST | `/valve-commands/manual` | `VALVE_COMMAND_MANUAL` |
 | Importación | POST | `/imports/readings`, `/imports/shift-executions`, `/imports/incidents` | `IMPORT_RUN` (solo demo) |
 | Auditoría | GET | `/audit-log`, `/security-events` | `AUDIT_READ` |

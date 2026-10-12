@@ -266,33 +266,33 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| B174 | `feat: calcula MAE, WQL, cobertura y skill por horizonte` | `nicomora70` | HU-33 | P19 | [ ] |
-| B175 | `feat: implementa GET /api/v1/forecast-evaluation` | `nicomora70` | HU-33 | P10 | [ ] |
-| B176 | `test: verifica muestra mínima y skill no calculable` | `nicomora70` | HU-33 | P19 | [ ] |
+| B174 | `feat: calcula MAE, WQL, cobertura y skill por horizonte` | `nicomora70` | HU-33 | P19 | [x] |
+| B175 | `feat: implementa GET /api/v1/forecast-evaluation` | `nicomora70` | HU-33 | P10 | [x] |
+| B176 | `test: verifica muestra mínima y skill no calculable` | `nicomora70` | HU-33 | P19 | [x] |
 
 ### Fase 11: Simulador en vivo y dispositivos
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| B177 | `feat: registra dispositivos en POST /api/v1/devices` | `nicomora70` | HU-34 | P06 | [ ] |
-| B178 | `feat: rota claves Ed25519 con periodo de validez` | `nicomora70` | HU-34 | P06 | [ ] |
-| B179 | `feat: verifica firma Ed25519 y ventana temporal` | `nicomora70` | HU-35 | P12 | [ ] |
-| B180 | `feat: rechaza nonce repetido en POST /api/v1/devices/telemetry` | `nicomora70` | HU-35 | P12 | [ ] |
-| B181 | `feat: procesa telemetría con DeviceTelemetryAdapter` | `nicomora70` | HU-35 | P06 | [ ] |
-| B182 | `feat: obtiene comandos en GET /api/v1/devices/commands` | `nicomora70` | HU-36 | P13 | [ ] |
-| B183 | `feat: confirma comandos en POST /api/v1/devices/commands/{id}/ack` | `nicomora70` | HU-36 | P18 | [ ] |
+| B177 | `feat: registra dispositivos en POST /api/v1/devices` | `nicomora70` | HU-34 | P06 | [x] |
+| B178 | `feat: rota claves Ed25519 con periodo de validez` | `nicomora70` | HU-34 | P06 | [x] |
+| B179 | `feat: verifica firma Ed25519 y ventana temporal` | `nicomora70` | HU-35 | P12 | [x] |
+| B180 | `feat: rechaza nonce repetido en POST /api/v1/devices/telemetry` | `nicomora70` | HU-35 | P12 | [x] |
+| B181 | `feat: procesa telemetría con DeviceTelemetryAdapter` | `nicomora70` | HU-35 | P06 | [x] |
+| B182 | `feat: obtiene comandos en GET /api/v1/devices/commands` | `nicomora70` | HU-36 | P13 | [x] |
+| B183 | `feat: confirma comandos en POST /api/v1/devices/commands/{id}/ack` | `nicomora70` | HU-36 | P18 | [x] |
 
 ### Fase 12: Endurecimiento, despliegue y v1.0.0
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| B184 | `ci: agrega pruebas de integración con Testcontainers` | `NicoalsD` | - | - | [ ] |
-| B185 | `ci: bloquea dependencias vulnerables en Maven` | `NicoalsD` | - | - | [ ] |
-| B186 | `build: configura imagen Docker de producción` | `NicoalsD` | - | - | [ ] |
-| B187 | `ci: despliega API en Render desde develop` | `NicoalsD` | - | - | [ ] |
-| B188 | `feat: agrega pruebas de autorización y aislamiento RLS` | `nicomora70` | HU-04, HU-35 | - | [ ] |
-| B189 | `test: verifica redacción de secretos en logs y errores` | `nicomora70` | HU-01, HU-05 | - | [ ] |
-| B190 | `docs: documenta endurecimiento y versión v1.0.0` | `NicoalsD` | - | - | [ ] |
+| B184 | `ci: agrega pruebas de integración con Testcontainers` | `NicoalsD` | - | - | [x] |
+| B185 | `ci: bloquea dependencias vulnerables en Maven` | `NicoalsD` | - | - | [x] |
+| B186 | `build: configura imagen Docker de producción` | `NicoalsD` | - | - | [x] |
+| B187 | `ci: despliega API en Render desde develop` | `NicoalsD` | - | - | [x] |
+| B188 | `feat: agrega pruebas de autorización y aislamiento RLS` | `nicomora70` | HU-04, HU-35 | - | [x] |
+| B189 | `test: verifica redacción de secretos en logs y errores` | `nicomora70` | HU-01, HU-05 | - | [x] |
+| B190 | `docs: documenta endurecimiento y versión v1.0.0` | `NicoalsD` | - | - | [x] |
 
 ## `caudal-frontend`
 

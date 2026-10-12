@@ -2,6 +2,7 @@ package co.caudal.application.publication;
 
 import co.caudal.application.aqueduct.AqueductRef;
 import co.caudal.application.command.CommandHandler;
+import co.caudal.application.device.command.ValveCommandScheduler;
 import co.caudal.application.event.DomainEventPublisher;
 import co.caudal.application.network.SectorView;
 import co.caudal.application.port.out.AqueductPort;
@@ -42,6 +43,7 @@ public class PublishScheduleCommandHandler
   private final DocumentRenderingPort documents;
   private final UnitOfWorkPort unitOfWork;
   private final DomainEventPublisher events;
+  private final ValveCommandScheduler valveCommands;
   private final Clock clock;
 
   /**
@@ -54,6 +56,7 @@ public class PublishScheduleCommandHandler
    * @param documents renders the poster
    * @param unitOfWork transaction boundary
    * @param events publishes {@code SchedulePublished}
+   * @param valveCommands creates the valve commands of the shifts, in the same transaction
    * @param clock source of time
    */
   @SuppressWarnings("checkstyle:ParameterNumber")
@@ -65,6 +68,7 @@ public class PublishScheduleCommandHandler
       DocumentRenderingPort documents,
       UnitOfWorkPort unitOfWork,
       DomainEventPublisher events,
+      ValveCommandScheduler valveCommands,
       Clock clock) {
     this.proposals = proposals;
     this.publications = publications;
@@ -73,6 +77,7 @@ public class PublishScheduleCommandHandler
     this.documents = documents;
     this.unitOfWork = unitOfWork;
     this.events = events;
+    this.valveCommands = valveCommands;
     this.clock = clock;
   }
 
@@ -110,6 +115,7 @@ public class PublishScheduleCommandHandler
           PublicationView publication =
               publications.insert(
                   aqueduct.id(), command.proposalId(), command.caller().userId(), text, posterSha);
+          valveCommands.schedule(aqueduct.id(), command.proposalId(), day, current.items());
           events.publish(
               new SchedulePublished(
                   aqueduct.id(),

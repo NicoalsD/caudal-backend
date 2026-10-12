@@ -10,7 +10,7 @@ Fuente de las reglas: hechos canónicos, secciones 11 (dispositivos), 13 (endpoi
 
 ### 1.1 Alta de un dispositivo
 
-1. Un usuario con permiso `DEVICE_REGISTER` (`BOARD_ADMIN` o `PROJECT_TEAM`) llama a `POST /api/v1/devices` con `kind`, `name` y el tanque o la válvula a la que pertenece (`devices.devices`).
+1. Un usuario con permiso `DEVICE_MANAGE` (`BOARD_ADMIN` o `PROJECT_TEAM`) llama a `POST /api/v1/devices` con `kind`, `name` y el tanque o la válvula a la que pertenece (`devices.devices`).
 2. El dispositivo nace en estado `ACTIVE`, pero sin clave. Sin clave no puede firmar nada, así que no acepta peticiones.
 3. El dispositivo genera su par de claves Ed25519 y su clave privada nunca sale de él.
 4. El usuario registra la clave pública con `POST /api/v1/devices/{id}/keys`.
@@ -39,7 +39,7 @@ Procedimiento:
 | Paso | Quién | Acción |
 |---|---|---|
 | 1 | Dispositivo | Genera un par nuevo y lo tiene listo, sin usarlo |
-| 2 | Usuario con `DEVICE_REGISTER` | `POST /devices/{id}/keys` con la clave nueva |
+| 2 | Usuario con `DEVICE_MANAGE` | `POST /devices/{id}/keys` con la clave nueva |
 | 3 | Servidor | En una transacción: registra la clave nueva y deja la anterior válida 7 días (`DEVICE_KEY_ROTATION_DAYS`); al vencer, se revoca (`revoked_at`). Inserta `DEVICE_KEY_ROTATED` en la auditoría (propuesta) |
 | 4 | Dispositivo | Empieza a firmar con la clave nueva |
 

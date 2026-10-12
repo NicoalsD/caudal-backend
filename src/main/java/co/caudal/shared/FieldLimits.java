@@ -231,6 +231,58 @@ public final class FieldLimits {
   /** Time a device nonce stays unique, in seconds. */
   public static final int DEVICE_NONCE_TTL_SECONDS = 600;
 
+  /** Length of the window of the device rate limit, in seconds (one minute). */
+  public static final int DEVICE_RATE_LIMIT_WINDOW_SECONDS = 60;
+
+  /** Invalid signatures of one device that raise a repeated-failure event. */
+  public static final int DEVICE_REPEATED_FAILURES = 10;
+
+  /** Window in which the repeated invalid signatures are counted, in seconds. */
+  public static final int DEVICE_REPEATED_FAILURES_WINDOW_SECONDS = 600;
+
+  /** Bytes of an Ed25519 signature (RFC 8032). */
+  public static final int DEVICE_SIGNATURE_BYTES = 64;
+
+  /** Characters of an Ed25519 signature in base64url without padding. */
+  public static final int DEVICE_SIGNATURE_CHARS = 86;
+
+  /** Characters of a device nonce: 128 random bits in lower case hexadecimal. */
+  public static final int DEVICE_NONCE_CHARS = 32;
+
+  /** Valve commands a device receives in one answer (docs/API.md, section 16.2). */
+  public static final int DEVICE_COMMANDS_MAX = 100;
+
+  /** Maximum characters of the detail of a confirmation (docs/API.md, section 16.3). */
+  public static final int DEVICE_ACK_DETAIL_MAX = 200;
+
+  /** Result of a confirmation of a valve command: the two codes the device may send. */
+  public static final String DEVICE_ACK_RESULT_PATTERN = "^(ACKED|FAILED)$";
+
+  /** Action of a valve command: the two codes of docs/Protocolo-de-dispositivos.md, section 5.1. */
+  public static final String VALVE_COMMAND_PATTERN = "^(OPEN|CLOSE)$";
+
+  /** Device id header: a UUID in text, in any case. */
+  public static final String DEVICE_ID_PATTERN =
+      "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$";
+
+  /** Timestamp header: whole seconds without leading zeros, at most twelve digits. */
+  public static final String DEVICE_TIMESTAMP_PATTERN = "^(0|[1-9][0-9]{0,11})$";
+
+  /** Nonce header: 32 lower case hexadecimal characters. */
+  public static final String DEVICE_NONCE_PATTERN = "^[0-9a-f]{32}$";
+
+  /** Metrics a device may send in its telemetry. */
+  public static final String TELEMETRY_METRIC_PATTERN = "^(LEVEL|BATTERY_V|RSSI|VALVE_POSITION)$";
+
+  /** Maximum decimals of a telemetry value ({@code numeric(10,3)}). */
+  public static final int TELEMETRY_VALUE_DECIMALS_MAX = 3;
+
+  /** Maximum integer digits of a telemetry value ({@code numeric(10,3)}). */
+  public static final int TELEMETRY_VALUE_INTEGER_DIGITS_MAX = 7;
+
+  /** Signature header: 86 characters of base64url without padding. */
+  public static final String DEVICE_SIGNATURE_PATTERN = "^[A-Za-z0-9_-]{86}$";
+
   /** Maximum decimals of a gauge value or correction. */
   public static final int GAUGE_DECIMALS_MAX = 2;
 
@@ -321,6 +373,19 @@ public final class FieldLimits {
   public static final String ANOMALY_KIND_PATTERN =
       "^(POSSIBLE_LEAK|SENSOR_FAULT|STALE_DATA|SUSPECTED_DUPLICATE|ABNORMAL_DROP)$";
 
+  /** Statuses of an incident (docs/Reglas-de-negocio.md, section 15). */
+  public static final String INCIDENT_STATUS_PATTERN =
+      "^(REPORTED|VERIFYING|CONFIRMED|RESOLVED|DISMISSED)$";
+
+  /** Statuses a person may set on an incident; REPORTED is only the first status. */
+  public static final String INCIDENT_CHANGE_PATTERN = "^(VERIFYING|CONFIRMED|RESOLVED|DISMISSED)$";
+
+  /** Scopes of an authorization of a summary for an entity. */
+  public static final String SUMMARY_SCOPE_PATTERN = "^(MONTHLY_SUMMARY|MINUTES)$";
+
+  /** Sources of an incident. */
+  public static final String INCIDENT_SOURCE_PATTERN = "^(PUBLIC_FORM|OPERATOR|ANOMALY|IMPORT)$";
+
   /** Status of a proposal of shifts. */
   public static final String PROPOSAL_STATUS_PATTERN =
       "^(PENDING_REVIEW|APPROVED|APPROVED_WITH_CHANGES|REJECTED|PUBLISHED|CLOSED)$";
@@ -330,6 +395,52 @@ public final class FieldLimits {
 
   /** Longest period of one minutes document, in days, so a request never reads years of data. */
   public static final int MINUTES_MAX_DAYS = 366;
+
+  /** Days the evaluation looks back when no period is asked for. */
+  public static final int EVALUATION_DEFAULT_DAYS = 90;
+
+  /** Longest period of one evaluation, in days. */
+  public static final int EVALUATION_MAX_DAYS = 366;
+
+  /** Bytes of an Ed25519 public key (RFC 8032). */
+  public static final int ED25519_PUBLIC_KEY_BYTES = 32;
+
+  /** Characters of an Ed25519 public key in base64url without padding. */
+  public static final int ED25519_PUBLIC_KEY_CHARS = 43;
+
+  /** Maximum length of the firmware version of a device ({@code varchar(30)} in the DB). */
+  public static final int FIRMWARE_VERSION_MAX = 30;
+
+  /** Kinds of device: level sensor, valve actuator or gateway. */
+  public static final String DEVICE_KIND_PATTERN = "^(LEVEL_SENSOR|VALVE_ACTUATOR|GATEWAY)$";
+
+  /** Statuses a person may set on a device. */
+  public static final String DEVICE_STATUS_PATTERN = "^(ACTIVE|SUSPENDED|RETIRED)$";
+
+  /** Action of an audit entry, in upper case snake case (for example RULESET_ACTIVATED). */
+  public static final String AUDIT_ACTION_PATTERN = "^[A-Z][A-Z0-9_]{0,59}$";
+
+  /** Entity type of an audit entry, in lower case snake case (for example user). */
+  public static final String AUDIT_ENTITY_TYPE_PATTERN = "^[a-z][a-z0-9_]{0,59}$";
+
+  /** Kinds of security event (docs/API.md, section 18.2; the same list as the database check). */
+  public static final String SECURITY_EVENT_TYPE_PATTERN =
+      "^(ACCOUNT_LOCKED|TOKEN_REUSE_DETECTED|PERMISSION_DENIED|RATE_LIMITED|INVALID_SIGNATURE"
+          + "|NONCE_REPLAY|HONEYPOT_TRIGGERED|IMPORT_REJECTED|MFA_FAILED)$";
+
+  /** Severities of a security event. */
+  public static final String SECURITY_EVENT_SEVERITY_PATTERN = "^(LOW|MEDIUM|HIGH|CRITICAL)$";
+
+  /** Classes of data with a retention period (docs/API.md, section 18.3). */
+  public static final String RETENTION_DATA_CLASS_PATTERN =
+      "^(LOGIN_ATTEMPTS|DEVICE_NONCES|SECURITY_EVENTS|REFRESH_TOKENS|DATA_ACCESS_LOG"
+          + "|TELEMETRY_POINTS)$";
+
+  /**
+   * Longest retention period, in days (ten years). It keeps the cutoff of the purge functions
+   * inside the range of {@code timestamptz}.
+   */
+  public static final int RETENTION_DAYS_MAX = 3_650;
 
   private FieldLimits() {}
 }

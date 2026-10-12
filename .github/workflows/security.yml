@@ -33,6 +33,60 @@ jobs:
         with:
           category: /language:java-kotlin
 
+  dependency-review:
+    name: revisión de dependencias del PR (CVSS >= 7)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Compara las dependencias del PR contra la base
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure
+
+  owasp-dependency-check:
+    name: OWASP dependency-check (Maven, CVSS >= 7)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Instala JDK 25 (Temurin)
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Reutiliza la base de datos del NVD entre ejecuciones
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: owasp-nvd-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            owasp-nvd-${{ runner.os }}-
+
+      # Falla si alguna dependencia tiene CVSS >= 7 (failBuildOnCVSS en el perfil dependency-check).
+      - name: Analiza dependencias Maven con OWASP
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: ./mvnw -B -ntp -Pdependency-check org.owasp:dependency-check-maven:check
+
+      - name: Guarda el reporte de OWASP
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: reporte-owasp-dependency-check
+          path: target/dependency-check/
+          retention-days: 14
+          if-no-files-found: warn
+
   gitleaks:
     name: gitleaks (secretos)
     runs-on: ubuntu-latest

@@ -31,12 +31,17 @@
     <findsecbugs.version>1.14.0</findsecbugs.version>
     <google-java-format.version>1.35.0</google-java-format.version>
     <bouncycastle.version>1.86</bouncycastle.version>
+    <!-- Overrides the Boot-managed Tomcat to patch critical CVEs (2026 advisories against 11.0.24). -->
+    <tomcat.version>11.0.27</tomcat.version>
     <archunit.version>1.5.1</archunit.version>
     <jacoco.version>0.8.15</jacoco.version>
     <jacoco.domain.line-minimum>0.90</jacoco.domain.line-minimum>
     <jacoco.global.line-minimum>0.80</jacoco.global.line-minimum>
     <!-- The coverage rule fails the build (domain 90 %, global 80 %; AGENTS.md, section 7). -->
     <jacoco.haltOnFailure>true</jacoco.haltOnFailure>
+    <!-- Perfil dependency-check: versión del plugin OWASP y CVSS que bloquea (docs/Seguridad.md, 2.16). -->
+    <dependency-check.version>12.1.0</dependency-check.version>
+    <dependency-check.fail-cvss>7</dependency-check.fail-cvss>
   </properties>
 
   <dependencies>
@@ -390,4 +395,39 @@
       </plugin>
     </plugins>
   </build>
+  <!--
+    Bloqueo de dependencias vulnerables (docs/Seguridad.md, 2.16). No se activa en la construcción
+    local ni en ci.yml: lo ejecuta security.yml con el objetivo check, que falla con CVSS >= 7.
+    Requiere red para la base de datos del NVD; NVD_API_KEY es opcional (acelera la descarga).
+  -->
+  <profiles>
+    <profile>
+      <id>dependency-check</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.owasp</groupId>
+            <artifactId>dependency-check-maven</artifactId>
+            <version>${dependency-check.version}</version>
+            <configuration>
+              <failBuildOnCVSS>${dependency-check.fail-cvss}</failBuildOnCVSS>
+              <nvdApiKeyEnvironmentVariable>NVD_API_KEY</nvdApiKeyEnvironmentVariable>
+              <assemblyAnalyzerEnabled>false</assemblyAnalyzerEnabled>
+              <!-- OSS Index now requires an account; NVD and the GitHub dependency review cover the scan. -->
+              <ossindexAnalyzerEnabled>false</ossindexAnalyzerEnabled>
+              <formats>
+                <format>HTML</format>
+                <format>JSON</format>
+              </formats>
+              <outputDirectory>${project.build.directory}/dependency-check</outputDirectory>
+              <suppressionFiles>
+                <suppressionFile>${project.basedir}/config/dependency-check/suppressions.xml</suppressionFile>
+              </suppressionFiles>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>
+

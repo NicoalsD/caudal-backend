@@ -52,6 +52,7 @@ Esta carpeta es la **documentación canónica** de los 4 repositorios. Los demá
 | [Roles y planeación](Roles-y-planeacion.md) | Roles del equipo, fases 0 a 12, dependencias, DoR y DoD |
 | [Plan de commits](Plan-de-commits.md) | Commits previstos por repositorio, fase e integrante |
 | [Riesgos](Riesgos.md) | Riesgos con probabilidad, impacto, mitigación y contingencia |
+| [Versión 1.0.0](Version-1.0.0.md) | Endurecimiento, verificación, despliegue y pendientes de la etiqueta `v1.0.0` |
 | [Flujo de trabajo](../.agents/workflow.md) | Cuentas, ramas, commits y pull requests |
 
 ## Diagramas
