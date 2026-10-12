@@ -321,5 +321,9 @@ public final class FieldLimits {
   public static final String ANOMALY_KIND_PATTERN =
       "^(POSSIBLE_LEAK|SENSOR_FAULT|STALE_DATA|SUSPECTED_DUPLICATE|ABNORMAL_DROP)$";
 
+  /** Status of a proposal of shifts. */
+  public static final String PROPOSAL_STATUS_PATTERN =
+      "^(PENDING_REVIEW|APPROVED|APPROVED_WITH_CHANGES|REJECTED|PUBLISHED|CLOSED)$";
+
   private FieldLimits() {}
 }
