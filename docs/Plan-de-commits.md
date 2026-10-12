@@ -266,21 +266,21 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| B174 | `feat: calcula MAE, WQL, cobertura y skill por horizonte` | `nicomora70` | HU-33 | P19 | [ ] |
-| B175 | `feat: implementa GET /api/v1/forecast-evaluation` | `nicomora70` | HU-33 | P10 | [ ] |
-| B176 | `test: verifica muestra mínima y skill no calculable` | `nicomora70` | HU-33 | P19 | [ ] |
+| B174 | `feat: calcula MAE, WQL, cobertura y skill por horizonte` | `nicomora70` | HU-33 | P19 | [x] |
+| B175 | `feat: implementa GET /api/v1/forecast-evaluation` | `nicomora70` | HU-33 | P10 | [x] |
+| B176 | `test: verifica muestra mínima y skill no calculable` | `nicomora70` | HU-33 | P19 | [x] |
 
 ### Fase 11: Simulador en vivo y dispositivos
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| B177 | `feat: registra dispositivos en POST /api/v1/devices` | `nicomora70` | HU-34 | P06 | [ ] |
-| B178 | `feat: rota claves Ed25519 con periodo de validez` | `nicomora70` | HU-34 | P06 | [ ] |
-| B179 | `feat: verifica firma Ed25519 y ventana temporal` | `nicomora70` | HU-35 | P12 | [ ] |
-| B180 | `feat: rechaza nonce repetido en POST /api/v1/devices/telemetry` | `nicomora70` | HU-35 | P12 | [ ] |
-| B181 | `feat: procesa telemetría con DeviceTelemetryAdapter` | `nicomora70` | HU-35 | P06 | [ ] |
-| B182 | `feat: obtiene comandos en GET /api/v1/devices/commands` | `nicomora70` | HU-36 | P13 | [ ] |
-| B183 | `feat: confirma comandos en POST /api/v1/devices/commands/{id}/ack` | `nicomora70` | HU-36 | P18 | [ ] |
+| B177 | `feat: registra dispositivos en POST /api/v1/devices` | `nicomora70` | HU-34 | P06 | [x] |
+| B178 | `feat: rota claves Ed25519 con periodo de validez` | `nicomora70` | HU-34 | P06 | [x] |
+| B179 | `feat: verifica firma Ed25519 y ventana temporal` | `nicomora70` | HU-35 | P12 | [x] |
+| B180 | `feat: rechaza nonce repetido en POST /api/v1/devices/telemetry` | `nicomora70` | HU-35 | P12 | [x] |
+| B181 | `feat: procesa telemetría con DeviceTelemetryAdapter` | `nicomora70` | HU-35 | P06 | [x] |
+| B182 | `feat: obtiene comandos en GET /api/v1/devices/commands` | `nicomora70` | HU-36 | P13 | [x] |
+| B183 | `feat: confirma comandos en POST /api/v1/devices/commands/{id}/ack` | `nicomora70` | HU-36 | P18 | [x] |
 
 ### Fase 12: Endurecimiento, despliegue y v1.0.0
 
