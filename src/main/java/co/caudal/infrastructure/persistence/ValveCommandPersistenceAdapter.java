@@ -1,5 +1,6 @@
 package co.caudal.infrastructure.persistence;
 
+import co.caudal.application.device.command.NewValveCommand;
 import co.caudal.application.device.command.ValveCommandView;
 import co.caudal.application.port.out.ValveCommandPort;
 import java.sql.ResultSet;
@@ -74,6 +75,30 @@ public class ValveCommandPersistenceAdapter implements ValveCommandPort {
         .param("detail", detail, Types.VARCHAR)
         .param("at", SqlTime.timestamp(occurredAt))
         .update();
+  }
+
+  @Override
+  public Optional<ValveCommandView> insert(NewValveCommand command) {
+    return jdbc.sql(
+            "INSERT INTO devices.valve_commands (aqueduct_id, valve_id, device_id, command,"
+                + " schedule_item_id, manual_reason, created_by, not_before, expires_at)"
+                + " VALUES (:aqueduct, :valve, :device, :command, :item, :reason, :creator,"
+                + " :notBefore, :expiresAt)"
+                + " ON CONFLICT (valve_id, not_before)"
+                + " WHERE status IN ('PENDING', 'DELIVERED') DO NOTHING"
+                + " RETURNING "
+                + COLUMNS)
+        .param("aqueduct", command.aqueductId())
+        .param("valve", command.valveId())
+        .param("device", command.deviceId())
+        .param("command", command.command())
+        .param("item", command.scheduleItemId(), Types.OTHER)
+        .param("reason", command.manualReason(), Types.VARCHAR)
+        .param("creator", command.createdBy(), Types.OTHER)
+        .param("notBefore", SqlTime.timestamp(command.notBefore()))
+        .param("expiresAt", SqlTime.timestamp(command.expiresAt()))
+        .query(ValveCommandPersistenceAdapter::command)
+        .optional();
   }
 
   private static ValveCommandView command(ResultSet rs, int row) throws SQLException {

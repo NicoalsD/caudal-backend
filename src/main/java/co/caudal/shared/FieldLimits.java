@@ -258,6 +258,9 @@ public final class FieldLimits {
   /** Result of a confirmation of a valve command: the two codes the device may send. */
   public static final String DEVICE_ACK_RESULT_PATTERN = "^(ACKED|FAILED)$";
 
+  /** Action of a valve command: the two codes of docs/Protocolo-de-dispositivos.md, section 5.1. */
+  public static final String VALVE_COMMAND_PATTERN = "^(OPEN|CLOSE)$";
+
   /** Device id header: a UUID in text, in any case. */
   public static final String DEVICE_ID_PATTERN =
       "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$";

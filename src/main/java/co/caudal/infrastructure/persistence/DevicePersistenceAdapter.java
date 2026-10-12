@@ -112,6 +112,18 @@ public class DevicePersistenceAdapter implements DevicePort {
   }
 
   @Override
+  public Optional<DeviceView> activeActuatorOf(UUID valveId) {
+    return jdbc.sql(
+            "SELECT "
+                + COLUMNS
+                + " FROM devices.devices WHERE valve_id = :valve AND kind = 'VALVE_ACTUATOR'"
+                + " AND status = 'ACTIVE' ORDER BY created_at, id LIMIT 1")
+        .param("valve", valveId)
+        .query(DevicePersistenceAdapter::device)
+        .optional();
+  }
+
+  @Override
   public DeviceView insertDevice(
       UUID aqueductId,
       DeviceKind kind,

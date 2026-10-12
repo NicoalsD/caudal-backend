@@ -34,6 +34,15 @@ public interface DevicePort {
   Optional<DeviceView> device(UUID id);
 
   /**
+   * Finds the active actuator of a valve of the aqueduct of the session. If a valve has several,
+   * the oldest one is returned.
+   *
+   * @param valveId the valve
+   * @return the actuator, or empty if the valve has no active actuator
+   */
+  Optional<DeviceView> activeActuatorOf(UUID valveId);
+
+  /**
    * Registers a device. It starts ACTIVE and without keys.
    *
    * @param aqueductId the aqueduct of the session

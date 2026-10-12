@@ -3,6 +3,7 @@ package co.caudal.infrastructure.config;
 import co.caudal.application.device.DeviceCommandHandlers;
 import co.caudal.application.device.DeviceKeyCommandHandlers;
 import co.caudal.application.device.auth.DeviceAuthenticator;
+import co.caudal.application.device.command.ManualValveCommandHandler;
 import co.caudal.application.device.command.ValveCommandService;
 import co.caudal.application.device.telemetry.DeviceTelemetryService;
 import co.caudal.application.event.DomainEventPublisher;
@@ -64,6 +65,15 @@ class DeviceServicesConfig {
       Clock clock) {
     return new DeviceTelemetryService(
         authenticator, payloads, telemetry, devices, recorder, ruleSets, clock);
+  }
+
+  @Bean
+  ManualValveCommandHandler manualValveCommandHandler(
+      DevicePort devices,
+      NetworkPort network,
+      ValveCommandPort commands,
+      UnitOfWorkPort unitOfWork) {
+    return new ManualValveCommandHandler(devices, network, commands, unitOfWork);
   }
 
   @Bean

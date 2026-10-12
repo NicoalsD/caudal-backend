@@ -1,5 +1,6 @@
 package co.caudal.application.port.out;
 
+import co.caudal.application.device.command.NewValveCommand;
 import co.caudal.application.device.command.ValveCommandView;
 import java.time.Instant;
 import java.util.List;
@@ -52,4 +53,14 @@ public interface ValveCommandPort {
    */
   void insertEvent(
       UUID aqueductId, UUID commandId, String event, String detail, Instant occurredAt);
+
+  /**
+   * Stores a new command in {@code PENDING}. A command of the same valve with the same {@code
+   * not_before} that is still PENDING or DELIVERED is not stored
+   * (docs/Protocolo-de-dispositivos.md, section 5.5).
+   *
+   * @param command the command to store
+   * @return the stored command, or empty if an active command of the valve already has that moment
+   */
+  Optional<ValveCommandView> insert(NewValveCommand command);
 }
