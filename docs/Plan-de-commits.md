@@ -203,17 +203,17 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| B131 | `feat: adapta contrato IA con IaForecastClientAdapter` | `nicomora70` | HU-15 | P06 | [ ] |
-| B132 | `feat: configura timeout de conexión y lectura de IA` | `nicomora70` | HU-16 | P11 | [ ] |
-| B133 | `feat: implementa CircuitBreakerState para pronósticos` | `nicomora70` | HU-16 | P18 | [ ] |
-| B134 | `feat: calcula respaldo de persistencia y rango empírico` | `nicomora70` | HU-16 | P19 | [ ] |
-| B135 | `feat: implementa RemoteForecasterProxy con respaldo` | `nicomora70` | HU-16 | P11 | [ ] |
-| B136 | `feat: guarda pronóstico IA y baseline en sombra` | `nicomora70` | HU-16 | P09 | [ ] |
-| B137 | `feat: agrega TankStatusFacade, TankLevelState y TrendStrategy` | `nicomora70` | HU-14 | P10, P18, P19 | [ ] |
-| B138 | `feat: publica GET /api/v1/tanks/{id}/forecasts/latest` | `nicomora70` | HU-15 | P10 | [ ] |
-| B139 | `feat: implementa POST /api/v1/tanks/{id}/forecasts` | `nicomora70` | HU-15, HU-16 | P06 | [ ] |
-| B140 | `feat: revisa anomalías con PATCH /api/v1/anomalies/{id}` | `nicomora70` | HU-17 | P18 | [ ] |
-| B141 | `test: verifica estados, timeout y respaldo del pronóstico` | `nicomora70` | HU-16 | P18 | [ ] |
+| B131 | `feat: adapta contrato IA con IaForecastClientAdapter` | `nicomora70` | HU-15 | P06 | [x] |
+| B132 | `feat: configura timeout de conexión y lectura de IA` | `nicomora70` | HU-16 | P11 | [x] |
+| B133 | `feat: implementa CircuitBreakerState para pronósticos` | `nicomora70` | HU-16 | P18 | [x] |
+| B134 | `feat: calcula respaldo de persistencia y rango empírico` | `nicomora70` | HU-16 | P19 | [x] |
+| B135 | `feat: implementa RemoteForecasterProxy con respaldo` | `nicomora70` | HU-16 | P11 | [x] |
+| B136 | `feat: guarda pronóstico IA y baseline en sombra` | `nicomora70` | HU-16 | P09 | [x] |
+| B137 | `feat: agrega TankStatusFacade, TankLevelState y TrendStrategy` | `nicomora70` | HU-14 | P10, P18, P19 | [x] |
+| B138 | `feat: publica GET /api/v1/tanks/{id}/forecasts/latest` | `nicomora70` | HU-15 | P10 | [x] |
+| B139 | `feat: implementa POST /api/v1/tanks/{id}/forecasts` | `nicomora70` | HU-15, HU-16 | P06 | [x] |
+| B140 | `feat: revisa anomalías con PATCH /api/v1/anomalies/{id}` | `nicomora70` | HU-17 | P18 | [x] |
+| B141 | `test: verifica estados, timeout y respaldo del pronóstico` | `nicomora70` | HU-16 | P18 | [x] |
 
 ### Fase 7: Turnos y decisión de la Junta
 

@@ -636,7 +636,8 @@ Una lectura es una observación del nivel de la regla pintada. Su estatus epist�
 
 ### 8.1 `GET /api/v1/tanks/{id}/status`
 
-- **Permiso:** `TANK_STATUS_READ`.
+- **Permiso:** `STATUS_VIEW`.
+- **Cálculo:** `TankStatusFacade` (patrón Facade). La tendencia es la pendiente por mínimos cuadrados del último nivel de cada día de los últimos `TREND_WINDOW_DAYS` días (3); con menos de dos días es nula. Un dato viejo abre una sola anomalía `STALE_DATA` abierta por tanque. La banda usa `[min_level, max_level)` y la banda superior incluye `gauge_max`. `level`, `trend`, `band` y `forecast` son nulos si no hay datos.
 - **Respuesta 200:**
   - `level`: `value`, `observed_at`, `hours_ago`.
   - `trend`: `slope_per_day`, `label` (`DOWN`, `STABLE` o `UP`) y `label_es` ("viene bajando", "estable", "sube").
@@ -657,15 +658,17 @@ Una lectura es una observación del nivel de la regla pintada. Su estatus epist�
 
 ### 8.2 `GET /api/v1/tanks/{id}/forecasts/latest`
 
-- **Permiso:** `TANK_STATUS_READ`.
-- **Respuesta:** la última corrida (`run_id`, `model_name`, `model_version`, `is_fallback`, `fallback_reason`, `created_at`, `context_from`, `context_to`) y sus `points`.
+- **Permiso:** `STATUS_VIEW`.
+- **Respuesta:** la última corrida mostrada (`run_id`, `model_name`, `model_version`, `is_fallback`, `fallback_reason`, `horizon_days`, `created_at`, `context_from`, `context_to`) y sus `points` (`target_date`, `p10`, `p50`, `p90`). Nunca devuelve la corrida de sombra (`SHADOW_BASELINE`).
+- **Errores:** `404 NOT_FOUND` (el tanque no existe o nunca se pronosticó).
 
 ### 8.3 `POST /api/v1/tanks/{id}/forecasts`
 
 - **Permiso:** `FORECAST_RUN`.
 - **Cuerpo:** `horizon_days` (entero de 1 a 3, opcional; por defecto `forecast_horizon_days` de la regla vigente).
 - **Respuesta 201:** corrida nueva con `points` y `is_fallback`. Si la IA no responde o el circuito está abierto, la respuesta es igual, con `is_fallback = true` y `fallback_reason` (`IA_TIMEOUT`, `CIRCUIT_OPEN`, `IA_ERROR` o `INSUFFICIENT_HISTORY`). La estimación simple que se calcula siempre junto a la IA se guarda con `is_fallback = false` y `fallback_reason = SHADOW_BASELINE`; `is_fallback = true` solo cuando reemplaza a la IA.
-- **Errores:** `429 RATE_LIMITED` (10 por hora por acueducto), `503 IA_UNAVAILABLE` (solo si también falla la estimación simple).
+- **Serie:** las lecturas efectivas del tanque de los últimos `forecast_context_days`; la llamada a la IA ocurre fuera de la transacción y respeta los timeouts de `docs/Contrato-IA.md` (2 s y 10 s). Sin `IA_SERVICE_URL` configurada, la respuesta es la estimación simple con `IA_ERROR`.
+- **Errores:** `400 VALIDATION_ERROR` (`horizon_days` fuera de 1 a 3), `404 NOT_FOUND`, `422 NO_LEVEL_DATA` (sin lecturas en la ventana), `429 RATE_LIMITED` (10 por hora por acueducto, con `Retry-After`), `503 IA_UNAVAILABLE` (solo si también falla la estimación simple).
 - **Ejemplo:** `{ "horizon_days": 1 }`
 
 ## 9. Anomalías (`/anomalies`)
@@ -674,13 +677,13 @@ Las anomalías son sospechas (`INFERRED`) hasta que alguien las confirme.
 
 ### 9.1 `GET /api/v1/anomalies`
 
-- **Permiso:** `TANK_STATUS_READ`.
+- **Permiso:** `STATUS_VIEW`.
 - **Parámetros:** `status` (`OPEN`, `CONFIRMED`, `DISMISSED`), `kind` (`POSSIBLE_LEAK`, `SENSOR_FAULT`, `STALE_DATA`, `SUSPECTED_DUPLICATE`, `ABNORMAL_DROP`), `limit`, `cursor`.
-- **Respuesta:** lista de `id`, `kind`, `detected_at`, `status`, `evidence`, `resolved_by`, `resolved_at`, `related_incident_id`.
+- **Respuesta:** `items`, de la más nueva a la más antigua, con `id`, `kind`, `detected_at`, `status`, `evidence`, `resolved_by`, `resolved_at`, `resolution_note`, `related_incident_id`, y `next_cursor`.
 
 ### 9.2 `PATCH /api/v1/anomalies/{id}`
 
-- **Permiso:** `BOARD_ADMIN` o `BOARD_MEMBER` (verificar).
+- **Permiso:** `ANOMALY_REVIEW` (`BOARD_ADMIN` y `BOARD_MEMBER`).
 - **Cuerpo:** `status` (`CONFIRMED` o `DISMISSED`), `resolution_note` (texto, 0 a 500; obligatorio con 10 a 500 caracteres si es `DISMISSED`), `related_incident_id` (UUID, opcional).
 - **Respuesta 200:** anomalía actualizada.
 - **Errores:** `409 INVALID_STATE_TRANSITION` (no está `OPEN`), `422 REASON_REQUIRED` (descarte sin motivo).

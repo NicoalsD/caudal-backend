@@ -305,5 +305,21 @@ public final class FieldLimits {
   /** A SHA-256 in lower or upper case hexadecimal. */
   public static final String SHA256_HEX_PATTERN = "^[0-9a-fA-F]{64}$";
 
+  /** Changes between days the simple estimate needs before it gives a range. */
+  public static final int FORECAST_BASELINE_MIN_CHANGES = 3;
+
+  /** Days of daily levels used to compute the trend of a tank (docs/Reglas-de-negocio.md, 10.2). */
+  public static final int TREND_WINDOW_DAYS = 3;
+
+  /** Status of an anomaly. */
+  public static final String ANOMALY_STATUS_PATTERN = "^(OPEN|CONFIRMED|DISMISSED)$";
+
+  /** Statuses a person may set on an anomaly. */
+  public static final String ANOMALY_RESOLUTION_PATTERN = "^(CONFIRMED|DISMISSED)$";
+
+  /** Kinds of anomaly. */
+  public static final String ANOMALY_KIND_PATTERN =
+      "^(POSSIBLE_LEAK|SENSOR_FAULT|STALE_DATA|SUSPECTED_DUPLICATE|ABNORMAL_DROP)$";
+
   private FieldLimits() {}
 }
