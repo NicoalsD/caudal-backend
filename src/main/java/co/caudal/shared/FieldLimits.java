@@ -325,5 +325,11 @@ public final class FieldLimits {
   public static final String PROPOSAL_STATUS_PATTERN =
       "^(PENDING_REVIEW|APPROVED|APPROVED_WITH_CHANGES|REJECTED|PUBLISHED|CLOSED)$";
 
+  /** Result of a shift. */
+  public static final String EXECUTION_STATUS_PATTERN = "^(COMPLETED|PARTIAL|NOT_EXECUTED)$";
+
+  /** Longest period of one minutes document, in days, so a request never reads years of data. */
+  public static final int MINUTES_MAX_DAYS = 366;
+
   private FieldLimits() {}
 }
