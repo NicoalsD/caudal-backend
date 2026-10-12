@@ -423,6 +423,14 @@ public final class FieldLimits {
   /** Entity type of an audit entry, in lower case snake case (for example user). */
   public static final String AUDIT_ENTITY_TYPE_PATTERN = "^[a-z][a-z0-9_]{0,59}$";
 
+  /** Kinds of security event (docs/API.md, section 18.2; the same list as the database check). */
+  public static final String SECURITY_EVENT_TYPE_PATTERN =
+      "^(ACCOUNT_LOCKED|TOKEN_REUSE_DETECTED|PERMISSION_DENIED|RATE_LIMITED|INVALID_SIGNATURE"
+          + "|NONCE_REPLAY|HONEYPOT_TRIGGERED|IMPORT_REJECTED|MFA_FAILED)$";
+
+  /** Severities of a security event. */
+  public static final String SECURITY_EVENT_SEVERITY_PATTERN = "^(LOW|MEDIUM|HIGH|CRITICAL)$";
+
   /** Classes of data with a retention period (docs/API.md, section 18.3). */
   public static final String RETENTION_DATA_CLASS_PATTERN =
       "^(LOGIN_ATTEMPTS|DEVICE_NONCES|SECURITY_EVENTS|REFRESH_TOKENS|DATA_ACCESS_LOG"

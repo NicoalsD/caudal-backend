@@ -2,10 +2,13 @@ package co.caudal.infrastructure.config;
 
 import co.caudal.application.audit.AuditLogCursor;
 import co.caudal.application.audit.ListAuditLogUseCase;
+import co.caudal.application.audit.ListSecurityEventsUseCase;
+import co.caudal.application.audit.SecurityEventCursor;
 import co.caudal.application.pagination.SignedCursorCodec;
 import co.caudal.application.port.out.AuditLogQueryPort;
 import co.caudal.application.port.out.DataAccessLogPort;
 import co.caudal.application.port.out.PrivacyHasherPort;
+import co.caudal.application.port.out.SecurityEventQueryPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,5 +30,20 @@ class AuditServicesConfig {
       AuditLogCursor cursors,
       UnitOfWorkPort unitOfWork) {
     return new ListAuditLogUseCase(auditLog, accessLog, hasher, cursors, unitOfWork);
+  }
+
+  @Bean
+  SecurityEventCursor securityEventCursor(SignedCursorCodec codec) {
+    return new SecurityEventCursor(codec);
+  }
+
+  @Bean
+  ListSecurityEventsUseCase listSecurityEventsUseCase(
+      SecurityEventQueryPort events,
+      DataAccessLogPort accessLog,
+      PrivacyHasherPort hasher,
+      SecurityEventCursor cursors,
+      UnitOfWorkPort unitOfWork) {
+    return new ListSecurityEventsUseCase(events, accessLog, hasher, cursors, unitOfWork);
   }
 }
