@@ -1,6 +1,7 @@
 package co.caudal.api.mapper;
 
 import co.caudal.api.dto.response.ValveCommandItemResponse;
+import co.caudal.api.dto.response.ValveCommandResponse;
 import co.caudal.api.dto.response.ValveCommandsResponse;
 import co.caudal.application.device.command.ValveCommandView;
 import java.util.List;
@@ -25,6 +26,22 @@ public final class DeviceCommandMapper {
         command.id(),
         command.valveId(),
         command.command(),
+        command.notBefore(),
+        command.expiresAt());
+  }
+
+  /**
+   * Maps a command after its confirmation.
+   *
+   * @param command the command with its new status
+   * @return the answer
+   */
+  public static ValveCommandResponse toStatusResponse(ValveCommandView command) {
+    return new ValveCommandResponse(
+        command.id(),
+        command.valveId(),
+        command.command(),
+        command.status(),
         command.notBefore(),
         command.expiresAt());
   }

@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import co.caudal.support.DeviceRequestSigner;
 import co.caudal.support.SessionIT;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -228,6 +229,154 @@ class ValveCommandDeliveryIT extends SessionIT {
   @Test
   void aRequestWithoutSignatureIsUnauthorized() throws Exception {
     mvc.perform(get(PATH))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.error.code").value("INVALID_SIGNATURE"));
+  }
+
+  /** A signed POST of a confirmation of the command, with the body the device sent. */
+  private ResultActions signedAck(Actuator actuator, UUID command, String body) throws Exception {
+    String path = PATH + "/" + command + "/ack";
+    byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+    String timestamp = Long.toString(clock.instant().getEpochSecond());
+    String nonce = nonce();
+    String signature =
+        DeviceRequestSigner.sign(actuator.pair(), "POST", path, timestamp, nonce, bytes);
+    return mvc.perform(
+        post(path)
+            .header("X-Device-Id", actuator.device().toString())
+            .header("X-Timestamp", timestamp)
+            .header("X-Nonce", nonce)
+            .header("X-Signature", signature)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(bytes));
+  }
+
+  /** A command the device has received: due now, handed over by a signed GET. */
+  private UUID delivered(Actuator actuator, Aqueduct on, String command) throws Exception {
+    Instant now = clock.instant();
+    UUID id = command(actuator, on, command, now.minusSeconds(60), now.plusSeconds(MARGIN));
+    signedGet(actuator).andExpect(status().isOk());
+    return id;
+  }
+
+  private long eventsOf(UUID command) {
+    return owner.queryForObject(
+        "SELECT count(*) FROM devices.valve_command_events WHERE command_id = ?",
+        Long.class,
+        command);
+  }
+
+  @Test
+  void anAckedCommandIsConfirmedAndTheSameAckAgainIsIdempotent() throws Exception {
+    Aqueduct on = aqueduct("valve.ack");
+    Actuator actuator = actuator(on, on.valves().get(0));
+    UUID command = delivered(actuator, on, "OPEN");
+    String body = "{\"result\":\"ACKED\",\"detail\":\"Válvula abierta; posición confirmada.\"}";
+
+    signedAck(actuator, command, body)
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(command.toString()))
+        .andExpect(jsonPath("$.valve_id").value(actuator.valve().toString()))
+        .andExpect(jsonPath("$.command").value("OPEN"))
+        .andExpect(jsonPath("$.status").value("ACKED"));
+    signedAck(actuator, command, body)
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("ACKED"));
+
+    assertThat(statusOf(command)).isEqualTo("ACKED");
+    assertThat(events(command, "ACKED")).isEqualTo(1);
+    assertThat(
+            owner.queryForObject(
+                "SELECT detail FROM devices.valve_command_events WHERE command_id = ?"
+                    + " AND event = 'ACKED'",
+                String.class,
+                command))
+        .isEqualTo("Válvula abierta; posición confirmada.");
+  }
+
+  @Test
+  void aFailedCommandIsRecordedAndCannotBecomeAcked() throws Exception {
+    Aqueduct on = aqueduct("valve.failed");
+    Actuator actuator = actuator(on, on.valves().get(0));
+    UUID command = delivered(actuator, on, "CLOSE");
+
+    signedAck(actuator, command, "{\"result\":\"FAILED\"}")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("FAILED"));
+    signedAck(actuator, command, "{\"result\":\"ACKED\"}")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error.code").value("INVALID_STATE_TRANSITION"));
+
+    assertThat(statusOf(command)).isEqualTo("FAILED");
+    assertThat(eventsOf(command)).isEqualTo(2);
+  }
+
+  @Test
+  void aConfirmationOfAnExpiredCommandIsAConflict() throws Exception {
+    Aqueduct on = aqueduct("valve.late");
+    Actuator actuator = actuator(on, on.valves().get(0));
+    Instant now = clock.instant();
+    UUID command = command(actuator, on, "OPEN", now.minusSeconds(7200), now.minusSeconds(60));
+    signedGet(actuator).andExpect(status().isOk());
+
+    signedAck(actuator, command, "{\"result\":\"ACKED\"}")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error.code").value("INVALID_STATE_TRANSITION"));
+
+    assertThat(statusOf(command)).isEqualTo("EXPIRED");
+  }
+
+  @Test
+  void aConfirmationOfAPendingCommandIsAConflict() throws Exception {
+    Aqueduct on = aqueduct("valve.pending");
+    Actuator actuator = actuator(on, on.valves().get(0));
+    Instant now = clock.instant();
+    UUID command =
+        command(actuator, on, "OPEN", now.plusSeconds(3600), now.plusSeconds(3600 + MARGIN));
+
+    signedAck(actuator, command, "{\"result\":\"ACKED\"}")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error.code").value("INVALID_STATE_TRANSITION"));
+
+    assertThat(statusOf(command)).isEqualTo("PENDING");
+  }
+
+  @Test
+  void aCommandOfAnotherDeviceOrAnUnknownOneIsNotFound() throws Exception {
+    Aqueduct on = aqueduct("valve.foreign");
+    Actuator mine = actuator(on, on.valves().get(0));
+    Actuator other = actuator(on, on.valves().get(1));
+    UUID theirs = delivered(other, on, "OPEN");
+
+    signedAck(mine, theirs, "{\"result\":\"ACKED\"}")
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+    signedAck(mine, UUID.randomUUID(), "{\"result\":\"ACKED\"}")
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+
+    assertThat(statusOf(theirs)).isEqualTo("DELIVERED");
+  }
+
+  @Test
+  void aResultThatIsNotAckedOrFailedIsAValidationError() throws Exception {
+    Aqueduct on = aqueduct("valve.result");
+    Actuator actuator = actuator(on, on.valves().get(0));
+    UUID command = delivered(actuator, on, "OPEN");
+
+    signedAck(actuator, command, "{\"result\":\"DELIVERED\"}")
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+
+    assertThat(statusOf(command)).isEqualTo("DELIVERED");
+  }
+
+  @Test
+  void anUnsignedConfirmationIsUnauthorized() throws Exception {
+    mvc.perform(
+            post(PATH + "/" + UUID.randomUUID() + "/ack")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"result\":\"ACKED\"}"))
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.error.code").value("INVALID_SIGNATURE"));
   }

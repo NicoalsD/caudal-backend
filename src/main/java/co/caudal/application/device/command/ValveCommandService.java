@@ -4,15 +4,20 @@ import co.caudal.application.device.auth.AuthenticatedDevice;
 import co.caudal.application.device.auth.DeviceAuthenticator;
 import co.caudal.application.device.auth.SignedRequest;
 import co.caudal.application.event.DomainEventPublisher;
+import co.caudal.application.port.out.CommandConfirmationPayloadPort;
 import co.caudal.application.port.out.ValveCommandPort;
 import co.caudal.domain.device.ValveCommandState;
+import co.caudal.domain.event.ValveCommandConfirmed;
 import co.caudal.domain.event.ValveCommandDelivered;
 import co.caudal.shared.FieldLimits;
+import co.caudal.shared.error.DomainException;
+import co.caudal.shared.error.ErrorCode;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Hands the valve commands to their actuator (docs/API.md, section 16.2 and
@@ -30,6 +35,7 @@ public final class ValveCommandService {
 
   private final DeviceAuthenticator authenticator;
   private final ValveCommandPort commands;
+  private final CommandConfirmationPayloadPort payloads;
   private final DomainEventPublisher events;
   private final Clock clock;
 
@@ -38,16 +44,19 @@ public final class ValveCommandService {
    *
    * @param authenticator checks the signature and runs the work in its transaction
    * @param commands the valve commands
+   * @param payloads reads the body of a confirmation
    * @param events publishes the domain events
    * @param clock source of time
    */
   public ValveCommandService(
       DeviceAuthenticator authenticator,
       ValveCommandPort commands,
+      CommandConfirmationPayloadPort payloads,
       DomainEventPublisher events,
       Clock clock) {
     this.authenticator = authenticator;
     this.commands = commands;
+    this.payloads = payloads;
     this.events = events;
     this.clock = clock;
   }
@@ -101,5 +110,52 @@ public final class ValveCommandService {
     events.publish(
         new ValveCommandDelivered(command.aqueductId(), command.id(), command.deviceId(), now));
     return Optional.of(command.withStatus(next.status()));
+  }
+
+  /**
+   * Verifies a signed confirmation of a valve command and records it (docs/API.md, section 16.3). A
+   * confirmation that repeats the status the command already has is answered as it is, without a
+   * new event. A confirmation that the lifecycle does not allow is refused.
+   *
+   * @param request the signed request, with its raw body
+   * @param commandId the command, as the path sent it
+   * @return the command with its status after the confirmation
+   * @throws DomainException with {@code NOT_FOUND} if the command is not one of the device, and
+   *     with {@code INVALID_STATE_TRANSITION} if the lifecycle does not allow the confirmation
+   */
+  public ValveCommandView confirm(SignedRequest request, String commandId) {
+    return authenticator.authenticate(
+        request, device -> confirmation(device, commandId, payloads.parse(request.body())));
+  }
+
+  private ValveCommandView confirmation(
+      AuthenticatedDevice device, String commandId, CommandConfirmation confirmation) {
+    UUID id = commandOf(commandId);
+    ValveCommandView command =
+        commands
+            .find(id, device.deviceId())
+            .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+    ValveCommandState current = ValveCommandState.of(command.status());
+    if (current.status().equals(confirmation.result())) {
+      return command;
+    }
+    ValveCommandState next =
+        ValveCommandState.ACKED.equals(confirmation.result()) ? current.ack() : current.fail();
+    Instant now = clock.instant();
+    if (!commands.changeStatus(id, current.status(), next.status())) {
+      throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION);
+    }
+    commands.insertEvent(command.aqueductId(), id, next.status(), confirmation.detail(), now);
+    events.publish(
+        new ValveCommandConfirmed(command.aqueductId(), id, device.deviceId(), next.status(), now));
+    return command.withStatus(next.status());
+  }
+
+  /** The command of the path; a text that is not an identifier names no command. */
+  private static UUID commandOf(String text) {
+    if (!text.matches(FieldLimits.DEVICE_ID_PATTERN)) {
+      throw new DomainException(ErrorCode.NOT_FOUND);
+    }
+    return UUID.fromString(text);
   }
 }

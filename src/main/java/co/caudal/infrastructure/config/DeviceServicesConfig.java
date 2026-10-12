@@ -6,6 +6,7 @@ import co.caudal.application.device.auth.DeviceAuthenticator;
 import co.caudal.application.device.command.ValveCommandService;
 import co.caudal.application.device.telemetry.DeviceTelemetryService;
 import co.caudal.application.event.DomainEventPublisher;
+import co.caudal.application.port.out.CommandConfirmationPayloadPort;
 import co.caudal.application.port.out.DevicePort;
 import co.caudal.application.port.out.NetworkPort;
 import co.caudal.application.port.out.PrivacyHasherPort;
@@ -69,9 +70,10 @@ class DeviceServicesConfig {
   ValveCommandService valveCommandService(
       DeviceAuthenticator authenticator,
       ValveCommandPort commands,
+      CommandConfirmationPayloadPort payloads,
       DomainEventPublisher events,
       Clock clock) {
-    return new ValveCommandService(authenticator, commands, events, clock);
+    return new ValveCommandService(authenticator, commands, payloads, events, clock);
   }
 
   @Bean
