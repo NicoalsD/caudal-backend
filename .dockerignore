@@ -1,5 +1,14 @@
+# Fuera del contexto de construcción: nada que no entre en la imagen (secretos, caché, historia de git).
 .git
+.github
+.agents
+.githooks
+.idea
+.vscode
 target
+docs
+*.log
 .env
 .env.*
-*.log
+!.env.example
+**/*.iml
