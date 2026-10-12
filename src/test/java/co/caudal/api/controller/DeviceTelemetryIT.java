@@ -305,4 +305,18 @@ class DeviceTelemetryIT extends SessionIT {
         .andExpect(status().isContentTooLarge())
         .andExpect(jsonPath("$.error.code").value("PAYLOAD_TOO_LARGE"));
   }
+
+  @Test
+  void aSignedBatchRefusedWithBadBodyKeepsItsNonceAgainstReplay() throws Exception {
+    Sensor sensor = sensor("telemetry.badbody");
+    long now = clock.instant().getEpochSecond();
+    String nonce = nonce();
+    byte[] refused = bytes("{\"points\":\"no es una lista\"}");
+    signedPost(sensor, now, nonce, refused, refused).andExpect(status().isBadRequest());
+
+    byte[] valid = bytes(batch(UUID.randomUUID(), UUID.randomUUID(), "2.10"));
+    signedPost(sensor, now, nonce, valid, valid)
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.error.code").value("NONCE_REPLAY"));
+  }
 }

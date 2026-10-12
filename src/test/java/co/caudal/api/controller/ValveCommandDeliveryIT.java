@@ -235,10 +235,15 @@ class ValveCommandDeliveryIT extends SessionIT {
 
   /** A signed POST of a confirmation of the command, with the body the device sent. */
   private ResultActions signedAck(Actuator actuator, UUID command, String body) throws Exception {
+    return signedAck(actuator, command, body, nonce());
+  }
+
+  /** A signed POST of a confirmation with the nonce given, so a test can replay it. */
+  private ResultActions signedAck(Actuator actuator, UUID command, String body, String nonce)
+      throws Exception {
     String path = PATH + "/" + command + "/ack";
     byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
     String timestamp = Long.toString(clock.instant().getEpochSecond());
-    String nonce = nonce();
     String signature =
         DeviceRequestSigner.sign(actuator.pair(), "POST", path, timestamp, nonce, bytes);
     return mvc.perform(
@@ -379,5 +384,36 @@ class ValveCommandDeliveryIT extends SessionIT {
                 .content("{\"result\":\"ACKED\"}"))
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.error.code").value("INVALID_SIGNATURE"));
+  }
+
+  @Test
+  void aSignedAckRefusedWithBadBodyKeepsItsNonceAgainstReplay() throws Exception {
+    Aqueduct on = aqueduct("valve.badbody");
+    Actuator actuator = actuator(on, on.valves().get(0));
+    UUID command = delivered(actuator, on, "OPEN");
+    String nonce = nonce();
+
+    signedAck(actuator, command, "{\"result\":\"DELIVERED\"}", nonce)
+        .andExpect(status().isBadRequest());
+    signedAck(actuator, command, "{\"result\":\"ACKED\"}", nonce)
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.error.code").value("NONCE_REPLAY"));
+
+    assertThat(statusOf(command)).isEqualTo("DELIVERED");
+  }
+
+  @Test
+  void aSignedAckRefusedWithConflictKeepsItsNonceAgainstReplay() throws Exception {
+    Aqueduct on = aqueduct("valve.conflictnonce");
+    Actuator actuator = actuator(on, on.valves().get(0));
+    Instant now = clock.instant();
+    UUID pending =
+        command(actuator, on, "OPEN", now.plusSeconds(3600), now.plusSeconds(3600 + MARGIN));
+    String nonce = nonce();
+
+    signedAck(actuator, pending, "{\"result\":\"ACKED\"}", nonce).andExpect(status().isConflict());
+    signedAck(actuator, pending, "{\"result\":\"ACKED\"}", nonce)
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.error.code").value("NONCE_REPLAY"));
   }
 }

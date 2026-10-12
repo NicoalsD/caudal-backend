@@ -27,10 +27,11 @@ import java.util.function.Function;
  * device in the scope of its aqueduct.
  *
  * <p>The checks run in a chain (steps 1 to 5, outside a transaction, after a read of the device and
- * its nonce). Once the signature is valid, one transaction stores the nonce (step 5b), applies the
- * rate limit (step 7) and runs the work, so the nonce and the work commit together. A refusal in
- * that transaction is returned, not thrown, so that its security event and the nonce commit before
- * the failure is thrown.
+ * its nonce). Once the signature is valid, a first transaction stores the nonce (step 5b) and
+ * applies the rate limit (step 7). It commits before the work runs, so a request refused later
+ * (400, 404, 409...) keeps its nonce and cannot be replayed inside the window. The work runs in a
+ * second transaction. A refusal of the first transaction is returned, not thrown, so that its
+ * security event commits before the failure is thrown.
  *
  * <p>The security events of section 3.2 are recorded in their own transaction before the refusal is
  * thrown, so they survive it. Ten invalid signatures of one device within the repeated-failure
@@ -103,8 +104,8 @@ public final class DeviceAuthenticator {
   }
 
   /**
-   * Verifies the signature of a request, stores its nonce, applies the rate limit and runs the work
-   * of the request in the same transaction.
+   * Verifies the signature of a request, stores its nonce and applies the rate limit in a
+   * transaction that commits, and then runs the work of the request in its own transaction.
    *
    * @param request the request with its headers parsed
    * @param work the work of the request, run once the request is accepted
@@ -144,24 +145,25 @@ public final class DeviceAuthenticator {
             verified.tankId(),
             verified.valveId(),
             context.matchedKeyId());
-    Outcome<T> outcome =
-        unitOfWork.executeAs(
-            new SessionScope(null, device.aqueductId()), () -> accept(request, device, work));
-    if (outcome.failure() != null) {
-      throw outcome.failure();
+    SessionScope scope = new SessionScope(null, device.aqueductId());
+    DeviceAuthFailure refusal = unitOfWork.executeAs(scope, () -> admit(request, device));
+    if (refusal != null) {
+      throw refusal;
     }
-    return outcome.result();
+    return unitOfWork.executeAs(scope, () -> work.apply(device));
   }
 
-  /** Step 5b, the rate limit and the work, inside the transaction of the aqueduct. */
-  private <T> Outcome<T> accept(
-      SignedRequest request, AuthenticatedDevice device, Function<AuthenticatedDevice, T> work) {
+  /**
+   * Step 5b and step 7 in their own transaction, before the work: stores the nonce and consumes the
+   * rate limit. Returns the refusal, or null when the request is admitted.
+   */
+  private DeviceAuthFailure admit(SignedRequest request, AuthenticatedDevice device) {
     if (!devices.insertNonce(device.deviceId(), request.nonce())) {
       DeviceAuthFailure replay =
           new DeviceAuthFailure(
               ErrorCode.NONCE_REPLAY, SecurityEventType.NONCE_REPLAY, Severity.HIGH, null);
       recordEvent(replay, device.deviceId(), device.aqueductId(), request.ipAddress(), null);
-      return Outcome.refused(replay);
+      return replay;
     }
     RateLimitDecision decision =
         rateLimiter.tryConsume(RATE_KEY_PREFIX + device.deviceId(), deviceLimit);
@@ -174,9 +176,9 @@ public final class DeviceAuthenticator {
               DEVICE_LIMIT,
               Map.of(RETRY_AFTER, decision.retryAfterSeconds()));
       recordEvent(limited, device.deviceId(), device.aqueductId(), request.ipAddress(), null);
-      return Outcome.refused(limited);
+      return limited;
     }
-    return Outcome.accepted(work.apply(device));
+    return null;
   }
 
   /**
@@ -239,16 +241,4 @@ public final class DeviceAuthenticator {
 
   /** What the first read of a request finds: the device, if any, and whether its nonce is known. */
   private record Lookup(Optional<DeviceCredentials> device, boolean nonceSeen) {}
-
-  /** The result of the transaction of an accepted request, or the refusal that stopped it. */
-  private record Outcome<T>(T result, DeviceAuthFailure failure) {
-
-    static <T> Outcome<T> accepted(T result) {
-      return new Outcome<>(result, null);
-    }
-
-    static <T> Outcome<T> refused(DeviceAuthFailure failure) {
-      return new Outcome<>(null, failure);
-    }
-  }
 }
