@@ -15,7 +15,19 @@ public final class DeviceAuthContext {
   private final SignedRequest request;
   private final Instant now;
   private final DeviceCredentials credentials;
+  private final boolean nonceSeen;
   private UUID matchedKeyId;
+
+  /**
+   * Starts a check of a request whose nonce is not known to be used.
+   *
+   * @param request the request
+   * @param now the moment of the check
+   * @param credentials the device, or null if it does not exist
+   */
+  public DeviceAuthContext(SignedRequest request, Instant now, DeviceCredentials credentials) {
+    this(request, now, credentials, false);
+  }
 
   /**
    * Starts a check.
@@ -23,11 +35,23 @@ public final class DeviceAuthContext {
    * @param request the request
    * @param now the moment of the check
    * @param credentials the device, or null if it does not exist
+   * @param nonceSeen whether the nonce was seen for this device within the nonce lifetime
    */
-  public DeviceAuthContext(SignedRequest request, Instant now, DeviceCredentials credentials) {
+  public DeviceAuthContext(
+      SignedRequest request, Instant now, DeviceCredentials credentials, boolean nonceSeen) {
     this.request = request;
     this.now = now;
     this.credentials = credentials;
+    this.nonceSeen = nonceSeen;
+  }
+
+  /**
+   * Tells whether the nonce of the request was already seen for the device.
+   *
+   * @return true for a repeated nonce
+   */
+  public boolean nonceSeen() {
+    return nonceSeen;
   }
 
   /**

@@ -112,4 +112,24 @@ public interface DevicePort {
    * @return the number of events
    */
   long countSecurityEvents(UUID deviceId, SecurityEventType type, Instant since);
+
+  /**
+   * Tells whether a nonce was stored for a device at or after a moment (step 4: it only looks).
+   *
+   * @param deviceId the device
+   * @param nonce the nonce, 32 hexadecimal characters
+   * @param since the start of the lifetime, inclusive
+   * @return true if the nonce is still within its lifetime
+   */
+  boolean nonceSeenSince(UUID deviceId, String nonce, Instant since);
+
+  /**
+   * Stores a nonce of a device unless it is already stored (step 5b). The nonce table has no
+   * lifetime of its own, so a stored nonce is never stored again, whatever its age.
+   *
+   * @param deviceId the device
+   * @param nonce the nonce
+   * @return true if stored now, false if the nonce was already there
+   */
+  boolean insertNonce(UUID deviceId, String nonce);
 }

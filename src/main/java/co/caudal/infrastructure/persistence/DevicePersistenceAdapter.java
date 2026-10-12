@@ -60,6 +60,30 @@ public class DevicePersistenceAdapter implements DevicePort {
   }
 
   @Override
+  public boolean nonceSeenSince(UUID deviceId, String nonce, Instant since) {
+    return jdbc.sql(
+                "SELECT count(*) FROM devices.device_nonces WHERE device_id = :device"
+                    + " AND nonce = :nonce AND seen_at >= :since")
+            .param("device", deviceId)
+            .param("nonce", nonce)
+            .param("since", SqlTime.timestamp(since))
+            .query(Long.class)
+            .single()
+        > 0;
+  }
+
+  @Override
+  public boolean insertNonce(UUID deviceId, String nonce) {
+    return jdbc.sql(
+                "INSERT INTO devices.device_nonces (device_id, nonce) VALUES (:device, :nonce)"
+                    + " ON CONFLICT DO NOTHING")
+            .param("device", deviceId)
+            .param("nonce", nonce)
+            .update()
+        > 0;
+  }
+
+  @Override
   public long countSecurityEvents(UUID deviceId, SecurityEventType type, Instant since) {
     return jdbc.sql(
             "SELECT count(*) FROM iam.security_events WHERE device_id = :device AND type = :type"

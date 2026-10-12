@@ -1,23 +1,36 @@
 package co.caudal.application.device.auth;
 
+import co.caudal.application.auth.SessionScope;
 import co.caudal.application.port.out.DevicePort;
 import co.caudal.application.port.out.PrivacyHasherPort;
+import co.caudal.application.port.out.RateLimiterPort;
 import co.caudal.application.port.out.SecurityEventPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
+import co.caudal.application.ratelimit.RateLimit;
+import co.caudal.application.ratelimit.RateLimitDecision;
 import co.caudal.domain.security.SecurityEvent;
 import co.caudal.domain.security.SecurityEventType;
 import co.caudal.domain.security.Severity;
 import co.caudal.shared.FieldLimits;
+import co.caudal.shared.error.ErrorCode;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 
 /**
- * Checks the signature of a device request in the order of docs/Protocolo-de-dispositivos.md,
- * section 3.1. The device is read first (outside the checks, so that a failure can still be
- * recorded), the steps run in order and the first refusal stops them.
+ * Authenticates the signed requests of the devices in the order of
+ * docs/Protocolo-de-dispositivos.md, section 3.1, and then runs the work of the request with the
+ * device in the scope of its aqueduct.
+ *
+ * <p>The checks run in a chain (steps 1 to 5, outside a transaction, after a read of the device and
+ * its nonce). Once the signature is valid, one transaction stores the nonce (step 5b), applies the
+ * rate limit (step 7) and runs the work, so the nonce and the work commit together. A refusal in
+ * that transaction is returned, not thrown, so that its security event and the nonce commit before
+ * the failure is thrown.
  *
  * <p>The security events of section 3.2 are recorded in their own transaction before the refusal is
  * thrown, so they survive it. Ten invalid signatures of one device within the repeated-failure
@@ -30,10 +43,20 @@ public final class DeviceAuthenticator {
   /** Reason of the event for the repeated invalid signatures. */
   static final String REPEATED = "REPEATED";
 
+  /** Reason of the event for the rate limit (docs/Protocolo-de-dispositivos.md, section 3.2). */
+  static final String DEVICE_LIMIT = "device";
+
+  /** Prefix of the key of the rate limit of a device. */
+  static final String RATE_KEY_PREFIX = "device:";
+
+  private static final String RETRY_AFTER = "retry_after_seconds";
+
   private final DevicePort devices;
   private final SecurityEventPort events;
   private final UnitOfWorkPort unitOfWork;
   private final PrivacyHasherPort hasher;
+  private final RateLimiterPort rateLimiter;
+  private final RateLimit deviceLimit;
   private final Clock clock;
   private final DeviceAuthHandler chain;
 
@@ -44,6 +67,8 @@ public final class DeviceAuthenticator {
    * @param events the security events
    * @param unitOfWork transaction boundary
    * @param hasher keyed hash of the address of the connection
+   * @param rateLimiter the shared counter of requests
+   * @param requestsPerMinute the requests a device may make per minute
    * @param clock source of time
    */
   public DeviceAuthenticator(
@@ -51,81 +76,155 @@ public final class DeviceAuthenticator {
       SecurityEventPort events,
       UnitOfWorkPort unitOfWork,
       PrivacyHasherPort hasher,
+      RateLimiterPort rateLimiter,
+      int requestsPerMinute,
       Clock clock) {
     this.devices = devices;
     this.events = events;
     this.unitOfWork = unitOfWork;
     this.hasher = hasher;
+    this.rateLimiter = rateLimiter;
+    this.deviceLimit =
+        new RateLimit(
+            requestsPerMinute, Duration.ofSeconds(FieldLimits.DEVICE_RATE_LIMIT_WINDOW_SECONDS));
     this.clock = clock;
     this.chain = chain();
   }
 
   /**
-   * Verifies the signature of a request.
+   * Verifies the signature of a request and returns the device.
    *
    * @param request the request with its headers parsed
    * @return the device that signed it
-   * @throws DeviceAuthFailure at the first step that refuses the request
+   * @throws DeviceAuthFailure at the first refusal
    */
   public AuthenticatedDevice authenticate(SignedRequest request) {
-    Optional<DeviceCredentials> device =
-        unitOfWork.execute(() -> devices.credentials(request.deviceId()));
+    return authenticate(request, device -> device);
+  }
+
+  /**
+   * Verifies the signature of a request, stores its nonce, applies the rate limit and runs the work
+   * of the request in the same transaction.
+   *
+   * @param request the request with its headers parsed
+   * @param work the work of the request, run once the request is accepted
+   * @param <T> the result of the work
+   * @return what the work returned
+   * @throws DeviceAuthFailure at the first refusal, after its event is stored
+   */
+  public <T> T authenticate(SignedRequest request, Function<AuthenticatedDevice, T> work) {
+    Instant now = clock.instant();
+    Lookup found =
+        unitOfWork.execute(
+            () ->
+                new Lookup(
+                    devices.credentials(request.deviceId()),
+                    devices.nonceSeenSince(
+                        request.deviceId(),
+                        request.nonce(),
+                        now.minusSeconds(FieldLimits.DEVICE_NONCE_TTL_SECONDS))));
     DeviceAuthContext context =
-        new DeviceAuthContext(request, clock.instant(), device.orElse(null));
+        new DeviceAuthContext(request, now, found.device().orElse(null), found.nonceSeen());
     try {
       chain.handle(context);
     } catch (DeviceAuthFailure failure) {
-      throw reject(context, failure);
+      unitOfWork.execute(
+          () -> {
+            recordRefusal(context, failure);
+            return Boolean.TRUE;
+          });
+      throw failure;
     }
     DeviceCredentials verified = context.credentials();
-    return new AuthenticatedDevice(
-        verified.deviceId(),
-        verified.aqueductId(),
-        verified.kind(),
-        verified.tankId(),
-        verified.valveId(),
-        context.matchedKeyId());
+    AuthenticatedDevice device =
+        new AuthenticatedDevice(
+            verified.deviceId(),
+            verified.aqueductId(),
+            verified.kind(),
+            verified.tankId(),
+            verified.valveId(),
+            context.matchedKeyId());
+    Outcome<T> outcome =
+        unitOfWork.executeAs(
+            new SessionScope(null, device.aqueductId()), () -> accept(request, device, work));
+    if (outcome.failure() != null) {
+      throw outcome.failure();
+    }
+    return outcome.result();
   }
 
-  /** Records the event of a refusal, then returns the failure to throw after the commit. */
-  private DeviceAuthFailure reject(DeviceAuthContext context, DeviceAuthFailure failure) {
+  /** Step 5b, the rate limit and the work, inside the transaction of the aqueduct. */
+  private <T> Outcome<T> accept(
+      SignedRequest request, AuthenticatedDevice device, Function<AuthenticatedDevice, T> work) {
+    if (!devices.insertNonce(device.deviceId(), request.nonce())) {
+      DeviceAuthFailure replay =
+          new DeviceAuthFailure(
+              ErrorCode.NONCE_REPLAY, SecurityEventType.NONCE_REPLAY, Severity.HIGH, null);
+      recordEvent(replay, device.deviceId(), device.aqueductId(), request.ipAddress(), null);
+      return Outcome.refused(replay);
+    }
+    RateLimitDecision decision =
+        rateLimiter.tryConsume(RATE_KEY_PREFIX + device.deviceId(), deviceLimit);
+    if (!decision.allowed()) {
+      DeviceAuthFailure limited =
+          new DeviceAuthFailure(
+              ErrorCode.RATE_LIMITED,
+              SecurityEventType.RATE_LIMITED,
+              Severity.LOW,
+              DEVICE_LIMIT,
+              Map.of(RETRY_AFTER, decision.retryAfterSeconds()));
+      recordEvent(limited, device.deviceId(), device.aqueductId(), request.ipAddress(), null);
+      return Outcome.refused(limited);
+    }
+    return Outcome.accepted(work.apply(device));
+  }
+
+  /**
+   * Records the event of a refusal of the chain and, for the ten-th invalid signature in the
+   * window, the repeated event. It runs inside a transaction that commits.
+   */
+  private void recordRefusal(DeviceAuthContext context, DeviceAuthFailure failure) {
     if (failure.eventType() == null) {
-      return failure;
+      return;
     }
     DeviceCredentials device = context.credentials();
     UUID deviceId = device == null ? null : device.deviceId();
     UUID aqueductId = device == null ? null : device.aqueductId();
-    String ipHmac =
-        context.request().ipAddress() == null ? null : hasher.hmac(context.request().ipAddress());
-    Instant since = context.now().minusSeconds(FieldLimits.DEVICE_REPEATED_FAILURES_WINDOW_SECONDS);
-    unitOfWork.execute(
-        () -> {
-          events.record(
-              new SecurityEvent(
-                  failure.eventType(),
-                  failure.severity(),
-                  null,
-                  aqueductId,
-                  ipHmac,
-                  Map.of("reason", failure.reason()),
-                  deviceId));
-          if (deviceId != null
-              && failure.eventType() == SecurityEventType.INVALID_SIGNATURE
-              && devices.countSecurityEvents(deviceId, SecurityEventType.INVALID_SIGNATURE, since)
-                  >= FieldLimits.DEVICE_REPEATED_FAILURES) {
-            events.record(
-                new SecurityEvent(
-                    SecurityEventType.INVALID_SIGNATURE,
-                    Severity.HIGH,
-                    null,
-                    aqueductId,
-                    ipHmac,
-                    Map.of("reason", REPEATED),
-                    deviceId));
-          }
-          return Boolean.TRUE;
-        });
-    return failure;
+    recordEvent(failure, deviceId, aqueductId, context.request().ipAddress(), context.now());
+  }
+
+  /**
+   * Stores an event, and the repeated-failure event when this invalid signature is the tenth of the
+   * window. The caller decides the transaction.
+   *
+   * @param now the moment of the check, or null when the event happens inside the transaction
+   */
+  private void recordEvent(
+      DeviceAuthFailure failure, UUID deviceId, UUID aqueductId, String address, Instant now) {
+    String ipHmac = address == null ? null : hasher.hmac(address);
+    Map<String, Object> details =
+        failure.reason() == null ? Map.of() : Map.of("reason", failure.reason());
+    events.record(
+        new SecurityEvent(
+            failure.eventType(), failure.severity(), null, aqueductId, ipHmac, details, deviceId));
+    if (deviceId == null
+        || failure.eventType() != SecurityEventType.INVALID_SIGNATURE
+        || now == null) {
+      return;
+    }
+    Instant since = now.minusSeconds(FieldLimits.DEVICE_REPEATED_FAILURES_WINDOW_SECONDS);
+    if (devices.countSecurityEvents(deviceId, SecurityEventType.INVALID_SIGNATURE, since)
+        >= FieldLimits.DEVICE_REPEATED_FAILURES) {
+      events.record(
+          new SecurityEvent(
+              SecurityEventType.INVALID_SIGNATURE,
+              Severity.HIGH,
+              null,
+              aqueductId,
+              ipHmac,
+              Map.of("reason", REPEATED),
+              deviceId));
+    }
   }
 
   private static DeviceAuthHandler chain() {
@@ -133,7 +232,23 @@ public final class DeviceAuthenticator {
     first
         .linkWith(new ValidKeyHandler())
         .linkWith(new TimestampWindowHandler())
+        .linkWith(new NonceUnseenHandler())
         .linkWith(new SignatureHandler());
     return first;
+  }
+
+  /** What the first read of a request finds: the device, if any, and whether its nonce is known. */
+  private record Lookup(Optional<DeviceCredentials> device, boolean nonceSeen) {}
+
+  /** The result of the transaction of an accepted request, or the refusal that stopped it. */
+  private record Outcome<T>(T result, DeviceAuthFailure failure) {
+
+    static <T> Outcome<T> accepted(T result) {
+      return new Outcome<>(result, null);
+    }
+
+    static <T> Outcome<T> refused(DeviceAuthFailure failure) {
+      return new Outcome<>(null, failure);
+    }
   }
 }

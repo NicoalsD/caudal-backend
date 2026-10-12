@@ -231,10 +231,7 @@ public final class FieldLimits {
   /** Time a device nonce stays unique, in seconds. */
   public static final int DEVICE_NONCE_TTL_SECONDS = 600;
 
-  /** Requests per device and window before the device gets {@code RATE_LIMITED}. */
-  public static final int DEVICE_RATE_LIMIT_REQUESTS = 60;
-
-  /** Length of the window of the device rate limit, in seconds. */
+  /** Length of the window of the device rate limit, in seconds (one minute). */
   public static final int DEVICE_RATE_LIMIT_WINDOW_SECONDS = 60;
 
   /** Invalid signatures of one device that raise a repeated-failure event. */

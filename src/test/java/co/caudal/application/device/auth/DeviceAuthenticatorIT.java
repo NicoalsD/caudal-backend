@@ -31,6 +31,9 @@ class DeviceAuthenticatorIT extends SessionIT {
   private static final String ADDRESS = "203.0.113.99";
   private static final byte[] BODY = "{\"points\":[]}".getBytes(StandardCharsets.UTF_8);
 
+  /** The default of DEVICE_REQUESTS_PER_MINUTE, as configured in application.yml. */
+  private static final int DEVICE_REQUESTS_PER_MINUTE = 60;
+
   @Autowired private DeviceAuthenticator authenticator;
   @Autowired private Clock clock;
 
@@ -217,5 +220,68 @@ class DeviceAuthenticatorIT extends SessionIT {
     }
 
     assertThat(events(device.device(), "INVALID_SIGNATURE", "REPEATED")).isEqualTo(1);
+  }
+
+  @Test
+  void aBadSignatureNeverStoresItsNonce() throws Exception {
+    Session session = login(account("auth.nonce", "BOARD_ADMIN", newAqueductWithRules()));
+    Enrolled device = enroll(session);
+    String nonce = nonce();
+    KeyPair stranger = DeviceRequestSigner.newKeyPair();
+    SignedRequest forged = signed(device, clock.instant().getEpochSecond(), nonce, BODY, stranger);
+
+    assertThatThrownBy(() -> authenticator.authenticate(forged))
+        .isInstanceOf(DomainException.class);
+
+    assertThat(storedNonces(device.device(), nonce)).isZero();
+  }
+
+  @Test
+  void aRepeatedNonceIsRefusedAndRaisesAHighEvent() throws Exception {
+    Session session = login(account("auth.replay", "BOARD_ADMIN", newAqueductWithRules()));
+    Enrolled device = enroll(session);
+    SignedRequest request = fresh(device);
+    authenticator.authenticate(request);
+
+    DomainException error = refusal(() -> authenticator.authenticate(request));
+
+    assertThat(error.code()).isEqualTo(ErrorCode.NONCE_REPLAY);
+    assertThat(storedNonces(device.device(), request.nonce())).isEqualTo(1);
+    assertThat(
+            owner.queryForObject(
+                "SELECT count(*) FROM iam.security_events WHERE device_id = ?"
+                    + " AND type = 'NONCE_REPLAY' AND severity = 'HIGH'",
+                Long.class,
+                device.device()))
+        .isEqualTo(1);
+  }
+
+  @Test
+  void theSixtyFirstRequestOfAMinuteIsRateLimited() throws Exception {
+    Session session = login(account("auth.rate", "BOARD_ADMIN", newAqueductWithRules()));
+    Enrolled device = enroll(session);
+    for (int i = 0; i < DEVICE_REQUESTS_PER_MINUTE; i++) {
+      authenticator.authenticate(fresh(device));
+    }
+
+    DomainException error = refusal(() -> authenticator.authenticate(fresh(device)));
+
+    assertThat(error.code()).isEqualTo(ErrorCode.RATE_LIMITED);
+    assertThat(error.details()).containsKey("retry_after_seconds");
+    assertThat(
+            owner.queryForObject(
+                "SELECT count(*) FROM iam.security_events WHERE device_id = ?"
+                    + " AND type = 'RATE_LIMITED' AND details->>'reason' = 'device'",
+                Long.class,
+                device.device()))
+        .isEqualTo(1);
+  }
+
+  private long storedNonces(UUID device, String nonce) {
+    return owner.queryForObject(
+        "SELECT count(*) FROM devices.device_nonces WHERE device_id = ? AND nonce = ?",
+        Long.class,
+        device,
+        nonce);
   }
 }

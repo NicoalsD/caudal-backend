@@ -5,6 +5,7 @@ import co.caudal.domain.security.Severity;
 import co.caudal.shared.error.DomainException;
 import co.caudal.shared.error.ErrorCode;
 import java.io.Serial;
+import java.util.Map;
 
 /**
  * A device request refused by the signature checks. When the situation has a security event
@@ -38,7 +39,25 @@ public class DeviceAuthFailure extends DomainException {
    */
   public DeviceAuthFailure(
       ErrorCode code, SecurityEventType eventType, Severity severity, String reason) {
-    super(code);
+    this(code, eventType, severity, reason, Map.of());
+  }
+
+  /**
+   * A refusal with its security event and extra details for the answer.
+   *
+   * @param code the error to answer
+   * @param eventType the event to record, or null for none
+   * @param severity the severity of the event, or null for none
+   * @param reason the {@code details.reason} of the event, or null for none
+   * @param details extra details of the answer, such as {@code retry_after_seconds}
+   */
+  public DeviceAuthFailure(
+      ErrorCode code,
+      SecurityEventType eventType,
+      Severity severity,
+      String reason,
+      Map<String, Object> details) {
+    super(code, details);
     this.eventType = eventType;
     this.severity = severity;
     this.reason = reason;

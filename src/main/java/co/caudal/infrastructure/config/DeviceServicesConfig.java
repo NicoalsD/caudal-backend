@@ -6,6 +6,7 @@ import co.caudal.application.device.auth.DeviceAuthenticator;
 import co.caudal.application.port.out.DevicePort;
 import co.caudal.application.port.out.NetworkPort;
 import co.caudal.application.port.out.PrivacyHasherPort;
+import co.caudal.application.port.out.RateLimiterPort;
 import co.caudal.application.port.out.SecurityEventPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import java.time.Clock;
@@ -36,8 +37,11 @@ class DeviceServicesConfig {
       SecurityEventPort events,
       UnitOfWorkPort unitOfWork,
       PrivacyHasherPort hasher,
+      RateLimiterPort rateLimiter,
+      DeviceProperties properties,
       Clock clock) {
-    return new DeviceAuthenticator(devices, events, unitOfWork, hasher, clock);
+    return new DeviceAuthenticator(
+        devices, events, unitOfWork, hasher, rateLimiter, properties.requestsPerMinute(), clock);
   }
 
   @Bean
