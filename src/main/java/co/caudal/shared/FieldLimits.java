@@ -417,5 +417,22 @@ public final class FieldLimits {
   /** Statuses a person may set on a device. */
   public static final String DEVICE_STATUS_PATTERN = "^(ACTIVE|SUSPENDED|RETIRED)$";
 
+  /** Action of an audit entry, in upper case snake case (for example RULESET_ACTIVATED). */
+  public static final String AUDIT_ACTION_PATTERN = "^[A-Z][A-Z0-9_]{0,59}$";
+
+  /** Entity type of an audit entry, in lower case snake case (for example user). */
+  public static final String AUDIT_ENTITY_TYPE_PATTERN = "^[a-z][a-z0-9_]{0,59}$";
+
+  /** Classes of data with a retention period (docs/API.md, section 18.3). */
+  public static final String RETENTION_DATA_CLASS_PATTERN =
+      "^(LOGIN_ATTEMPTS|DEVICE_NONCES|SECURITY_EVENTS|REFRESH_TOKENS|DATA_ACCESS_LOG"
+          + "|TELEMETRY_POINTS)$";
+
+  /**
+   * Longest retention period, in days (ten years). It keeps the cutoff of the purge functions
+   * inside the range of {@code timestamptz}.
+   */
+  public static final int RETENTION_DAYS_MAX = 3_650;
+
   private FieldLimits() {}
 }
