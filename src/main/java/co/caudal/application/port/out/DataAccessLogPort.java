@@ -15,4 +15,14 @@ public interface DataAccessLogPort {
    * @param ipHmac HMAC of the address, or null
    */
   void record(UUID aqueductId, UUID userId, String resource, String resourceId, String ipHmac);
+
+  /**
+   * Writes one read of a summary, linked to the authorization that allowed it.
+   *
+   * @param aqueductId the aqueduct
+   * @param userId the entity that read it
+   * @param summaryShareId the authorization
+   * @param ipHmac HMAC of the address, or null
+   */
+  void recordSummary(UUID aqueductId, UUID userId, UUID summaryShareId, String ipHmac);
 }

@@ -3,6 +3,8 @@ package co.caudal.application.port.out;
 import co.caudal.application.summary.NewSummaryShare;
 import co.caudal.application.summary.SummaryShareView;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -35,4 +37,19 @@ public interface SummarySharePort {
    * @return true if it was revoked now, false if it was already revoked
    */
   boolean revoke(UUID id, UUID revokedBy, Instant revokedAt);
+
+  /**
+   * Lists the authorizations that work now: not revoked and not expired. A period given must lie
+   * inside the period of the authorization.
+   *
+   * @param granteeUserId only this grantee, or null for every grantee of the aqueduct
+   * @param from first day requested, or null
+   * @param to last day requested, or null
+   * @param now the moment of the query
+   * @param beforeId only ids before this one, or null from the newest
+   * @param limit maximum number
+   * @return the authorizations, newest first
+   */
+  List<SummaryShareView> listActive(
+      UUID granteeUserId, LocalDate from, LocalDate to, Instant now, UUID beforeId, int limit);
 }

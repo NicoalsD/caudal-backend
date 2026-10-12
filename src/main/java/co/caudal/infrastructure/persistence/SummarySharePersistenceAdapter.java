@@ -8,6 +8,7 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -63,6 +64,26 @@ public class SummarySharePersistenceAdapter implements SummarySharePort {
             .param("id", id)
             .update()
         == 1;
+  }
+
+  @Override
+  public List<SummaryShareView> listActive(
+      UUID granteeUserId, LocalDate from, LocalDate to, Instant now, UUID beforeId, int limit) {
+    return jdbc.sql(
+            COLUMNS
+                + " WHERE revoked_at IS NULL AND expires_at > :now"
+                + " AND (CAST(:grantee AS uuid) IS NULL OR grantee_user_id = :grantee)"
+                + " AND (CAST(:from AS date) IS NULL OR (period_from <= :from AND period_to >= :to))"
+                + " AND (CAST(:before AS uuid) IS NULL OR id < :before)"
+                + " ORDER BY id DESC LIMIT :limit")
+        .param("now", SqlTime.offset(now), Types.TIMESTAMP_WITH_TIMEZONE)
+        .param("grantee", granteeUserId, Types.OTHER)
+        .param("from", from, Types.DATE)
+        .param("to", to, Types.DATE)
+        .param("before", beforeId, Types.OTHER)
+        .param("limit", limit)
+        .query(SummarySharePersistenceAdapter::view)
+        .list();
   }
 
   static SummaryShareView view(ResultSet rs, int row) throws SQLException {
