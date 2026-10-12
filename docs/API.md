@@ -750,9 +750,9 @@ La propuesta sigue la máquina de estados de `Reglas-de-negocio.md`, sección 12
 
 ### 10.7 `POST /api/v1/schedule-proposals/{id}/publish`
 
-- **Permiso:** `PROPOSAL_PUBLISH`.
+- **Permiso:** `SCHEDULE_PUBLISH`.
 - **Cuerpo:** `lock_version` (entero, obligatorio).
-- **Respuesta 201:** `publication` con `id`, `published_at`, `whatsapp_text`, `poster_sha256`. La propuesta pasa a `PUBLISHED`.
+- **Respuesta 201:** `publication` con `id`, `proposal_id`, `published_at`, `whatsapp_text`, `poster_sha256`. La propuesta pasa a `PUBLISHED` y se emite el evento `SchedulePublished`, que deja la publicación en la auditoría.
 - **Errores:** `409 INVALID_STATE_TRANSITION` (no está aprobada), `409 CONFLICT`.
 - **Nota:** la publicación nunca incluye datos personales ni motivos internos. Ver `Reglas-de-negocio.md`, sección 13.
 
@@ -919,7 +919,7 @@ Estas rutas no requieren autenticación. Solo muestran datos públicos y no reve
 
 ### 15.3 `GET /api/v1/public/{aqueductSlug}/schedule/poster.pdf`
 
-- **Respuesta 200:** `application/pdf` del cartel. La cabecera `X-Content-SHA256` trae el hash que se guardó en `poster_sha256` (propuesta).
+- **Respuesta 200:** `application/pdf` del cartel. La cabecera `X-Content-SHA256` trae el hash que se guardó en `poster_sha256`. El PDF es determinista (sin fechas ni identificador aleatorio), así que el hash del archivo coincide con el guardado.
 - **Errores:** `404 NOT_FOUND`.
 
 ### 15.4 `POST /api/v1/public/{aqueductSlug}/damage-reports`
@@ -936,13 +936,13 @@ Estas rutas no requieren autenticación. Solo muestran datos públicos y no reve
 | `website` | texto | No | Campo trampa oculto. Debe llegar vacío. |
 | `form_started_at` | fecha y hora | Sí | Al menos `PUBLIC_FORM_MIN_SECONDS` (3 s por defecto) antes del envío |
 
-- **Respuesta 201:** `tracking_code` (8 caracteres Crockford base32, se muestra una sola vez) y `status = REPORTED`.
+- **Respuesta 201:** `tracking_code` (8 caracteres Crockford base32, se muestra una sola vez), `status = REPORTED` y `message` (texto para mostrar a la persona).
 - **Errores:** `400 VALIDATION_ERROR` (tiempo mínimo no cumplido), `404 NOT_FOUND` (slug), `429 RATE_LIMITED`. Si el campo `website` llega con valor, la API responde `201` genérico, no guarda nada y registra `HONEYPOT_TRIGGERED` sin revelarlo.
 - **Ejemplo:** `{ "category_code": "LEAK", "description": "Hay agua saliendo del tubo de la calle principal.", "location_hint": "Esquina de la tienda", "website": "", "form_started_at": "2026-10-09T09:00:00-05:00" }`
 
 ### 15.5 `GET /api/v1/public/damage-reports/{trackingCode}`
 
-- **Respuesta 200:** `status`, `category_label_es`, `reported_at`, `updated_at`. No devuelve datos del reportante ni la IP.
+- **Respuesta 200:** `status`, `status_label_es`, `category_label_es`, `reported_at`, `updated_at`. No devuelve la descripción, el lugar, datos del reportante ni la IP. La búsqueda por hash usa la función `ops.find_public_report` (V50), porque el código no trae el acueducto.
 - **Errores:** `400 VALIDATION_ERROR` (formato de código inválido), `404 NOT_FOUND` (código no existe; mensaje genérico).
 
 ## 16. Dispositivos (firmados)

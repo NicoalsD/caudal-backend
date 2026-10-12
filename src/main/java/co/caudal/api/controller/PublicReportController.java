@@ -1,0 +1,98 @@
+package co.caudal.api.controller;
+
+import co.caudal.api.dto.request.DamageReportRequest;
+import co.caudal.api.dto.response.DamageReportResponse;
+import co.caudal.api.dto.response.PublicReportStatusResponse;
+import co.caudal.application.command.CommandBus;
+import co.caudal.application.incident.DamageReportCommand;
+import co.caudal.application.incident.DamageReportReceipt;
+import co.caudal.application.incident.PublicReportStatus;
+import co.caudal.application.incident.TrackDamageReportUseCase;
+import co.caudal.shared.FieldLimits;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+/** Damage reports from the public page, without login (docs/API.md, sections 15.4 and 15.5). */
+@RestController
+@Tag(name = "Público", description = "Horario publicado y reportes de daños, sin iniciar sesión.")
+public class PublicReportController {
+
+  private final CommandBus commands;
+  private final TrackDamageReportUseCase tracking;
+
+  PublicReportController(CommandBus commands, TrackDamageReportUseCase tracking) {
+    this.commands = commands;
+    this.tracking = tracking;
+  }
+
+  @Operation(
+      summary = "Reportar un daño",
+      description =
+          "Cualquier persona reporta un daño sin iniciar sesión y sin datos personales. Responde"
+              + " un código de seguimiento que se muestra una sola vez. Límite de reportes por IP y"
+              + " hora, tiempo mínimo de llenado y campo oculto website que debe llegar vacío.")
+  @ApiResponse(responseCode = "201", description = "Reporte recibido")
+  @ApiResponse(responseCode = "400", description = "VALIDATION_ERROR")
+  @ApiResponse(responseCode = "404", description = "NOT_FOUND: el acueducto no existe")
+  @ApiResponse(responseCode = "429", description = "RATE_LIMITED: demasiados reportes")
+  @PostMapping("/api/v1/public/{aqueductSlug}/damage-reports")
+  public ResponseEntity<DamageReportResponse> report(
+      @PathVariable
+          @Size(min = FieldLimits.AQUEDUCT_SLUG_MIN, max = FieldLimits.AQUEDUCT_SLUG_MAX)
+          @Pattern(regexp = FieldLimits.AQUEDUCT_SLUG_PATTERN)
+          String aqueductSlug,
+      @Valid @RequestBody DamageReportRequest request,
+      HttpServletRequest http) {
+    DamageReportReceipt receipt =
+        commands.dispatch(
+            new DamageReportCommand(
+                aqueductSlug,
+                request.categoryCode(),
+                request.sectorId(),
+                request.description(),
+                request.locationHint(),
+                http.getRemoteAddr(),
+                request.website(),
+                request.formStartedAt().toInstant()));
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .cacheControl(CacheControl.noStore())
+        .body(
+            new DamageReportResponse(receipt.trackingCode(), receipt.status(), receipt.message()));
+  }
+
+  @Operation(
+      summary = "Seguir un reporte de daño",
+      description =
+          "Con el código de seguimiento de 8 caracteres, la persona ve el estado de su reporte,"
+              + " la categoría y las fechas. No devuelve la descripción, el lugar ni la IP.")
+  @ApiResponse(responseCode = "200", description = "Estado del reporte")
+  @ApiResponse(responseCode = "400", description = "VALIDATION_ERROR: formato de código inválido")
+  @ApiResponse(responseCode = "404", description = "NOT_FOUND: el código no existe")
+  @GetMapping("/api/v1/public/damage-reports/{trackingCode}")
+  public ResponseEntity<PublicReportStatusResponse> track(
+      @PathVariable @Size(max = FieldLimits.RESET_CODE_INPUT_MAX) String trackingCode) {
+    PublicReportStatus status = tracking.execute(trackingCode);
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.noStore())
+        .body(
+            new PublicReportStatusResponse(
+                status.status(),
+                status.statusLabelEs(),
+                status.categoryLabelEs(),
+                status.reportedAt(),
+                status.updatedAt()));
+  }
+}

@@ -3,14 +3,18 @@ package co.caudal.api.controller;
 import co.caudal.api.dto.request.ApproveProposalRequest;
 import co.caudal.api.dto.request.GenerateProposalRequest;
 import co.caudal.api.dto.request.ModifyProposalRequest;
+import co.caudal.api.dto.request.PublishScheduleRequest;
 import co.caudal.api.dto.request.RejectProposalRequest;
 import co.caudal.api.dto.response.PageResponse;
 import co.caudal.api.dto.response.ProposalResponse;
 import co.caudal.api.dto.response.ProposalSummaryResponse;
+import co.caudal.api.dto.response.PublicationResponse;
 import co.caudal.api.mapper.ScheduleMapper;
 import co.caudal.api.security.CallerFactory;
 import co.caudal.application.command.CommandBus;
 import co.caudal.application.pagination.Page;
+import co.caudal.application.publication.PublicationView;
+import co.caudal.application.publication.PublishScheduleCommand;
 import co.caudal.application.schedule.ApproveProposalCommand;
 import co.caudal.application.schedule.GenerateProposalCommand;
 import co.caudal.application.schedule.GetProposalUseCase;
@@ -237,5 +241,38 @@ public class ScheduleProposalController {
     return ResponseEntity.ok()
         .cacheControl(CacheControl.noStore())
         .body(ScheduleMapper.toResponse(proposal));
+  }
+
+  @Operation(
+      summary = "Publicar un horario aprobado",
+      description =
+          "Publica una propuesta APPROVED o APPROVED_WITH_CHANGES. Guarda la publicación con el"
+              + " mensaje de WhatsApp, que solo lleva sectores y horas. Exige el lock_version que"
+              + " vio el miembro. Requiere el permiso SCHEDULE_PUBLISH.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "201", description = "Horario publicado")
+  @ApiResponse(responseCode = "404", description = "NOT_FOUND: la propuesta no existe")
+  @ApiResponse(
+      responseCode = "409",
+      description = "CONFLICT o INVALID_STATE_TRANSITION (no está aprobada)")
+  @PostMapping("/{id}/publish")
+  @PreAuthorize("hasAuthority('SCHEDULE_PUBLISH')")
+  public ResponseEntity<PublicationResponse> publish(
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID id,
+      @Valid @RequestBody PublishScheduleRequest request,
+      HttpServletRequest http) {
+    PublicationView publication =
+        commands.dispatch(
+            new PublishScheduleCommand(CallerFactory.from(jwt, http), id, request.lockVersion()));
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .cacheControl(CacheControl.noStore())
+        .body(
+            new PublicationResponse(
+                publication.id(),
+                publication.proposalId(),
+                publication.publishedAt(),
+                publication.whatsappText(),
+                publication.posterSha256()));
   }
 }
