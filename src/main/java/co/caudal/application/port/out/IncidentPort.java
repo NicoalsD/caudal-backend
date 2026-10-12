@@ -22,6 +22,14 @@ public interface IncidentPort {
   UUID insert(UUID aqueductId, NewIncident incident);
 
   /**
+   * Finds an incident of the aqueduct, with the columns of {@link IncidentView}.
+   *
+   * @param id the incident
+   * @return the incident, or empty
+   */
+  Optional<IncidentView> find(UUID id);
+
+  /**
    * Finds a report by the hash of its tracking code, in any aqueduct.
    *
    * @param trackingCodeHash the hash

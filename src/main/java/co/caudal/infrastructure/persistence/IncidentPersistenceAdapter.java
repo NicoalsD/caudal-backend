@@ -51,12 +51,21 @@ public class IncidentPersistenceAdapter implements IncidentPort {
             .single();
     jdbc.sql(
             "INSERT INTO ops.incident_status_history (aqueduct_id, incident_id, from_status,"
-                + " to_status) VALUES (:aqueduct, :incident, NULL, :status)")
+                + " to_status, changed_by) VALUES (:aqueduct, :incident, NULL, :status, :by)")
         .param("aqueduct", aqueductId)
         .param("incident", id)
         .param("status", REPORTED)
+        .param("by", incident.createdBy(), Types.OTHER)
         .update();
     return id;
+  }
+
+  @Override
+  public Optional<IncidentView> find(UUID id) {
+    return jdbc.sql(COLUMNS + " WHERE id = :id")
+        .param("id", id)
+        .query(IncidentPersistenceAdapter::view)
+        .optional();
   }
 
   @Override

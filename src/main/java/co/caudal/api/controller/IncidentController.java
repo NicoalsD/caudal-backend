@@ -1,8 +1,11 @@
 package co.caudal.api.controller;
 
+import co.caudal.api.dto.request.CreateIncidentRequest;
 import co.caudal.api.dto.response.IncidentResponse;
 import co.caudal.api.dto.response.PageResponse;
 import co.caudal.api.security.CallerFactory;
+import co.caudal.application.command.CommandBus;
+import co.caudal.application.incident.CreateIncidentCommand;
 import co.caudal.application.incident.IncidentFilter;
 import co.caudal.application.incident.IncidentView;
 import co.caudal.application.incident.ListIncidentsUseCase;
@@ -13,17 +16,21 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import java.time.Instant;
 import java.util.UUID;
 import org.springframework.http.CacheControl;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,9 +41,11 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Incidentes", description = "Reportes de daño del acueducto y su estado.")
 public class IncidentController {
 
+  private final CommandBus commands;
   private final ListIncidentsUseCase list;
 
-  IncidentController(ListIncidentsUseCase list) {
+  IncidentController(CommandBus commands, ListIncidentsUseCase list) {
+    this.commands = commands;
     this.list = list;
   }
 
@@ -92,5 +101,36 @@ public class IncidentController {
             new PageResponse<>(
                 page.items().stream().map(IncidentController::toResponse).toList(),
                 page.nextCursor()));
+  }
+
+  @Operation(
+      summary = "Registrar un daño desde el panel",
+      description =
+          "Registra un daño con origen OPERATOR y estado REPORTED. La categoría sale del catálogo"
+              + " DAMAGE_CATEGORY; el sector, si se envía, debe ser del acueducto. La descripción"
+              + " va de 10 a 500 caracteres y el lugar hasta 120. Requiere el permiso"
+              + " INCIDENT_CREATE.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "201", description = "Incidente registrado")
+  @ApiResponse(
+      responseCode = "400",
+      description = "VALIDATION_ERROR: categoría, sector o texto no válidos")
+  @PostMapping
+  @PreAuthorize("hasAuthority('INCIDENT_CREATE')")
+  public ResponseEntity<IncidentResponse> create(
+      @AuthenticationPrincipal Jwt jwt,
+      @Valid @RequestBody CreateIncidentRequest request,
+      HttpServletRequest http) {
+    IncidentView incident =
+        commands.dispatch(
+            new CreateIncidentCommand(
+                CallerFactory.from(jwt, http),
+                request.categoryCode(),
+                request.sectorId(),
+                request.description(),
+                request.locationHint()));
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .cacheControl(CacheControl.noStore())
+        .body(toResponse(incident));
   }
 }

@@ -12,6 +12,7 @@ import java.util.UUID;
  * @param locationHint where, or null
  * @param trackingCodeHash hash of the tracking code
  * @param reporterIpHmac HMAC of the address, or null
+ * @param createdBy the person who registered it, or null when it comes from the public form
  */
 public record NewIncident(
     String source,
@@ -20,4 +21,5 @@ public record NewIncident(
     String description,
     String locationHint,
     String trackingCodeHash,
-    String reporterIpHmac) {}
+    String reporterIpHmac,
+    UUID createdBy) {}
