@@ -249,6 +249,15 @@ public final class FieldLimits {
   /** Characters of a device nonce: 128 random bits in lower case hexadecimal. */
   public static final int DEVICE_NONCE_CHARS = 32;
 
+  /** Valve commands a device receives in one answer (docs/API.md, section 16.2). */
+  public static final int DEVICE_COMMANDS_MAX = 100;
+
+  /** Maximum characters of the detail of a confirmation (docs/API.md, section 16.3). */
+  public static final int DEVICE_ACK_DETAIL_MAX = 200;
+
+  /** Result of a confirmation of a valve command: the two codes the device may send. */
+  public static final String DEVICE_ACK_RESULT_PATTERN = "^(ACKED|FAILED)$";
+
   /** Device id header: a UUID in text, in any case. */
   public static final String DEVICE_ID_PATTERN =
       "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$";

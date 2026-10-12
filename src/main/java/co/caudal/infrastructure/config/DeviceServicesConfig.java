@@ -3,7 +3,9 @@ package co.caudal.infrastructure.config;
 import co.caudal.application.device.DeviceCommandHandlers;
 import co.caudal.application.device.DeviceKeyCommandHandlers;
 import co.caudal.application.device.auth.DeviceAuthenticator;
+import co.caudal.application.device.command.ValveCommandService;
 import co.caudal.application.device.telemetry.DeviceTelemetryService;
+import co.caudal.application.event.DomainEventPublisher;
 import co.caudal.application.port.out.DevicePort;
 import co.caudal.application.port.out.NetworkPort;
 import co.caudal.application.port.out.PrivacyHasherPort;
@@ -13,6 +15,7 @@ import co.caudal.application.port.out.SecurityEventPort;
 import co.caudal.application.port.out.TelemetryPayloadPort;
 import co.caudal.application.port.out.TelemetryPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
+import co.caudal.application.port.out.ValveCommandPort;
 import co.caudal.application.reading.ReadingRecorder;
 import java.time.Clock;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -60,6 +63,15 @@ class DeviceServicesConfig {
       Clock clock) {
     return new DeviceTelemetryService(
         authenticator, payloads, telemetry, devices, recorder, ruleSets, clock);
+  }
+
+  @Bean
+  ValveCommandService valveCommandService(
+      DeviceAuthenticator authenticator,
+      ValveCommandPort commands,
+      DomainEventPublisher events,
+      Clock clock) {
+    return new ValveCommandService(authenticator, commands, events, clock);
   }
 
   @Bean
