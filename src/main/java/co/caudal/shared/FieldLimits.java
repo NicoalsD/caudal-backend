@@ -231,6 +231,40 @@ public final class FieldLimits {
   /** Time a device nonce stays unique, in seconds. */
   public static final int DEVICE_NONCE_TTL_SECONDS = 600;
 
+  /** Requests per device and window before the device gets {@code RATE_LIMITED}. */
+  public static final int DEVICE_RATE_LIMIT_REQUESTS = 60;
+
+  /** Length of the window of the device rate limit, in seconds. */
+  public static final int DEVICE_RATE_LIMIT_WINDOW_SECONDS = 60;
+
+  /** Invalid signatures of one device that raise a repeated-failure event. */
+  public static final int DEVICE_REPEATED_FAILURES = 10;
+
+  /** Window in which the repeated invalid signatures are counted, in seconds. */
+  public static final int DEVICE_REPEATED_FAILURES_WINDOW_SECONDS = 600;
+
+  /** Bytes of an Ed25519 signature (RFC 8032). */
+  public static final int DEVICE_SIGNATURE_BYTES = 64;
+
+  /** Characters of an Ed25519 signature in base64url without padding. */
+  public static final int DEVICE_SIGNATURE_CHARS = 86;
+
+  /** Characters of a device nonce: 128 random bits in lower case hexadecimal. */
+  public static final int DEVICE_NONCE_CHARS = 32;
+
+  /** Device id header: a UUID in text, in any case. */
+  public static final String DEVICE_ID_PATTERN =
+      "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$";
+
+  /** Timestamp header: whole seconds without leading zeros, at most twelve digits. */
+  public static final String DEVICE_TIMESTAMP_PATTERN = "^(0|[1-9][0-9]{0,11})$";
+
+  /** Nonce header: 32 lower case hexadecimal characters. */
+  public static final String DEVICE_NONCE_PATTERN = "^[0-9a-f]{32}$";
+
+  /** Signature header: 86 characters of base64url without padding. */
+  public static final String DEVICE_SIGNATURE_PATTERN = "^[A-Za-z0-9_-]{86}$";
+
   /** Maximum decimals of a gauge value or correction. */
   public static final int GAUGE_DECIMALS_MAX = 2;
 

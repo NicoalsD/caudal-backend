@@ -2,7 +2,10 @@ package co.caudal.application.port.out;
 
 import co.caudal.application.device.DeviceKeyView;
 import co.caudal.application.device.DeviceView;
+import co.caudal.application.device.auth.DeviceCredentials;
 import co.caudal.domain.device.DeviceKind;
+import co.caudal.domain.security.SecurityEventType;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -11,6 +14,16 @@ import java.util.UUID;
  * UnitOfWorkPort#executeAs}: the tables have row level security.
  */
 public interface DevicePort {
+
+  /**
+   * Reads what the signature check needs about a device, whatever its aqueduct: the device and the
+   * keys that are still valid. It goes through a function with definer rights, because the device
+   * is not yet known to belong to the aqueduct of the session.
+   *
+   * @param deviceId the device
+   * @return the credentials, or empty if the device does not exist
+   */
+  Optional<DeviceCredentials> credentials(UUID deviceId);
 
   /**
    * Finds a device of the aqueduct of the session.
@@ -88,4 +101,15 @@ public interface DevicePort {
    * @return true if the key belongs to the device
    */
   boolean hasKey(UUID deviceId, UUID keyId);
+
+  /**
+   * Counts the security events of one type recorded for a device since a moment. Used to detect the
+   * repeated invalid signatures of a device.
+   *
+   * @param deviceId the device
+   * @param type the type of event
+   * @param since the start of the count, inclusive
+   * @return the number of events
+   */
+  long countSecurityEvents(UUID deviceId, SecurityEventType type, Instant since);
 }

@@ -2,11 +2,16 @@ package co.caudal.infrastructure.persistence;
 
 import co.caudal.application.device.DeviceKeyView;
 import co.caudal.application.device.DeviceView;
+import co.caudal.application.device.auth.DeviceCredentials;
+import co.caudal.application.device.auth.DeviceKeyCredential;
 import co.caudal.application.port.out.DevicePort;
 import co.caudal.domain.device.DeviceKind;
+import co.caudal.domain.security.SecurityEventType;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -23,6 +28,47 @@ public class DevicePersistenceAdapter implements DevicePort {
 
   DevicePersistenceAdapter(JdbcClient jdbc) {
     this.jdbc = jdbc;
+  }
+
+  @Override
+  public Optional<DeviceCredentials> credentials(UUID deviceId) {
+    List<CredentialRow> rows =
+        jdbc.sql(
+                "SELECT aqueduct_id, status, kind, tank_id, valve_id, key_id, public_key"
+                    + " FROM devices.find_device_credentials(:device)")
+            .param("device", deviceId)
+            .query(DevicePersistenceAdapter::credentialRow)
+            .list();
+    if (rows.isEmpty()) {
+      return Optional.empty();
+    }
+    CredentialRow first = rows.getFirst();
+    List<DeviceKeyCredential> keys =
+        rows.stream()
+            .filter(row -> row.keyId() != null)
+            .map(row -> new DeviceKeyCredential(row.keyId(), row.publicKey()))
+            .toList();
+    return Optional.of(
+        new DeviceCredentials(
+            deviceId,
+            first.aqueductId(),
+            first.status(),
+            first.kind(),
+            first.tankId(),
+            first.valveId(),
+            keys));
+  }
+
+  @Override
+  public long countSecurityEvents(UUID deviceId, SecurityEventType type, Instant since) {
+    return jdbc.sql(
+            "SELECT count(*) FROM iam.security_events WHERE device_id = :device AND type = :type"
+                + " AND created_at >= :since")
+        .param("device", deviceId)
+        .param("type", type.name())
+        .param("since", SqlTime.timestamp(since))
+        .query(Long.class)
+        .single();
   }
 
   @Override
@@ -123,6 +169,27 @@ public class DevicePersistenceAdapter implements DevicePort {
         rs.getString("fingerprint"),
         SqlTime.instant(rs, "activated_at"));
   }
+
+  private static CredentialRow credentialRow(ResultSet rs, int row) throws SQLException {
+    return new CredentialRow(
+        rs.getObject("aqueduct_id", UUID.class),
+        rs.getString("status"),
+        rs.getString("kind"),
+        rs.getObject("tank_id", UUID.class),
+        rs.getObject("valve_id", UUID.class),
+        rs.getObject("key_id", UUID.class),
+        rs.getString("public_key"));
+  }
+
+  /** One row of the credentials function: the device, and one of its valid keys if any. */
+  private record CredentialRow(
+      UUID aqueductId,
+      String status,
+      String kind,
+      UUID tankId,
+      UUID valveId,
+      UUID keyId,
+      String publicKey) {}
 
   private static DeviceView device(ResultSet rs, int row) throws SQLException {
     return new DeviceView(

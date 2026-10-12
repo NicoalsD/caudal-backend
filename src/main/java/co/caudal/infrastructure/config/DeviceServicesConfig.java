@@ -2,9 +2,13 @@ package co.caudal.infrastructure.config;
 
 import co.caudal.application.device.DeviceCommandHandlers;
 import co.caudal.application.device.DeviceKeyCommandHandlers;
+import co.caudal.application.device.auth.DeviceAuthenticator;
 import co.caudal.application.port.out.DevicePort;
 import co.caudal.application.port.out.NetworkPort;
+import co.caudal.application.port.out.PrivacyHasherPort;
+import co.caudal.application.port.out.SecurityEventPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
+import java.time.Clock;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,6 +28,16 @@ class DeviceServicesConfig {
   DeviceCommandHandlers.UpdateStatus updateDeviceCommandHandler(
       DevicePort devices, UnitOfWorkPort unitOfWork) {
     return new DeviceCommandHandlers.UpdateStatus(devices, unitOfWork);
+  }
+
+  @Bean
+  DeviceAuthenticator deviceAuthenticator(
+      DevicePort devices,
+      SecurityEventPort events,
+      UnitOfWorkPort unitOfWork,
+      PrivacyHasherPort hasher,
+      Clock clock) {
+    return new DeviceAuthenticator(devices, events, unitOfWork, hasher, clock);
   }
 
   @Bean

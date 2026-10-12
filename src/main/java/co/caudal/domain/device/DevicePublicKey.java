@@ -3,7 +3,13 @@ package co.caudal.domain.device;
 import co.caudal.shared.FieldLimits;
 import co.caudal.shared.hash.Sha256;
 import java.math.BigInteger;
+import java.security.GeneralSecurityException;
+import java.security.KeyFactory;
+import java.security.PublicKey;
+import java.security.Signature;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
+import java.util.HexFormat;
 import java.util.Optional;
 
 /**
@@ -44,6 +50,12 @@ public final class DevicePublicKey {
 
   private static final int SIGN_BYTE = FieldLimits.ED25519_PUBLIC_KEY_BYTES - 1;
   private static final int SIGN_BIT = 0x80;
+
+  /** JCA name of the algorithm. */
+  private static final String ALGORITHM = "Ed25519";
+
+  /** DER prefix of an Ed25519 SubjectPublicKeyInfo: SEQUENCE, OID 1.3.101.112, BIT STRING. */
+  private static final String X509_PREFIX_HEX = "302a300506032b6570032100";
 
   private final String encoded;
   private final String fingerprint;
@@ -93,6 +105,39 @@ public final class DevicePublicKey {
    */
   public String fingerprint() {
     return fingerprint;
+  }
+
+  /**
+   * Verifies an Ed25519 signature made with the private key that matches this public key (RFC
+   * 8032). A malformed signature or message is simply not valid.
+   *
+   * @param message the bytes that were signed
+   * @param signature the 64-byte signature
+   * @return true only if the signature is valid for this key
+   */
+  public boolean verifies(byte[] message, byte[] signature) {
+    try {
+      PublicKey key = KeyFactory.getInstance(ALGORITHM).generatePublic(x509Spec());
+      Signature verifier = Signature.getInstance(ALGORITHM);
+      verifier.initVerify(key);
+      verifier.update(message);
+      return verifier.verify(signature);
+    } catch (GeneralSecurityException invalid) {
+      return false;
+    }
+  }
+
+  /**
+   * The X.509 encoding of the key: the fixed prefix of an Ed25519 SubjectPublicKeyInfo followed by
+   * the 32 raw bytes, as the JDK's key factory expects.
+   */
+  private X509EncodedKeySpec x509Spec() {
+    byte[] raw = Base64.getUrlDecoder().decode(encoded);
+    byte[] prefix = HexFormat.of().parseHex(X509_PREFIX_HEX);
+    byte[] der = new byte[prefix.length + raw.length];
+    System.arraycopy(prefix, 0, der, 0, prefix.length);
+    System.arraycopy(raw, 0, der, prefix.length, raw.length);
+    return new X509EncodedKeySpec(der);
   }
 
   /**
