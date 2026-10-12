@@ -83,6 +83,7 @@ Toda respuesta de error tiene esta forma:
 | `VALIDATION_ERROR` | 400 | Revisa los datos enviados. | Formato, tipo, longitud, campo desconocido, JSON mal formado, rango de fechas inválido, UUID inválido |
 | `UNAUTHORIZED` | 401 | Sesión no válida. Vuelve a iniciar sesión. | Falta el token, expiró o no es válido. |
 | `INVALID_CREDENTIALS` | 401 | Usuario o contraseña incorrectos. | Login fallido. Igual con cuenta bloqueada o desactivada: no se revela el bloqueo. |
+| `MFA_REQUIRED` | 401 | Escribe el código de tu aplicación de autenticación. | La contraseña es correcta y la cuenta tiene MFA activo, pero falta `mfa_code`. |
 | `SESSION_REVOKED` | 401 | Tu sesión se cerró. Vuelve a iniciar sesión. | Refresh token reutilizado o familia revocada |
 | `INVALID_SIGNATURE` | 401 | La firma del dispositivo no es válida. | Firma Ed25519 incorrecta |
 | `NONCE_REPLAY` | 401 | Petición repetida. | `X-Nonce` ya visto en los últimos 10 minutos |
@@ -176,7 +177,7 @@ Las colecciones son paginadas con cursor opaco firmado.
 | Recálculo de pronóstico | 10 por hora por acueducto | Hechos, sección 11 |
 | Otros grupos (importación, lectura pública, evaluación) | Por definir | |
 
-Respuesta al exceder un límite: `429 RATE_LIMITED` con `Retry-After`. El contador vive en PostgreSQL (`iam.rate_limit_buckets`) para que sea compartido entre instancias.
+Respuesta al exceder un límite: `429 RATE_LIMITED` con la cabecera `Retry-After` (segundos, redondeados hacia arriba) y el mismo valor en `details.retry_after_seconds`. El contador es un bucket de Bucket4j en PostgreSQL (`iam.rate_limit_buckets`, con bloqueos *advisory*) para que sea compartido entre instancias. La clave nunca lleva la IP en claro: es `login-ip:` más su HMAC. El límite de login cuenta todos los intentos, exitosos o no, y se decide antes de mirar la contraseña.
 
 Campo `text` con normalización: NFC, recorte de espacios, colapso de espacios internos en nombres. Se rechazan caracteres de control (salvo `\n` en textos largos), caracteres bidi (U+202A a U+202E, U+2066 a U+2069) y de ancho cero (U+200B a U+200F, U+FEFF).
 
@@ -204,7 +205,7 @@ Los permisos de la tabla siguiente son los que se usan en las secciones de recur
 
 | Permiso (propuesta) | BOARD_ADMIN | BOARD_MEMBER | OPERATOR | PROJECT_TEAM | SUPPORT_ENTITY | Público |
 |---|---|---|---|---|---|---|
-| `USER_MANAGE`, `MEMBERSHIP_MANAGE` | Sí | No | No | No | No | No |
+| `USER_MANAGE` (usuarios y membresías) | Sí | No | No | No | No | No |
 | `RULESET_PROPOSE` (crear borrador) | Sí | Sí | No | No | No | No |
 | `RULESET_EDIT` | Sí | Sí | No | No | No | No |
 | `RULESET_ACTIVATE` | Sí | No | No | No | No | No |
@@ -234,10 +235,11 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 |---|---|---|---|
 | `username` | texto | Sí | 3 a 32, `^[a-z0-9][a-z0-9._-]{1,30}[a-z0-9]$`, se normaliza a minúsculas (`FieldLimits.USERNAME`) |
 | `password` | texto | Sí | 12 a 128, NFKC (`FieldLimits.PASSWORD`) |
+| `mfa_code` | texto | Si la cuenta tiene MFA activo | 6 dígitos (`FieldLimits.TOTP_CODE_PATTERN`) o un código de respaldo |
 
 - **Respuesta 200:** `access_token` (texto), `token_type` (`Bearer`), `expires_in` (900), `user` (`id`, `username`, `full_name`, `role`, `aqueduct_id`, `must_change_password`). Cookie `Set-Cookie` con el refresh token.
-- **Errores:** `401 INVALID_CREDENTIALS` (siempre con el mismo mensaje, aunque la cuenta esté bloqueada o desactivada), `429 RATE_LIMITED`.
-- **Notas:** bloqueo por cuenta (5 fallos consecutivos en 15 minutos → 15 minutos, escalonado (x2) hasta 24 horas), bloqueo por IP (20 intentos en 15 minutos) y tiempo constante con hash señuelo. El flujo de MFA por definir (ver 2.8).
+- **Errores:** `401 INVALID_CREDENTIALS` (siempre con el mismo mensaje, aunque la cuenta esté bloqueada o desactivada, y también con un `mfa_code` incorrecto o ya usado), `401 MFA_REQUIRED` (la contraseña es correcta y la cuenta tiene MFA activo, pero falta `mfa_code`), `429 RATE_LIMITED`.
+- **Notas:** bloqueo por cuenta (5 fallos consecutivos en 15 minutos → 15 minutos, escalonado (x2) hasta 24 horas), bloqueo por IP (20 intentos en 15 minutos) y tiempo constante con hash señuelo. `MFA_REQUIRED` solo se responde después de verificar la contraseña: con una contraseña incorrecta la respuesta es siempre `INVALID_CREDENTIALS`. Un `mfa_code` incorrecto queda como `MFA_FAILED` en `iam.login_attempts` y en `iam.security_events`, y cuenta para el bloqueo.
 - **Ejemplo:**
 
 ```json
@@ -260,7 +262,7 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 
 - **Permiso:** autenticado.
 - **Respuesta 204.** Revoca todos los refresh tokens del usuario (`LOGOUT_ALL`).
-- **Por definir:** si además incrementa `token_version` para invalidar los access tokens vigentes (propuesta: sí).
+- **Efecto:** además incrementa `token_version`, así que los access tokens ya emitidos (también el de esta petición) responden `401 UNAUTHORIZED` en su siguiente uso (HU-05). Borra la cookie `caudal_rt`.
 
 ### 2.5 `POST /api/v1/auth/change-password`
 
@@ -273,7 +275,8 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 | `new_password` | texto | Sí | 12 a 128, NFKC, sin lista de comunes, sin el usuario, no repetida de las últimas 5 |
 
 - **Respuesta 204.** Incrementa `token_version`, revoca los refresh tokens (`PASSWORD_CHANGED`) y pone `must_change_password = false`.
-- **Errores:** `401 UNAUTHORIZED` (contraseña actual incorrecta), `422 PASSWORD_POLICY_VIOLATION`.
+- **Errores:** `401 UNAUTHORIZED` (contraseña actual incorrecta), `422 PASSWORD_POLICY_VIOLATION` (`details.rule`: `TOO_SHORT`, `TOO_LONG`, `COMMON`, `CONTAINS_USERNAME` o `RECENTLY_USED`; una contraseña corta responde 422 y no 400, porque la regla vive en la política).
+- **Historial:** se comparan la contraseña vigente y las anteriores de `iam.password_history`, hasta `PASSWORD_HISTORY_SIZE` en total.
 - **Ejemplo:**
 
 ```json
@@ -283,8 +286,8 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 ### 2.6 `POST /api/v1/auth/reset-password`
 
 - **Permiso:** público (con código de un solo uso emitido por la Junta).
-- **Cuerpo:** `username` (texto, mismo límite que login), `code` (texto, longitud por definir), `new_password` (mismo límite que 2.5).
-- **Respuesta 204.** Marca el código como usado y revoca las sesiones.
+- **Cuerpo:** `username` (texto, mismo tope de entrada que login), `code` (texto de 1 a 32 caracteres; el código real tiene 12 caracteres Crockford base32, se muestra como `ABCD-EFGH-JKMN` y se acepta en minúsculas, con espacios o guiones), `new_password` (mismo límite que 2.5).
+- **Respuesta 204.** Marca el código como usado, incrementa `token_version` y revoca las sesiones (`PASSWORD_CHANGED`). No cambia `must_change_password`: una cuenta nueva sigue obligada a cambiar su contraseña tras el primer ingreso (HU-02). Si la contraseña no cumple la política responde 422 y el código no se gasta.
 - **Errores:** `401 UNAUTHORIZED` (código inválido, vencido o usado; mensaje genérico), `422 PASSWORD_POLICY_VIOLATION`, `429 RATE_LIMITED`.
 
 ### 2.7 `GET /api/v1/auth/me`
@@ -304,10 +307,13 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 }
 ```
 
-### 2.8 `POST /api/v1/auth/mfa/*`
+### 2.8 `POST /api/v1/auth/mfa/enroll` y `POST /api/v1/auth/mfa/confirm`
 
-- **Permiso:** autenticado (roles `BOARD_ADMIN` y `PROJECT_TEAM`).
-- **Rutas:** por definir. Los hechos solo nombran el prefijo. Se espera enrolamiento TOTP (secreto cifrado con AES-256-GCM, códigos de respaldo hasheados y anti-repetición del paso), confirmación y verificación en login.
+- **Permiso:** autenticado, solo roles de `MFA_ALLOWED_ROLES` (por defecto `BOARD_ADMIN` y `PROJECT_TEAM`). Otro rol responde `403 FORBIDDEN`.
+- **TOTP:** RFC 6238 con HMAC-SHA1, 6 dígitos y pasos de 30 segundos; se acepta un paso de desfase hacia cada lado. Un código no sirve dos veces (`last_used_step`).
+- **`POST /auth/mfa/enroll`:** sin cuerpo. Genera un secreto de 20 bytes, lo guarda cifrado con AES-256-GCM (clave `MFA_ENCRYPTION_KEY`, id `MFA_KEY_ID`, ligado a la cuenta) y responde `201` con `secret` (Base32) y `otpauth_uri` (para el QR), una sola vez. Repetirla reemplaza un factor pendiente. `409 CONFLICT` con `details.reason = MFA_ALREADY_ACTIVE` si ya está activo.
+- **`POST /auth/mfa/confirm`:** cuerpo `code` (6 dígitos). Activa el factor pendiente y responde `200` con `recovery_codes`: 10 códigos de respaldo de un solo uso (`ABCD-EFGH-JKMN`), que se muestran una sola vez; solo se guarda su SHA-256 en `iam.mfa_recovery_codes`. Errores: `400 VALIDATION_ERROR` (código incorrecto), `404 NOT_FOUND` (no hay enrolamiento pendiente), `409 CONFLICT` (ya activo).
+- **Login:** con MFA activo, `POST /auth/login` pide `mfa_code` (sección 2.1): un código TOTP o uno de respaldo, que queda usado (`used_at`).
 
 ### 2.9 `POST /api/v1/auth/switch-aqueduct`
 
@@ -323,7 +329,9 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 
 - **Permiso:** `USER_MANAGE`.
 - **Parámetros:** `status` (`ACTIVE`, `LOCKED`, `DISABLED`), `limit`, `cursor`.
-- **Respuesta:** lista de `id`, `username`, `full_name` (confidencial, solo para `BOARD_ADMIN`), `status`, `must_change_password`, `last_login_at`.
+- **Alcance:** cuentas con alguna membresía, vigente o pasada, en el acueducto de la sesión, ordenadas por `username`.
+- **Respuesta:** `items` con `id`, `username`, `full_name` (confidencial, solo para `BOARD_ADMIN`), `status`, `locked_until`, `must_change_password`, `last_login_at`, y `next_cursor`.
+- **Errores:** `400 VALIDATION_ERROR`, `400 CURSOR_INVALID` (cursor alterado o de otra colección).
 - **Ejemplo:** `GET /api/v1/users?status=ACTIVE&limit=20`
 
 ### 3.2 `POST /api/v1/users`
@@ -351,8 +359,9 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 - **Permiso:** `USER_MANAGE`.
 - **Cuerpo (todos opcionales):** `full_name` (2 a 80), `status` (`ACTIVE`, `LOCKED`, `DISABLED`).
 - **Respuesta 200:** usuario actualizado.
-- **Efecto:** desactivar o bloquear revoca sus refresh tokens e incrementa `token_version`.
-- **Errores:** `404 NOT_FOUND`, `409 INVALID_STATE_TRANSITION` (estado no permitido).
+- **Efecto:** desactivar o bloquear revoca sus refresh tokens e incrementa `token_version`. `LOCKED` puesto por un administrador no tiene fin (`locked_until` nulo) y dura hasta que alguien envíe `ACTIVE`, que además borra los intentos fallidos y el nivel de bloqueo. `DISABLED` es definitivo y guarda `disabled_at`.
+- **Respuesta 200:** `id`, `username`, `full_name`, `status`, `locked_until`, `must_change_password`, `last_login_at`.
+- **Errores:** `404 NOT_FOUND` (la cuenta no existe o no tiene membresía en el acueducto de la sesión), `409 INVALID_STATE_TRANSITION` (una cuenta `DISABLED` no cambia de estado), `409 CONFLICT` con `details.reason = SELF_LOCKOUT` (un administrador no bloquea ni desactiva su propia cuenta).
 - **Ejemplo:** `{ "status": "DISABLED" }`
 
 ### 3.4 `POST /api/v1/users/{id}/reset-grants`
@@ -365,22 +374,23 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 
 ### 3.5 `GET /api/v1/memberships`
 
-- **Permiso:** `MEMBERSHIP_MANAGE`.
-- **Parámetros:** `user_id`, `aqueduct_id`, `limit`, `cursor`.
-- **Respuesta:** lista de `id`, `user_id`, `aqueduct_id`, `role_code`, `valid_from`, `valid_to`, `granted_by`.
+- **Permiso:** `USER_MANAGE`.
+- **Parámetros:** `user_id`, `aqueduct_id` (solo el de la sesión; otro responde `403`), `limit`, `cursor`.
+- **Respuesta:** `items`, en orden de creación, con `id`, `user_id`, `aqueduct_id`, `role_code`, `valid_from`, `valid_to`, `granted_by`.
 
 ### 3.6 `POST /api/v1/memberships`
 
-- **Permiso:** `MEMBERSHIP_MANAGE`.
+- **Permiso:** `USER_MANAGE`.
 - **Cuerpo:** `user_id` (UUID, obligatorio), `aqueduct_id` (UUID, obligatorio), `role_code` (enum de la sección 3.2, obligatorio), `valid_from` (fecha y hora, opcional, por defecto ahora), `valid_to` (opcional, debe ser mayor que `valid_from`).
-- **Respuesta 201:** la membresía.
-- **Errores:** `400 VALIDATION_ERROR` (`valid_to` no mayor que `valid_from`), `409 CONFLICT` (por definir: membresía vigente del mismo rol).
+- **Respuesta 201:** la membresía (`id`, `user_id`, `aqueduct_id`, `role_code`, `valid_from`, `valid_to`, `granted_by`).
+- **Errores:** `400 VALIDATION_ERROR` (`valid_to` no mayor que `valid_from` o rol desconocido), `403 FORBIDDEN` (`aqueduct_id` distinto del de la sesión), `404 NOT_FOUND` (la cuenta no existe), `409 CONFLICT` con `details.reason = MEMBERSHIP_OVERLAP`: una cuenta tiene un solo rol a la vez en un acueducto, así que la vigencia no puede cruzarse con otra membresía del mismo acueducto.
 
 ### 3.7 `DELETE /api/v1/memberships/{id}`
 
-- **Permiso:** `MEMBERSHIP_MANAGE`.
+- **Permiso:** `USER_MANAGE`.
 - **Respuesta 204.** No borra la fila: hace `UPDATE` de `valid_to = ahora`. Las membresías no se eliminan porque la auditoría las referencia.
-- **Efecto:** incrementa `token_version` del usuario.
+- **Efecto:** incrementa `token_version` del usuario. Si la membresía aún no empezó, `valid_to` queda un microsegundo después de `valid_from`. Terminar una membresía ya terminada responde 204 sin cambios.
+- **Errores:** `404 NOT_FOUND` (no existe o es de otro acueducto), `409 CONFLICT` con `details.reason = SELF_LOCKOUT` (un administrador no termina su propia membresía vigente).
 
 ## 4. Meta, catálogos y aviso de privacidad
 
@@ -590,9 +600,11 @@ Una lectura es una observación del nivel de la regla pintada. Su estatus epist�
 
 ### 7.3 `GET /api/v1/readings`
 
-- **Permiso:** `READING_CREATE` o `READING_CORRECT` (verificar).
-- **Parámetros:** `tank_id` (obligatorio), `from`, `to` (fechas ISO), `validation_status`, `limit`, `cursor`.
-- **Respuesta:** lista de lecturas con su valor efectivo (`effective_gauge_value`) y `correction_count`.
+- **Permiso:** `READING_VIEW` (lo tienen `BOARD_ADMIN`, `BOARD_MEMBER`, `OPERATOR` y `PROJECT_TEAM`).
+- **Parámetros:** `tank_id` (obligatorio), `from` y `to` (ISO-8601 con zona, inclusivos; `from` no puede ser posterior a `to`), `validation_status` (`ACCEPTED` o `FLAGGED`), `limit` y `cursor` (sección 1.5).
+- **Orden:** de la más reciente a la más antigua por `observed_at` y, a igual momento, por `id`. El cursor guarda esa posición firmada con HMAC.
+- **Respuesta 200:** `items` (lecturas con su valor efectivo `effective_gauge_value` y `correction_count`) y `next_cursor`.
+- **Errores:** `400 CURSOR_INVALID`, `400 VALIDATION_ERROR` (`limit` fuera de 1 a 100, rango invertido o estado desconocido), `404 NOT_FOUND` (tanque inexistente o de otro acueducto), `403 FORBIDDEN`.
 
 ### 7.4 `GET /api/v1/readings/{id}`
 
@@ -1083,8 +1095,8 @@ Respuesta 201 común: `import_batch_id`, `rows_received`, `rows_accepted`, `rows
 | Usuarios | GET, POST | `/users` | `USER_MANAGE` |
 | Usuarios | PATCH | `/users/{id}` | `USER_MANAGE` |
 | Usuarios | POST | `/users/{id}/reset-grants` | `USER_MANAGE` |
-| Membresías | GET, POST | `/memberships` | `MEMBERSHIP_MANAGE` |
-| Membresías | DELETE | `/memberships/{id}` | `MEMBERSHIP_MANAGE` |
+| Membresías | GET, POST | `/memberships` | `USER_MANAGE` |
+| Membresías | DELETE | `/memberships/{id}` | `USER_MANAGE` |
 | Meta | GET | `/meta/constraints` | Público |
 | Catálogos | GET | `/catalogs/{catalog}` | Público (solo etiquetas) |
 | Catálogos | POST, PATCH | `/catalogs/{catalog}/items` | `PROJECT_TEAM` |

@@ -1,17 +1,24 @@
 package co.caudal.application.auth;
 
 import co.caudal.application.auth.LoginAttempt.FailureReason;
+import co.caudal.application.mfa.MfaFactor;
+import co.caudal.application.mfa.MfaVerifier;
 import co.caudal.application.port.out.AccessTokenIssuerPort;
 import co.caudal.application.port.out.LoginAccountPort;
 import co.caudal.application.port.out.LoginAttemptPort;
 import co.caudal.application.port.out.MembershipPort;
+import co.caudal.application.port.out.MfaFactorPort;
 import co.caudal.application.port.out.PasswordHasherPort;
 import co.caudal.application.port.out.PrivacyHasherPort;
+import co.caudal.application.port.out.RateLimiterPort;
 import co.caudal.application.port.out.SecurityEventPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
+import co.caudal.application.ratelimit.RateLimitDecision;
 import co.caudal.domain.security.SecurityEvent;
 import co.caudal.domain.security.SecurityEventType;
 import co.caudal.domain.security.Severity;
+import co.caudal.domain.user.AccountState;
+import co.caudal.domain.user.DisabledAccountState;
 import co.caudal.domain.user.InvalidCredentialsException;
 import co.caudal.domain.user.LockoutPolicy;
 import co.caudal.domain.user.LockoutPolicy.LockoutDecision;
@@ -36,12 +43,14 @@ import java.util.UUID;
  * every path that reaches the password step spends one Argon2id verification (a decoy hash when
  * there is no usable account), so neither the message nor the time reveals which one it was.
  * Failures are recorded and committed before the error is raised. The only different answer is
- * {@code RATE_LIMITED} when one IP has too many failed attempts, which is decided before the
- * password is looked at.
+ * {@code RATE_LIMITED}, decided before the password is looked at: when one IP goes over the rate of
+ * logins (a Bucket4j bucket shared by every instance, with {@code Retry-After}) or has too many
+ * failed attempts in the window.
  */
 public class LoginUseCase {
 
   private static final String UNKNOWN_IP = "unknown";
+  private static final String RATE_KEY_PREFIX = "login-ip:";
 
   private final LoginAccountPort accounts;
   private final LoginAttemptPort attempts;
@@ -51,6 +60,9 @@ public class LoginUseCase {
   private final AccessTokenIssuerPort accessTokens;
   private final RefreshTokenService refreshTokens;
   private final SecurityEventPort events;
+  private final MfaFactorPort mfaFactors;
+  private final MfaVerifier mfa;
+  private final RateLimiterPort rateLimiter;
   private final UnitOfWorkPort unitOfWork;
   private final LockoutPolicy lockout;
   private final LoginSettings settings;
@@ -74,6 +86,9 @@ public class LoginUseCase {
     this.accessTokens = ports.accessTokens();
     this.refreshTokens = ports.refreshTokens();
     this.events = ports.events();
+    this.mfaFactors = ports.mfaFactors();
+    this.mfa = ports.mfa();
+    this.rateLimiter = ports.rateLimiter();
     this.unitOfWork = ports.unitOfWork();
     this.lockout = lockout;
     this.settings = settings;
@@ -94,8 +109,20 @@ public class LoginUseCase {
     NormalizedPassword password = NormalizedPassword.of(input.password());
     Optional<Username> username = Username.tryParse(input.username());
     String usernameHmac = hasher.hmac(boundedUsername(input.username()));
+    RateLimitDecision rate = rateLimiter.tryConsume(RATE_KEY_PREFIX + ipHmac, settings.ipRate());
+    if (!rate.allowed()) {
+      unitOfWork.execute(
+          () -> {
+            rejectRateLimited(usernameHmac, ipHmac, "login_rate");
+            return null;
+          });
+      throw new DomainException(
+          ErrorCode.RATE_LIMITED, Map.of("retry_after_seconds", rate.retryAfterSeconds()));
+    }
 
-    Step step = unitOfWork.execute(() -> authenticate(username, password, usernameHmac, ipHmac));
+    Step step =
+        unitOfWork.execute(
+            () -> authenticate(username, password, input.mfaCode(), usernameHmac, ipHmac));
     if (step.failure() != null) {
       throw step.failure();
     }
@@ -113,21 +140,13 @@ public class LoginUseCase {
   private Step authenticate(
       Optional<Username> username,
       NormalizedPassword password,
+      String mfaCode,
       String usernameHmac,
       String ipHmac) {
     Instant now = clock.instant();
     if (attempts.countFailuresByIp(ipHmac, now.minus(settings.ipWindow()))
         >= settings.ipMaxAttempts()) {
-      attempts.record(
-          new LoginAttempt(null, usernameHmac, ipHmac, false, FailureReason.RATE_LIMITED));
-      events.record(
-          new SecurityEvent(
-              SecurityEventType.RATE_LIMITED,
-              Severity.LOW,
-              null,
-              null,
-              ipHmac,
-              Map.of("scope", "login_ip")));
+      rejectRateLimited(usernameHmac, ipHmac, "login_ip");
       return Step.fail(new DomainException(ErrorCode.RATE_LIMITED));
     }
     Optional<LoginAccount> found = username.flatMap(name -> accounts.findByUsername(name.value()));
@@ -136,18 +155,47 @@ public class LoginUseCase {
           password, usernameHmac, ipHmac, FailureReason.INVALID_CREDENTIALS, null);
     }
     LoginAccount account = found.get();
-    if (LoginAccount.DISABLED.equals(account.status())) {
-      return rejectWithoutAccount(
-          password, usernameHmac, ipHmac, FailureReason.DISABLED, account.id());
-    }
-    if (isLocked(account, now)) {
-      return rejectWithoutAccount(
-          password, usernameHmac, ipHmac, FailureReason.LOCKED, account.id());
+    AccountState state = AccountState.of(account.status(), account.lockedUntil());
+    if (!state.allowsLogin(now)) {
+      FailureReason reason =
+          state instanceof DisabledAccountState ? FailureReason.DISABLED : FailureReason.LOCKED;
+      return rejectWithoutAccount(password, usernameHmac, ipHmac, reason, account.id());
     }
     if (!passwords.matches(password, account.passwordHash())) {
-      return registerFailure(account, usernameHmac, ipHmac, now);
+      return registerFailure(account, usernameHmac, ipHmac, now, FailureReason.INVALID_CREDENTIALS);
+    }
+    Optional<MfaFactor> factor = mfaFactors.find(account.id()).filter(MfaFactor::confirmed);
+    if (factor.isPresent()) {
+      // Only a person who already proved the password learns that a code is missing.
+      if (mfaCode == null) {
+        return Step.fail(new DomainException(ErrorCode.MFA_REQUIRED));
+      }
+      if (!mfa.verifyLogin(factor.get(), mfaCode, now)) {
+        events.record(
+            new SecurityEvent(
+                SecurityEventType.MFA_FAILED,
+                Severity.MEDIUM,
+                account.id(),
+                null,
+                ipHmac,
+                Map.of()));
+        return registerFailure(account, usernameHmac, ipHmac, now, FailureReason.MFA_FAILED);
+      }
     }
     return Step.authenticated(account);
+  }
+
+  private void rejectRateLimited(String usernameHmac, String ipHmac, String scope) {
+    attempts.record(
+        new LoginAttempt(null, usernameHmac, ipHmac, false, FailureReason.RATE_LIMITED));
+    events.record(
+        new SecurityEvent(
+            SecurityEventType.RATE_LIMITED,
+            Severity.LOW,
+            null,
+            null,
+            ipHmac,
+            Map.of("scope", scope)));
   }
 
   private Step rejectWithoutAccount(
@@ -162,10 +210,8 @@ public class LoginUseCase {
   }
 
   private Step registerFailure(
-      LoginAccount account, String usernameHmac, String ipHmac, Instant now) {
-    attempts.record(
-        new LoginAttempt(
-            account.id(), usernameHmac, ipHmac, false, FailureReason.INVALID_CREDENTIALS));
+      LoginAccount account, String usernameHmac, String ipHmac, Instant now, FailureReason reason) {
+    attempts.record(new LoginAttempt(account.id(), usernameHmac, ipHmac, false, reason));
     int failures = attempts.countConsecutiveFailures(account.id(), now.minus(settings.window()));
     LockoutDecision decision = lockout.evaluate(failures, account.lockoutLevel(), now);
     accounts.saveFailure(
@@ -220,12 +266,6 @@ public class LoginUseCase {
                 membership.role(),
                 membership.aqueductId(),
                 account.mustChangePassword())));
-  }
-
-  private static boolean isLocked(LoginAccount account, Instant now) {
-    return LoginAccount.LOCKED.equals(account.status())
-        && account.lockedUntil() != null
-        && account.lockedUntil().isAfter(now);
   }
 
   private static String boundedUsername(String typed) {

@@ -46,4 +46,14 @@ public interface RefreshTokenPort {
    * @return how many tokens were revoked
    */
   int revokeFamily(UUID familyId, RevocationReason reason, Instant now);
+
+  /**
+   * Revokes every token of an account that is still usable, in all its families.
+   *
+   * @param userId the account
+   * @param reason why they are revoked
+   * @param now moment of the revocation
+   * @return how many tokens were revoked
+   */
+  int revokeAllOfUser(UUID userId, RevocationReason reason, Instant now);
 }

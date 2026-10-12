@@ -176,6 +176,15 @@ public final class FieldLimits {
   public static final String TRACKING_CODE_PATTERN =
       "^[0-9A-HJKMNP-TV-Z]{" + TRACKING_CODE_LENGTH + "}$";
 
+  /** Number of characters of a one-time reset or activation code. */
+  public static final int RESET_CODE_LENGTH = 12;
+
+  /** Crockford base32 reset code, as stored (upper case, no separators). */
+  public static final String RESET_CODE_PATTERN = "^[0-9A-HJKMNP-TV-Z]{" + RESET_CODE_LENGTH + "}$";
+
+  /** Longest reset code text accepted from a person before normalizing (spaces and hyphens). */
+  public static final int RESET_CODE_INPUT_MAX = 32;
+
   // Requests.
 
   /** Maximum number of elements in any list, unless a field says otherwise. */
@@ -225,11 +234,41 @@ public final class FieldLimits {
   /** Maximum decimals of a gauge value or correction. */
   public static final int GAUGE_DECIMALS_MAX = 2;
 
+  /** Maximum integer digits of a gauge bound ({@code numeric(6,2)}). */
+  public static final int GAUGE_INTEGER_DIGITS_MAX = 4;
+
+  /** Maximum integer digits of the gauge step ({@code numeric(4,2)}). */
+  public static final int GAUGE_STEP_INTEGER_DIGITS_MAX = 2;
+
   /** Minimum forecast horizon accepted by the API, in days. */
   public static final int FORECAST_HORIZON_DAYS_MIN = 1;
 
   /** Maximum forecast horizon accepted by the API, in days. */
   public static final int FORECAST_HORIZON_DAYS_MAX = 3;
+
+  /** Status of an account an administrator may ask for (docs/API.md, section 3.3). */
+  public static final String ACCOUNT_STATUS_PATTERN = "^(ACTIVE|LOCKED|DISABLED)$";
+
+  /** Digits of a TOTP code (RFC 6238; docs/Seguridad.md, section 2.4). */
+  public static final int TOTP_DIGITS = 6;
+
+  /** Length of a TOTP step, in seconds (RFC 6238). */
+  public static final int TOTP_STEP_SECONDS = 30;
+
+  /** Steps before and after the current one that a TOTP code may come from (clock drift). */
+  public static final int TOTP_ALLOWED_DRIFT_STEPS = 1;
+
+  /** Bytes of a new TOTP secret (160 bits, the size of the HMAC-SHA1 output). */
+  public static final int TOTP_SECRET_BYTES = 20;
+
+  /** Pattern of a TOTP code typed by a person. */
+  public static final String TOTP_CODE_PATTERN = "^[0-9]{6}$";
+
+  /** Recovery codes issued when MFA is confirmed. */
+  public static final int MFA_RECOVERY_CODES = 10;
+
+  /** Bytes of the AES-256-GCM key that encrypts TOTP secrets. */
+  public static final int MFA_ENCRYPTION_KEY_BYTES = 32;
 
   private FieldLimits() {}
 }

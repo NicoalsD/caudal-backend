@@ -48,6 +48,10 @@ springdoc:
   default-produces-media-type: application/json
 
 caudal:
+  # Demo accounts: created at startup only if SEED_DEMO_DATA=true and DEMO_USER_PASSWORD is set.
+  demo:
+    enabled: ${SEED_DEMO_DATA:false}
+    user-password: ${DEMO_USER_PASSWORD:}
   api-docs:
     server-url: ${API_PUBLIC_URL:http://localhost:8080}
   security:
@@ -79,9 +83,21 @@ caudal:
       lock-minutes: ${LOGIN_LOCK_MINUTES:15}
       ip-max-attempts: ${LOGIN_IP_MAX_ATTEMPTS:20}
       ip-window-minutes: ${LOGIN_IP_WINDOW_MINUTES:15}
+    # Rate limits shared through PostgreSQL with Bucket4j (docs/Seguridad.md, section 2.10).
+    rate-limit:
+      login-per-minute: ${RATE_LIMIT_LOGIN_PER_MINUTE:5}
+    # Lifetime of the one-time activation and reset codes, in minutes (24 hours by default).
+    reset-grant:
+      ttl-minutes: ${RESET_GRANT_TTL_MINUTES:1440}
     # Key that hides IP addresses and typed usernames in the database. No default value.
     privacy:
       ip-hmac-key: ${IP_HMAC_KEY}
+    # AES-256-GCM key of the TOTP secrets (docs/Seguridad.md, section 2.4). No default value.
+    mfa:
+      encryption-key: ${MFA_ENCRYPTION_KEY}
+      key-id: ${MFA_KEY_ID}
+      issuer: ${MFA_ISSUER:CAUDAL}
+      allowed-roles: ${MFA_ALLOWED_ROLES:BOARD_ADMIN,PROJECT_TEAM}
     # Argon2id (docs/Seguridad.md, section 2.1). The defaults are the canonical values.
     argon2:
       memory-kib: ${ARGON2_MEMORY_KIB:19456}

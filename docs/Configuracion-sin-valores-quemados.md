@@ -113,6 +113,7 @@ Los nombres son los de `caudal-backend/.env.example`, que es la fuente de las va
 | `ARGON2_ITERATIONS` | Iteraciones de Argon2id | `2` | No |
 | `ARGON2_PARALLELISM` | Paralelismo de Argon2id | `1` | No |
 | `PASSWORD_HISTORY_SIZE` | Contraseñas anteriores que no se pueden reutilizar | `5` | No |
+| `RESET_GRANT_TTL_MINUTES` | Minutos que sirve un código de activación o de restablecimiento de contraseña | `1440` | No |
 | `LOGIN_MAX_FAILURES` | Fallos seguidos antes de bloquear la cuenta | `5` | No |
 | `LOGIN_LOCK_MINUTES` | Ventana de fallos y tiempo de bloqueo inicial, en minutos | `15` | No |
 | `LOGIN_IP_MAX_ATTEMPTS` | Intentos por IP en la ventana | `20` | No |
@@ -139,7 +140,8 @@ Los nombres son los de `caudal-backend/.env.example`, que es la fuente de las va
 | `API_DOCS_ENABLED` | Activa Swagger y `/v3/api-docs` | `true` (apagar con `false`) | No |
 | `API_PUBLIC_URL` | URL pública de la API que muestra Swagger como servidor | `http://localhost:8080` | No |
 | `LOG_LEVEL` | Nivel de log | `INFO` | No |
-| `SEED_DEMO_DATA` | Carga el acueducto demo con datos simulados | `true` | No |
+| `SEED_DEMO_DATA` | Crea al arrancar las cuentas de la demo en `vereda-demo` (el acueducto lo siembra V47) | `false` | No |
+| `DEMO_USER_PASSWORD` | Contraseña de las cuentas de la demo (mínimo 12 caracteres); sin ella no se crean cuentas | sin valor | Sí, si `SEED_DEMO_DATA=true` |
 | `PORT` | Puerto HTTP (lo inyecta Render) | `8080` | No |
 
 

@@ -134,6 +134,19 @@ class AuthControllerLoginWebTest {
   }
 
   @Test
+  void rateLimitedAnswers429WithRetryAfter() throws Exception {
+    when(login.execute(any()))
+        .thenThrow(
+            new DomainException(
+                ErrorCode.RATE_LIMITED, java.util.Map.of("retry_after_seconds", 12L)));
+
+    mvc.perform(post(LOGIN).contentType(MediaType.APPLICATION_JSON).content(BODY))
+        .andExpect(status().isTooManyRequests())
+        .andExpect(jsonPath("$.error.code").value("RATE_LIMITED"))
+        .andExpect(header().string("Retry-After", "12"));
+  }
+
+  @Test
   void missingFieldsAreValidationErrors() throws Exception {
     mvc.perform(post(LOGIN).contentType(MediaType.APPLICATION_JSON).content("{}"))
         .andExpect(status().isBadRequest())
