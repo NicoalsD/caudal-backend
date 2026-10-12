@@ -15,4 +15,21 @@
     <packageUrl regex="true">^pkg:maven/com\.bucket4j/bucket4j.*$</packageUrl>
     <cpe>cpe:/a:postgresql:postgresql</cpe>
   </suppress>
+  <!--
+    Falso positivo: el artefacto org.eclipse.angus:angus-activation (2.0.3) es la
+    implementación de Jakarta Activation, no Angus Mail. Llega solo de forma transitiva
+    (hibernate-core -> jaxb-runtime -> jaxb-core) y el proyecto no depende de angus-mail
+    ni envía correos. El CPE se asigna por el nombre del artefacto, por eso aparece
+    CVE-2025-7962 (inyección SMTP en Angus Mail) que no aplica a este JAR.
+  -->
+  <suppress>
+    <notes><![CDATA[
+      Falso positivo: angus-activation es la implementación de Jakarta Activation, no
+      Angus Mail. Se incluye transitivamente (hibernate-core -> jaxb-runtime -> jaxb-core)
+      y el proyecto no usa angus-mail ni envía correos, por lo que la inyección SMTP
+      de CVE-2025-7962 no le aplica.
+    ]]></notes>
+    <packageUrl regex="true">^pkg:maven/org\.eclipse\.angus/angus\-activation@.*$</packageUrl>
+    <cpe>cpe:/a:eclipse:angus_mail</cpe>
+  </suppress>
 </suppressions>
