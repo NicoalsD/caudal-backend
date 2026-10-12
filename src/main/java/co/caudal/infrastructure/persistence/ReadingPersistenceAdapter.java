@@ -1,10 +1,12 @@
 package co.caudal.infrastructure.persistence;
 
 import co.caudal.application.port.out.ReadingPort;
+import co.caudal.application.reading.CorrectionView;
 import co.caudal.application.reading.IssueView;
 import co.caudal.application.reading.LevelPoint;
 import co.caudal.application.reading.ListedReading;
 import co.caudal.application.reading.ReadingFilter;
+import co.caudal.application.reading.ReadingOrigin;
 import co.caudal.application.reading.ReadingView;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
@@ -91,13 +93,14 @@ public class ReadingPersistenceAdapter implements ReadingPort {
   }
 
   @Override
-  public boolean insert(UUID aqueductId, ReadingView r, UUID recordedBy) {
+  public boolean insert(UUID aqueductId, ReadingView r, UUID recordedBy, ReadingOrigin origin) {
     return jdbc.sql(
                 "INSERT INTO ops.readings (id, aqueduct_id, tank_id, gauge_value,"
                     + " water_appearance_code, damage_noticed, note, observed_at, received_at,"
-                    + " source, recorded_by, rule_set_id, validation_status) VALUES (:id,"
-                    + " :aqueduct, :tank, :value, :appearance, :damage, :note, :observed,"
-                    + " :received, :source, :user, :ruleSet, :status)"
+                    + " source, recorded_by, rule_set_id, validation_status, sync_batch_id,"
+                    + " import_batch_id) VALUES (:id, :aqueduct, :tank, :value, :appearance,"
+                    + " :damage, :note, :observed, :received, :source, :user, :ruleSet, :status,"
+                    + " :batch, :import)"
                     + " ON CONFLICT (id) DO NOTHING")
             .param("id", r.id())
             .param("aqueduct", aqueductId)
@@ -112,6 +115,8 @@ public class ReadingPersistenceAdapter implements ReadingPort {
             .param("user", recordedBy)
             .param("ruleSet", r.ruleSetId())
             .param("status", r.validationStatus())
+            .param("batch", origin.syncBatchId(), java.sql.Types.OTHER)
+            .param("import", origin.importBatchId(), java.sql.Types.OTHER)
             .update()
         > 0;
   }
@@ -202,5 +207,63 @@ public class ReadingPersistenceAdapter implements ReadingPort {
         rs.getString("source"),
         rs.getString("validation_status"),
         rs.getObject("rule_set_id", UUID.class));
+  }
+
+  @Override
+  public List<CorrectionView> corrections(UUID readingId) {
+    return jdbc.sql(
+            "SELECT id, reading_id, corrected_gauge_value, reason, corrected_by, created_at"
+                + " FROM ops.reading_corrections WHERE reading_id = :reading"
+                + " ORDER BY created_at, id")
+        .param("reading", readingId)
+        .query(ReadingPersistenceAdapter::correction)
+        .list();
+  }
+
+  @Override
+  public Optional<UUID> recordedBy(UUID readingId) {
+    return jdbc.sql("SELECT recorded_by FROM ops.readings WHERE id = :id")
+        .param("id", readingId)
+        .query((rs, row) -> rs.getObject("recorded_by", UUID.class))
+        .optional();
+  }
+
+  @Override
+  public CorrectionView insertCorrection(
+      UUID aqueductId,
+      UUID readingId,
+      BigDecimal correctedGaugeValue,
+      String reason,
+      UUID correctedBy) {
+    return jdbc.sql(
+            "INSERT INTO ops.reading_corrections (aqueduct_id, reading_id, corrected_gauge_value,"
+                + " reason, corrected_by) VALUES (:aqueduct, :reading, :value, :reason, :by)"
+                + " RETURNING id, reading_id, corrected_gauge_value, reason, corrected_by,"
+                + " created_at")
+        .param("aqueduct", aqueductId)
+        .param("reading", readingId)
+        .param("value", correctedGaugeValue)
+        .param("reason", reason)
+        .param("by", correctedBy)
+        .query(ReadingPersistenceAdapter::correction)
+        .single();
+  }
+
+  @Override
+  public Optional<BigDecimal> effectiveValue(UUID readingId) {
+    return jdbc.sql("SELECT gauge_value FROM ops.effective_readings WHERE id = :id")
+        .param("id", readingId)
+        .query(BigDecimal.class)
+        .optional();
+  }
+
+  private static CorrectionView correction(ResultSet rs, int row) throws SQLException {
+    return new CorrectionView(
+        rs.getObject("id", UUID.class),
+        rs.getObject("reading_id", UUID.class),
+        rs.getBigDecimal("corrected_gauge_value"),
+        rs.getString("reason"),
+        rs.getObject("corrected_by", UUID.class),
+        SqlTime.instant(rs, "created_at"));
   }
 }

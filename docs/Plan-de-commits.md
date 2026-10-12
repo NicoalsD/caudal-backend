@@ -183,21 +183,21 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| B116 | `feat: implementa ReadingValidationHandler para rango` | `nicomora70` | HU-11 | P12 | [ ] |
-| B117 | `feat: valida fecha y antigüedad de lecturas` | `nicomora70` | HU-11 | P12 | [ ] |
-| B118 | `feat: marca duplicados en ReadingValidationHandler` | `nicomora70` | HU-12 | P12 | [ ] |
-| B119 | `feat: marca saltos bruscos en ReadingValidationHandler` | `nicomora70` | HU-12 | P12 | [ ] |
-| B120 | `feat: agrega idempotencia por UUID en POST /readings` | `nicomora70` | HU-09 | P13 | [ ] |
+| B116 | `feat: implementa ReadingValidationHandler para rango` | `nicomora70` | HU-11 | P12 | [x] |
+| B117 | `feat: valida fecha y antigüedad de lecturas` | `nicomora70` | HU-11 | P12 | [x] |
+| B118 | `feat: marca duplicados en ReadingValidationHandler` | `nicomora70` | HU-12 | P12 | [x] |
+| B119 | `feat: marca saltos bruscos en ReadingValidationHandler` | `nicomora70` | HU-12 | P12 | [x] |
+| B120 | `feat: agrega idempotencia por UUID en POST /readings` | `nicomora70` | HU-09 | P13 | [x] |
 | B121 | `feat: implementa POST /api/v1/readings` | `nicomora70` | HU-09, HU-11 | P12 | [x] |
-| B122 | `feat: procesa POST /api/v1/readings/batch por elemento` | `nicomora70` | HU-10 | P13 | [ ] |
+| B122 | `feat: procesa POST /api/v1/readings/batch por elemento` | `nicomora70` | HU-10 | P13 | [x] |
 | B123 | `feat: publica GET /api/v1/readings con cursor firmado` | `nicomora70` | HU-09 | - | [x] |
-| B124 | `feat: publica GET /api/v1/readings/{id}` | `nicomora70` | HU-09 | - | [ ] |
-| B125 | `feat: agrega POST /api/v1/readings/{id}/corrections` | `nicomora70` | HU-13 | P13 | [ ] |
-| B126 | `feat: calcula effective_readings sin alterar el original` | `nicomora70` | HU-13 | Repository | [ ] |
-| B127 | `feat: valida idempotencia y orden de ops.sync_batches` | `nicomora70` | HU-10 | P13 | [ ] |
-| B128 | `feat: limita importaciones al acueducto demo` | `nicomora70` | HU-38 | P12 | [ ] |
-| B129 | `feat: implementa POST /api/v1/imports/readings` | `nicomora70` | HU-38 | P12 | [ ] |
-| B130 | `feat: importa ejecuciones de turnos e incidentes simulados` | `nicomora70` | HU-38 | P12 | [ ] |
+| B124 | `feat: publica GET /api/v1/readings/{id}` | `nicomora70` | HU-09 | - | [x] |
+| B125 | `feat: agrega POST /api/v1/readings/{id}/corrections` | `nicomora70` | HU-13 | P13 | [x] |
+| B126 | `feat: calcula effective_readings sin alterar el original` | `nicomora70` | HU-13 | Repository | [x] |
+| B127 | `feat: valida idempotencia y orden de ops.sync_batches` | `nicomora70` | HU-10 | P13 | [x] |
+| B128 | `feat: limita importaciones al acueducto demo` | `nicomora70` | HU-38 | P12 | [x] |
+| B129 | `feat: implementa POST /api/v1/imports/readings` | `nicomora70` | HU-38 | P12 | [x] |
+| B130 | `feat: importa ejecuciones de turnos e incidentes simulados` | `nicomora70` | HU-38 | P12 | [x] |
 
 ### Fase 6: Pronóstico
 

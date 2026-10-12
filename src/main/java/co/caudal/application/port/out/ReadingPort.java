@@ -1,9 +1,11 @@
 package co.caudal.application.port.out;
 
+import co.caudal.application.reading.CorrectionView;
 import co.caudal.application.reading.IssueView;
 import co.caudal.application.reading.LevelPoint;
 import co.caudal.application.reading.ListedReading;
 import co.caudal.application.reading.ReadingFilter;
+import co.caudal.application.reading.ReadingOrigin;
 import co.caudal.application.reading.ReadingView;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -61,9 +63,10 @@ public interface ReadingPort {
    * @param aqueductId the aqueduct
    * @param reading the reading
    * @param recordedBy the account
+   * @param origin the batch or import it came in
    * @return true if stored, false if the id already existed
    */
-  boolean insert(UUID aqueductId, ReadingView reading, UUID recordedBy);
+  boolean insert(UUID aqueductId, ReadingView reading, UUID recordedBy, ReadingOrigin origin);
 
   /**
    * Stores an issue of a reading.
@@ -101,4 +104,46 @@ public interface ReadingPort {
    * @return the reading, or empty
    */
   Optional<LevelPoint> latestEffective(UUID tankId);
+
+  /**
+   * Lists the corrections of a reading, oldest first (the last one gives the effective value).
+   *
+   * @param readingId the reading
+   * @return the corrections
+   */
+  List<CorrectionView> corrections(UUID readingId);
+
+  /**
+   * Who recorded a reading.
+   *
+   * @param readingId the reading
+   * @return the account, or empty for a reading of a sensor or an import
+   */
+  Optional<UUID> recordedBy(UUID readingId);
+
+  /**
+   * Stores a correction; the original reading is never changed.
+   *
+   * @param aqueductId the aqueduct
+   * @param readingId the reading
+   * @param correctedGaugeValue the right value
+   * @param reason why
+   * @param correctedBy who corrects it
+   * @return the correction
+   */
+  CorrectionView insertCorrection(
+      UUID aqueductId,
+      UUID readingId,
+      BigDecimal correctedGaugeValue,
+      String reason,
+      UUID correctedBy);
+
+  /**
+   * The value that counts for a reading: its latest correction, or the original ({@code
+   * ops.effective_readings}).
+   *
+   * @param readingId the reading
+   * @return the value, or empty if the reading is not in the aqueduct
+   */
+  Optional<BigDecimal> effectiveValue(UUID readingId);
 }

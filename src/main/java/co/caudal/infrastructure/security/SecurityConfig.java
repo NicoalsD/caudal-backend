@@ -116,6 +116,7 @@ public class SecurityConfig {
                 handling.authenticationEntryPoint(entryPoint).accessDeniedHandler(deniedHandler))
         .addFilterBefore(
             new AuthorizationHeaderSizeFilter(errors), BearerTokenAuthenticationFilter.class)
+        .addFilterBefore(new RequestBodySizeFilter(errors), AuthorizationHeaderSizeFilter.class)
         .build();
   }
 

@@ -604,8 +604,10 @@ Una lectura es una observación del nivel de la regla pintada. Su estatus epist�
 - **Permiso:** `READING_CREATE`. Es la sincronización de la cola offline.
 - **Cuerpo:** `sync_batch_id` (UUID del cliente, obligatorio) y `readings` (lista de 1 a 100 objetos con los campos de 7.1).
 - **Límite:** cuerpo de 64 KiB.
-- **Respuesta 200:** `sync_batch_id`, `items_received`, `items_accepted`, `items_rejected`, y `results` (por cada `id`: `status` = `ACCEPTED`, `FLAGGED` o `REPLAYED`). Una lectura inválida no se guarda: su elemento trae `error` con `code` (`GAUGE_OUT_OF_RANGE`, `MISSING_TIMESTAMP`, `FUTURE_TIMESTAMP` o `TOO_OLD`) y el resto del lote sigue. La app pide corregir antes de reenviar.
-- **Errores:** `413 PAYLOAD_TOO_LARGE`, `409 CONFLICT` (`sync_batch_id` existente con otro contenido).
+- **Respuesta 200:** `sync_batch_id`, `items_received`, `items_accepted`, `items_rejected`, `idempotent_replay` y `results`, uno por lectura en el orden del envío (`id`, `status` = `ACCEPTED`, `FLAGGED`, `REPLAYED` o `REJECTED`). Una lectura inválida no se guarda: su elemento trae `error` con `code` (`GAUGE_OUT_OF_RANGE`, `MISSING_TIMESTAMP`, `FUTURE_TIMESTAMP`, `TOO_OLD`, `NOT_FOUND`, `DUPLICATE_READING` o `VALIDATION_ERROR`) y `details`, y el resto del lote sigue. La app pide corregir antes de reenviar.
+- **Guardado:** `ops.sync_batches` es de solo inserción: se escribe una vez, con sus conteos, antes que sus lecturas, y cada lectura guardada lleva `sync_batch_id`. Las lecturas se guardan en el orden de `observed_at` (así el salto brusco y el duplicado se comparan en orden de tiempo aunque la cola las envíe desordenadas).
+- **Idempotencia:** reenviar el mismo lote (mismo `sync_batch_id`, mismas lecturas) responde `200` con `idempotent_replay: true`, los conteos guardados y `REPLAYED` o el mismo rechazo por lectura, sin guardar nada.
+- **Errores:** `400 VALIDATION_ERROR` (lista vacía, más de 100 lecturas o ids repetidos dentro del lote), `413 PAYLOAD_TOO_LARGE`, `409 CONFLICT` con `details.reason = SYNC_BATCH_REUSED` (`sync_batch_id` existente con otro contenido).
 - **Nota:** un error de una lectura no cancela el lote. Cada lectura se evalúa por separado.
 
 ### 7.3 `GET /api/v1/readings`
@@ -618,15 +620,16 @@ Una lectura es una observación del nivel de la regla pintada. Su estatus epist�
 
 ### 7.4 `GET /api/v1/readings/{id}`
 
-- **Permiso:** igual que 7.3.
-- **Respuesta:** la lectura, sus `issues`, y el historial de `corrections` (`corrected_gauge_value`, `reason`, `corrected_by`, `created_at`).
+- **Permiso:** `READING_VIEW`.
+- **Respuesta:** `reading` (con `effective_gauge_value`, la última corrección o el valor original, y `correction_count`), sus `issues`, y el historial de `corrections` de la más antigua a la más reciente (`id`, `corrected_gauge_value`, `reason`, `corrected_by`, `created_at`).
+- **Errores:** `404 NOT_FOUND` (no existe o es de otro acueducto).
 
 ### 7.5 `POST /api/v1/readings/{id}/corrections`
 
 - **Permiso:** `READING_CORRECT`. Un `OPERATOR` solo corrige sus propias lecturas.
 - **Cuerpo:** `corrected_gauge_value` (decimal 2, dentro del rango), `reason` (texto, 10 a 500).
-- **Respuesta 201:** la corrección con `id` y el valor efectivo nuevo. El dato original no cambia.
-- **Errores:** `422 GAUGE_OUT_OF_RANGE`, `422 REASON_REQUIRED`, `403 FORBIDDEN` (operador sobre lectura ajena), `404 NOT_FOUND`.
+- **Respuesta 201:** la corrección (`id`, `reading_id`, `corrected_gauge_value`, `reason`, `corrected_by`, `created_at`) y `effective_gauge_value`. El dato original no cambia.
+- **Errores:** `422 GAUGE_OUT_OF_RANGE` (con `gauge_min`, `gauge_max`, `value`), `422 REASON_REQUIRED` (falta o no tiene 10 a 500 caracteres), `403 FORBIDDEN` (un `OPERATOR` sobre una lectura que no registró), `404 NOT_FOUND`.
 - **Ejemplo:** `{ "corrected_gauge_value": 2.00, "reason": "El fontanero leyó mal la regla; se confirmó con la foto." }`
 
 ## 8. Estado del tanque y pronóstico
@@ -1043,19 +1046,22 @@ Campos comunes del cuerpo:
 | `file_sha256` | texto | Sí | 64 caracteres hexadecimales. Repetido: `409 CONFLICT`. |
 | `rows` | lista | Sí | 1 a 5.000 |
 
-Respuesta 201 común: `import_batch_id`, `rows_received`, `rows_accepted`, `rows_rejected` y `rejections` (lista de `row`, `code`).
+Respuesta 201 común: `import_batch_id`, `rows_received`, `rows_accepted`, `rows_rejected` y `rejections` (lista de `row`, la posición en el archivo desde 1, y `code`).
+
+Permiso: `IMPORT_SIMULATED` (`PROJECT_TEAM`). `aqueduct_id` debe ser el acueducto de la sesión y estar marcado `is_demo`; otro responde `403 DEMO_ONLY` (la base de datos lo rechaza también con `sim.guard_demo_only`). La fila de `sim.import_batches` se escribe una vez, con sus conteos, antes que sus datos.
 
 ### 17.1 `POST /api/v1/imports/readings`
 
 - Cada fila tiene los campos de la lectura (7.1) sin `source`, que se fija en `IMPORT`. Las lecturas quedan con `import_batch_id`.
+- Pasan la misma cadena de validación de 7.1 salvo `TOO_OLD`, y se guardan en el orden de `observed_at`. Un `id` repetido dentro del archivo se rechaza con `DUPLICATE_READING`.
 
 ### 17.2 `POST /api/v1/imports/shift-executions`
 
-- Cada fila: `schedule_item_id` (UUID existente), `status`, `actual_start`, `actual_end`, `note`. Quedan con `import_batch_id`.
+- Cada fila: `schedule_item_id` (UUID existente del acueducto), `status` (`COMPLETED`, `PARTIAL` o `NOT_EXECUTED`), `actual_start`, `actual_end` (posterior a `actual_start` si ambos vienen), `note` (hasta 500). Quedan con `import_batch_id`. Un turno que no existe se rechaza con `NOT_FOUND`; un estado o un rango inválido, con `VALIDATION_ERROR`.
 
 ### 17.3 `POST /api/v1/imports/incidents`
 
-- Cada fila: `category_code`, `sector_id`, `description`, `location_hint`, `reported_at`. Se guardan con `source = IMPORT`.
+- Cada fila: `category_code` (activo en `DAMAGE_CATEGORY`), `sector_id` (opcional, del acueducto), `description` (10 a 500), `location_hint` (hasta 120), `reported_at`. Se guardan con `source = IMPORT`, estado `REPORTED` (con su fila en `incident_status_history`) y un código de seguimiento propio del que solo se guarda el hash.
 
 ## 18. Auditoría y seguridad
 

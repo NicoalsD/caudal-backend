@@ -1,12 +1,22 @@
 package co.caudal.api.controller;
 
+import co.caudal.api.dto.request.CorrectReadingRequest;
 import co.caudal.api.dto.request.CreateReadingRequest;
+import co.caudal.api.dto.request.ReadingBatchRequest;
+import co.caudal.api.dto.response.CorrectionResponse;
+import co.caudal.api.dto.response.ReadingBatchResponse;
 import co.caudal.api.dto.response.ReadingCreatedResponse;
+import co.caudal.api.dto.response.ReadingDetailResponse;
 import co.caudal.api.dto.response.ReadingPageResponse;
 import co.caudal.api.mapper.ReadingMapper;
 import co.caudal.api.security.CallerFactory;
 import co.caudal.application.command.CommandBus;
+import co.caudal.application.reading.BatchResult;
+import co.caudal.application.reading.CorrectReadingCommand;
+import co.caudal.application.reading.CorrectionResult;
+import co.caudal.application.reading.CreateReadingBatchCommand;
 import co.caudal.application.reading.CreateReadingCommand;
+import co.caudal.application.reading.GetReadingUseCase;
 import co.caudal.application.reading.ListReadingsUseCase;
 import co.caudal.application.reading.ReadingFilter;
 import co.caudal.application.reading.RecordedReading;
@@ -29,6 +39,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -43,10 +54,73 @@ public class ReadingController {
 
   private final CommandBus commands;
   private final ListReadingsUseCase list;
+  private final GetReadingUseCase get;
 
-  ReadingController(CommandBus commands, ListReadingsUseCase list) {
+  ReadingController(CommandBus commands, ListReadingsUseCase list, GetReadingUseCase get) {
     this.commands = commands;
     this.list = list;
+    this.get = get;
+  }
+
+  @Operation(
+      summary = "Corregir una lectura",
+      description =
+          "Guarda una corrección nueva; el dato original no cambia y la última corrección da el"
+              + " valor efectivo. El valor debe estar en la regla del tanque y el motivo es"
+              + " obligatorio. La Junta corrige cualquier lectura; el fontanero solo las suyas."
+              + " Requiere el permiso READING_CORRECT.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "201", description = "Corrección creada")
+  @ApiResponse(
+      responseCode = "403",
+      description = "FORBIDDEN: el fontanero corrige una lectura ajena")
+  @ApiResponse(responseCode = "404", description = "NOT_FOUND: la lectura no existe")
+  @ApiResponse(
+      responseCode = "422",
+      description = "GAUGE_OUT_OF_RANGE (fuera de la regla) o REASON_REQUIRED (falta el motivo)")
+  @PostMapping("/{id}/corrections")
+  @PreAuthorize("hasAuthority('READING_CORRECT')")
+  public ResponseEntity<CorrectionResponse> correct(
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID id,
+      @Valid @RequestBody CorrectReadingRequest request,
+      HttpServletRequest http) {
+    CorrectionResult result =
+        commands.dispatch(
+            new CorrectReadingCommand(
+                CallerFactory.from(jwt, http),
+                id,
+                request.correctedGaugeValue(),
+                request.reason()));
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .cacheControl(CacheControl.noStore())
+        .body(
+            new CorrectionResponse(
+                result.correction().id(),
+                result.correction().readingId(),
+                result.correction().correctedGaugeValue(),
+                result.correction().reason(),
+                result.correction().correctedBy(),
+                result.correction().createdAt(),
+                result.effectiveGaugeValue()));
+  }
+
+  @Operation(
+      summary = "Ver una lectura",
+      description =
+          "La lectura tal como se observó, su valor efectivo (la última corrección o el"
+              + " original), sus advertencias y el historial de correcciones. Requiere el permiso"
+              + " READING_VIEW.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "200", description = "La lectura")
+  @ApiResponse(responseCode = "404", description = "NOT_FOUND: no existe o es de otro acueducto")
+  @GetMapping("/{id}")
+  @PreAuthorize("hasAuthority('READING_VIEW')")
+  public ResponseEntity<ReadingDetailResponse> get(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id, HttpServletRequest http) {
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.noStore())
+        .body(ReadingMapper.toResponse(get.execute(CallerFactory.from(jwt, http), id)));
   }
 
   @Operation(
@@ -87,6 +161,40 @@ public class ReadingController {
     return ResponseEntity.status(recorded.replay() ? HttpStatus.OK : HttpStatus.CREATED)
         .cacheControl(CacheControl.noStore())
         .body(ReadingMapper.toResponse(recorded));
+  }
+
+  @Operation(
+      summary = "Sincronizar la cola offline",
+      description =
+          "Recibe de 1 a 100 lecturas pendientes de la app. Cada una se valida por separado con"
+              + " las mismas reglas de POST /readings: una rechazada no cancela el lote y su"
+              + " resultado trae el código del error. Se guardan en el orden en que se observaron"
+              + " y los resultados vuelven en el orden del envío. El lote es idempotente por"
+              + " sync_batch_id: reenviarlo responde lo mismo sin guardar nada; reusar el id con"
+              + " otras lecturas responde 409. Requiere el permiso READING_CREATE.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "200", description = "Resultado por lectura")
+  @ApiResponse(
+      responseCode = "400",
+      description = "VALIDATION_ERROR: formato, más de 100 lecturas o ids repetidos en el lote")
+  @ApiResponse(
+      responseCode = "409",
+      description = "CONFLICT: sync_batch_id usado con otro contenido")
+  @PostMapping("/batch")
+  @PreAuthorize("hasAuthority('READING_CREATE')")
+  public ResponseEntity<ReadingBatchResponse> batch(
+      @AuthenticationPrincipal Jwt jwt,
+      @Valid @RequestBody ReadingBatchRequest request,
+      HttpServletRequest http) {
+    BatchResult result =
+        commands.dispatch(
+            new CreateReadingBatchCommand(
+                CallerFactory.from(jwt, http),
+                request.syncBatchId(),
+                request.readings().stream().map(ReadingMapper::toInput).toList()));
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.noStore())
+        .body(ReadingMapper.toResponse(result));
   }
 
   @Operation(

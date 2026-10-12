@@ -10,9 +10,8 @@ import java.time.Instant;
 /**
  * The checks of a reading that need no data from the database (docs/Reglas-de-negocio.md, section
  * 8). The limits come from the tank (range) and from the active rule set (windows and rates); the
- * only fixed number is the clock skew of the phone, in {@link FieldLimits}.
- *
- * @pattern P12 Chain of Responsibility
+ * only fixed number is the clock skew of the phone, in {@link FieldLimits}. The links of {@link
+ * co.caudal.domain.reading.validation.ReadingValidationHandler} use them.
  */
 public final class ReadingRules {
 

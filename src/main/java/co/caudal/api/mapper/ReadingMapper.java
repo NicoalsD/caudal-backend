@@ -1,8 +1,16 @@
 package co.caudal.api.mapper;
 
+import co.caudal.api.dto.request.CreateReadingRequest;
+import co.caudal.api.dto.response.ReadingBatchResponse;
 import co.caudal.api.dto.response.ReadingCreatedResponse;
+import co.caudal.api.dto.response.ReadingDetailResponse;
 import co.caudal.api.dto.response.ReadingResponse;
+import co.caudal.application.reading.BatchResult;
+import co.caudal.application.reading.CorrectionView;
 import co.caudal.application.reading.ListedReading;
+import co.caudal.application.reading.ReadingDetail;
+import co.caudal.application.reading.ReadingInput;
+import co.caudal.application.reading.ReadingRecorder;
 import co.caudal.application.reading.ReadingView;
 import co.caudal.application.reading.RecordedReading;
 
@@ -52,5 +60,78 @@ public final class ReadingMapper {
         r.source(),
         r.validationStatus(),
         r.ruleSetId());
+  }
+
+  /**
+   * Maps a reading of a batch to the input of the use case.
+   *
+   * @param request the reading
+   * @return the input
+   */
+  public static ReadingInput toInput(CreateReadingRequest request) {
+    return new ReadingInput(
+        request.id(),
+        request.tankId(),
+        request.gaugeValue(),
+        request.waterAppearanceCode(),
+        Boolean.TRUE.equals(request.damageNoticed()),
+        ReadingRecorder.normalizeNote(request.note()),
+        request.observedAt() == null ? null : request.observedAt().toInstant());
+  }
+
+  /**
+   * Maps the result of a batch.
+   *
+   * @param result the result
+   * @return the response
+   */
+  public static ReadingBatchResponse toResponse(BatchResult result) {
+    return new ReadingBatchResponse(
+        result.syncBatchId(),
+        result.itemsReceived(),
+        result.itemsAccepted(),
+        result.itemsRejected(),
+        result.replay(),
+        result.results().stream()
+            .map(
+                item ->
+                    new ReadingBatchResponse.Item(
+                        item.id(),
+                        item.status(),
+                        item.errorCode() == null
+                            ? null
+                            : new ReadingBatchResponse.ItemError(
+                                item.errorCode(), item.errorDetails())))
+            .toList());
+  }
+
+  /**
+   * Maps one reading with its history.
+   *
+   * @param detail the reading
+   * @return the response
+   */
+  public static ReadingDetailResponse toResponse(ReadingDetail detail) {
+    return new ReadingDetailResponse(
+        toResponse(detail.reading(), detail.effectiveGaugeValue(), detail.corrections().size()),
+        detail.issues().stream()
+            .map(i -> new ReadingDetailResponse.Issue(i.code(), i.severity(), i.details()))
+            .toList(),
+        detail.corrections().stream().map(ReadingMapper::toResponse).toList());
+  }
+
+  /**
+   * Maps a correction.
+   *
+   * @param correction the correction
+   * @return the response
+   */
+  public static ReadingDetailResponse.Correction toResponse(CorrectionView correction) {
+    return new ReadingDetailResponse.Correction(
+        correction.id(),
+        correction.correctedGaugeValue(),
+        correction.reason(),
+        correction.correctedBy(),
+        correction.createdAt());
   }
 }
