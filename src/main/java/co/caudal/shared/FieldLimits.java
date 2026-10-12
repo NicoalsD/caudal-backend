@@ -259,6 +259,15 @@ public final class FieldLimits {
   /** Nonce header: 32 lower case hexadecimal characters. */
   public static final String DEVICE_NONCE_PATTERN = "^[0-9a-f]{32}$";
 
+  /** Metrics a device may send in its telemetry. */
+  public static final String TELEMETRY_METRIC_PATTERN = "^(LEVEL|BATTERY_V|RSSI|VALVE_POSITION)$";
+
+  /** Maximum decimals of a telemetry value ({@code numeric(10,3)}). */
+  public static final int TELEMETRY_VALUE_DECIMALS_MAX = 3;
+
+  /** Maximum integer digits of a telemetry value ({@code numeric(10,3)}). */
+  public static final int TELEMETRY_VALUE_INTEGER_DIGITS_MAX = 7;
+
   /** Signature header: 86 characters of base64url without padding. */
   public static final String DEVICE_SIGNATURE_PATTERN = "^[A-Za-z0-9_-]{86}$";
 

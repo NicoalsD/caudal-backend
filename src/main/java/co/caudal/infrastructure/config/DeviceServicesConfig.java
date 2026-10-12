@@ -3,12 +3,17 @@ package co.caudal.infrastructure.config;
 import co.caudal.application.device.DeviceCommandHandlers;
 import co.caudal.application.device.DeviceKeyCommandHandlers;
 import co.caudal.application.device.auth.DeviceAuthenticator;
+import co.caudal.application.device.telemetry.DeviceTelemetryService;
 import co.caudal.application.port.out.DevicePort;
 import co.caudal.application.port.out.NetworkPort;
 import co.caudal.application.port.out.PrivacyHasherPort;
 import co.caudal.application.port.out.RateLimiterPort;
+import co.caudal.application.port.out.RuleSetPort;
 import co.caudal.application.port.out.SecurityEventPort;
+import co.caudal.application.port.out.TelemetryPayloadPort;
+import co.caudal.application.port.out.TelemetryPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
+import co.caudal.application.reading.ReadingRecorder;
 import java.time.Clock;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -42,6 +47,19 @@ class DeviceServicesConfig {
       Clock clock) {
     return new DeviceAuthenticator(
         devices, events, unitOfWork, hasher, rateLimiter, properties.requestsPerMinute(), clock);
+  }
+
+  @Bean
+  DeviceTelemetryService deviceTelemetryService(
+      DeviceAuthenticator authenticator,
+      TelemetryPayloadPort payloads,
+      TelemetryPort telemetry,
+      DevicePort devices,
+      ReadingRecorder recorder,
+      RuleSetPort ruleSets,
+      Clock clock) {
+    return new DeviceTelemetryService(
+        authenticator, payloads, telemetry, devices, recorder, ruleSets, clock);
   }
 
   @Bean

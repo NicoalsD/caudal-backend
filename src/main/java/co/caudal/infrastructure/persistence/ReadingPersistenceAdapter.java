@@ -98,9 +98,9 @@ public class ReadingPersistenceAdapter implements ReadingPort {
                 "INSERT INTO ops.readings (id, aqueduct_id, tank_id, gauge_value,"
                     + " water_appearance_code, damage_noticed, note, observed_at, received_at,"
                     + " source, recorded_by, rule_set_id, validation_status, sync_batch_id,"
-                    + " import_batch_id) VALUES (:id, :aqueduct, :tank, :value, :appearance,"
-                    + " :damage, :note, :observed, :received, :source, :user, :ruleSet, :status,"
-                    + " :batch, :import)"
+                    + " import_batch_id, device_id) VALUES (:id, :aqueduct, :tank, :value,"
+                    + " :appearance, :damage, :note, :observed, :received, :source, :user,"
+                    + " :ruleSet, :status, :batch, :import, :device)"
                     + " ON CONFLICT (id) DO NOTHING")
             .param("id", r.id())
             .param("aqueduct", aqueductId)
@@ -112,11 +112,12 @@ public class ReadingPersistenceAdapter implements ReadingPort {
             .param("observed", SqlTime.timestamp(r.observedAt()))
             .param("received", SqlTime.timestamp(r.receivedAt()))
             .param("source", r.source())
-            .param("user", recordedBy)
+            .param("user", recordedBy, java.sql.Types.OTHER)
             .param("ruleSet", r.ruleSetId())
             .param("status", r.validationStatus())
             .param("batch", origin.syncBatchId(), java.sql.Types.OTHER)
             .param("import", origin.importBatchId(), java.sql.Types.OTHER)
+            .param("device", origin.deviceId(), java.sql.Types.OTHER)
             .update()
         > 0;
   }

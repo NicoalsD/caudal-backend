@@ -60,6 +60,14 @@ public class DevicePersistenceAdapter implements DevicePort {
   }
 
   @Override
+  public void touchLastSeen(UUID deviceId, Instant at) {
+    jdbc.sql("UPDATE devices.devices SET last_seen_at = :at WHERE id = :device")
+        .param("at", SqlTime.timestamp(at))
+        .param("device", deviceId)
+        .update();
+  }
+
+  @Override
   public boolean nonceSeenSince(UUID deviceId, String nonce, Instant since) {
     return jdbc.sql(
                 "SELECT count(*) FROM devices.device_nonces WHERE device_id = :device"

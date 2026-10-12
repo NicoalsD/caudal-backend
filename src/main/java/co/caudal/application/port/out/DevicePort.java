@@ -132,4 +132,12 @@ public interface DevicePort {
    * @return true if stored now, false if the nonce was already there
    */
   boolean insertNonce(UUID deviceId, String nonce);
+
+  /**
+   * Records that a device was heard from (its last contact).
+   *
+   * @param deviceId the device
+   * @param at the moment
+   */
+  void touchLastSeen(UUID deviceId, Instant at);
 }
