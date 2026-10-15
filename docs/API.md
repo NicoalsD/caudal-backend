@@ -217,7 +217,7 @@ Los permisos de la tabla siguiente son los que se usan en las secciones de recur
 | `PROPOSAL_READ` (borradores) | Sí | Sí | No | No | No | No |
 | `EXECUTION_RECORD`, `DAY_CLOSE` | Sí | No | Sí | No | No | No |
 | `INCIDENT_CREATE`, `INCIDENT_READ` | Sí | Sí | Sí | Sí | No | No (solo público) |
-| `MINUTES_GENERATE`, `MINUTES_READ`, `SUMMARY_SHARE_MANAGE` | Sí | Sí (sin compartir) | No | No | No | No |
+| `MINUTES_GENERATE`, `MINUTES_VIEW`, `SUMMARY_SHARE_MANAGE` | Sí | Sí (sin compartir) | No | No | No | No |
 | `SUMMARY_READ` | Sí | Sí | No | No | Sí (solo autorizados) | No |
 | `EVALUATION_READ`, `IMPORT_RUN`, `AUDIT_READ`, `DEVICE_MANAGE` | Sí | No | No | Sí | No | No |
 | `VALVE_COMMAND_MANUAL` | Sí | No | No | No | No | No |
@@ -877,6 +877,32 @@ La propuesta sigue la máquina de estados de `Reglas-de-negocio.md`, sección 12
 - **Respuesta 200:** acta en `FINAL` (transición `DRAFT` → `FINAL`), con `finalized_by`, `finalized_at` y `pdf_sha256`. Ya no lleva la marca "BORRADOR".
 - **Errores:** `409 INVALID_STATE_TRANSITION` (el acta no está en `DRAFT`), `404 NOT_FOUND`.
 
+### 13.8 `GET /api/v1/minutes`
+
+- **Permiso:** `MINUTES_VIEW`. Solo ve las actas de su acueducto.
+- **Parámetros:** `limit` (de 1 a 100, por defecto 20) y `cursor` (sección 1.5).
+- **Orden:** del acta más reciente a la más antigua, por `generated_at` (momento de la generación) y luego por `id`.
+- **Respuesta:** `items` y `next_cursor`. Cada elemento trae `id`, `period_from`, `period_to`, `status` (`DRAFT` o `FINAL`), `generated_at`, `finalized_at` y `pdf_sha256`. `finalized_at` y `pdf_sha256` son nulos mientras el acta es `DRAFT`. No trae las secciones (`content`); su detalle está en 13.2. Todo PDF se descarga con 13.3, también el borrador.
+- **Errores:** `400 VALIDATION_ERROR` (`limit` fuera de rango), `400 CURSOR_INVALID` (cursor alterado).
+- **Ejemplo de respuesta:**
+
+```json
+{
+  "items": [
+    {
+      "id": "0190f3a2-7c1d-7b2e-9f11-3d4c5e6f7a81",
+      "period_from": "2026-10-01",
+      "period_to": "2026-10-31",
+      "status": "FINAL",
+      "generated_at": "2026-10-14T13:00:00Z",
+      "finalized_at": "2026-10-14T13:05:00Z",
+      "pdf_sha256": "3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b"
+    }
+  ],
+  "next_cursor": null
+}
+```
+
 ## 14. Evaluación de la IA
 
 ### 14.1 `GET /api/v1/forecast-evaluation`
@@ -1152,7 +1178,8 @@ Permiso: `IMPORT_SIMULATED` (`PROJECT_TEAM`). `aqueduct_id` debe ser el acueduct
 | Incidentes | PATCH | `/incidents/{id}/status` | `INCIDENT_CREATE` (verificar) |
 | Actas | POST | `/minutes` | `MINUTES_GENERATE` |
 | Actas | POST | `/minutes/{id}/finalize` | `MINUTES_GENERATE` |
-| Actas | GET | `/minutes/{id}`, `/minutes/{id}/pdf` | `MINUTES_READ` |
+| Actas | GET | `/minutes` | `MINUTES_VIEW` |
+| Actas | GET | `/minutes/{id}`, `/minutes/{id}/pdf` | `MINUTES_VIEW` |
 | Entidades | POST | `/summary-shares` | `SUMMARY_SHARE_MANAGE` |
 | Entidades | DELETE | `/summary-shares/{id}` | `SUMMARY_SHARE_MANAGE` |
 | Entidades | GET | `/summaries` | `SUMMARY_READ` |

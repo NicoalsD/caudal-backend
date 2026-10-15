@@ -1,5 +1,6 @@
 package co.caudal.infrastructure.persistence;
 
+import co.caudal.application.minutes.MinutesSummaryView;
 import co.caudal.application.minutes.MinutesView;
 import co.caudal.application.port.out.MinutesPort;
 import co.caudal.domain.minutes.Minutes;
@@ -76,6 +77,20 @@ public class MinutesPersistenceAdapter implements MinutesPort {
   }
 
   @Override
+  public List<MinutesSummaryView> list(Instant before, UUID beforeId, int limit) {
+    return jdbc.sql(
+            "SELECT id, period_from, period_to, status, generated_at, finalized_at, pdf_sha256"
+                + " FROM reporting.minutes WHERE (CAST(:before AS timestamptz) IS NULL OR"
+                + " (generated_at, id) < (CAST(:before AS timestamptz), CAST(:beforeId AS uuid)))"
+                + " ORDER BY generated_at DESC, id DESC LIMIT :limit")
+        .param("before", SqlTime.offset(before), Types.TIMESTAMP_WITH_TIMEZONE)
+        .param("beforeId", beforeId, Types.OTHER)
+        .param("limit", limit)
+        .query(MinutesPersistenceAdapter::summary)
+        .list();
+  }
+
+  @Override
   public boolean finalizeDraft(
       UUID id, UUID finalizedBy, Instant finalizedAt, String pdfSha256, String auditHeadHash) {
     return jdbc.sql(
@@ -105,6 +120,17 @@ public class MinutesPersistenceAdapter implements MinutesPort {
     row.put("at", e.at().toString());
     row.put("summary", e.summary());
     return row;
+  }
+
+  private static MinutesSummaryView summary(ResultSet rs, int row) throws SQLException {
+    return new MinutesSummaryView(
+        rs.getObject("id", UUID.class),
+        rs.getObject("period_from", LocalDate.class),
+        rs.getObject("period_to", LocalDate.class),
+        rs.getString("status"),
+        SqlTime.instant(rs, "generated_at"),
+        SqlTime.instant(rs, "finalized_at"),
+        rs.getString("pdf_sha256"));
   }
 
   MinutesView view(ResultSet rs, int row) throws SQLException {

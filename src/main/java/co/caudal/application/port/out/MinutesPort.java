@@ -1,9 +1,11 @@
 package co.caudal.application.port.out;
 
+import co.caudal.application.minutes.MinutesSummaryView;
 import co.caudal.application.minutes.MinutesView;
 import co.caudal.domain.minutes.Minutes;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -27,6 +29,17 @@ public interface MinutesPort {
    * @return the minutes, or empty
    */
   Optional<MinutesView> find(UUID id);
+
+  /**
+   * Lists minutes of the aqueduct, the newest generation first. Only the columns of {@link
+   * MinutesSummaryView} are read.
+   *
+   * @param before only minutes generated before this moment, or null from the newest
+   * @param beforeId with {@code before}: only ids before this one, to break ties
+   * @param limit maximum number
+   * @return the minutes
+   */
+  List<MinutesSummaryView> list(Instant before, UUID beforeId, int limit);
 
   /**
    * Turns a draft into the final minutes; a final document never changes again.

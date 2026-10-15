@@ -2,20 +2,29 @@ package co.caudal.api.controller;
 
 import co.caudal.api.dto.request.GenerateMinutesRequest;
 import co.caudal.api.dto.response.MinutesResponse;
+import co.caudal.api.dto.response.MinutesSummaryResponse;
+import co.caudal.api.dto.response.PageResponse;
 import co.caudal.api.security.CallerFactory;
 import co.caudal.application.command.CommandBus;
 import co.caudal.application.minutes.FinalizeMinutesCommand;
 import co.caudal.application.minutes.GenerateMinutesCommand;
 import co.caudal.application.minutes.GetMinutesPdfUseCase;
 import co.caudal.application.minutes.GetMinutesUseCase;
+import co.caudal.application.minutes.ListMinutesUseCase;
 import co.caudal.application.minutes.MinutesPdf;
+import co.caudal.application.minutes.MinutesSummaryView;
 import co.caudal.application.minutes.MinutesView;
+import co.caudal.application.pagination.Page;
+import co.caudal.shared.FieldLimits;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import java.util.UUID;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
@@ -31,6 +40,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Minutes of the Board (docs/API.md, section 13). */
@@ -44,11 +54,47 @@ public class MinutesController {
   private final CommandBus commands;
   private final GetMinutesUseCase get;
   private final GetMinutesPdfUseCase pdf;
+  private final ListMinutesUseCase list;
 
-  MinutesController(CommandBus commands, GetMinutesUseCase get, GetMinutesPdfUseCase pdf) {
+  MinutesController(
+      CommandBus commands,
+      GetMinutesUseCase get,
+      GetMinutesPdfUseCase pdf,
+      ListMinutesUseCase list) {
     this.commands = commands;
     this.get = get;
     this.pdf = pdf;
+    this.list = list;
+  }
+
+  @Operation(
+      summary = "Listar las actas",
+      description =
+          "Actas del acueducto de la sesión, de la más reciente a la más antigua, sin sus"
+              + " secciones. Se pagina con limit (de 1 a 100, por defecto 20) y un cursor firmado."
+              + " Requiere el permiso MINUTES_VIEW.")
+  @SecurityRequirement(name = "bearerAuth")
+  @ApiResponse(responseCode = "200", description = "Página de actas")
+  @ApiResponse(responseCode = "400", description = "VALIDATION_ERROR o CURSOR_INVALID")
+  @GetMapping
+  @PreAuthorize("hasAuthority('MINUTES_VIEW')")
+  public ResponseEntity<PageResponse<MinutesSummaryResponse>> list(
+      @AuthenticationPrincipal Jwt jwt,
+      @Parameter(description = "Tamaño de la página, de 1 a 100.", example = "20")
+          @RequestParam(defaultValue = "" + FieldLimits.PAGE_LIMIT_DEFAULT)
+          @Min(FieldLimits.PAGE_LIMIT_MIN)
+          @Max(FieldLimits.PAGE_LIMIT_MAX)
+          int limit,
+      @Parameter(description = "Cursor de la página siguiente, devuelto por la lista anterior.")
+          @RequestParam(required = false)
+          String cursor,
+      HttpServletRequest http) {
+    Page<MinutesSummaryView> page = list.execute(CallerFactory.from(jwt, http), limit, cursor);
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.noStore())
+        .body(
+            new PageResponse<>(
+                page.items().stream().map(MinutesSummaryResponse::of).toList(), page.nextCursor()));
   }
 
   @Operation(
