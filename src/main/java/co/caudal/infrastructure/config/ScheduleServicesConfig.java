@@ -5,12 +5,14 @@ import co.caudal.application.port.out.AqueductPort;
 import co.caudal.application.port.out.ForecastRunPort;
 import co.caudal.application.port.out.NetworkPort;
 import co.caudal.application.port.out.ProposalPort;
+import co.caudal.application.port.out.PublicationPort;
 import co.caudal.application.port.out.ReadingPort;
 import co.caudal.application.port.out.RuleSetPort;
 import co.caudal.application.port.out.ScheduleHistoryPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.schedule.ApproveProposalCommandHandler;
 import co.caudal.application.schedule.GenerateProposalCommandHandler;
+import co.caudal.application.schedule.GetDayScheduleUseCase;
 import co.caudal.application.schedule.GetProposalUseCase;
 import co.caudal.application.schedule.ListProposalsUseCase;
 import co.caudal.application.schedule.ModifyProposalCommandHandler;
@@ -55,6 +57,16 @@ class ScheduleServicesConfig {
   GetProposalUseCase getProposalUseCase(
       ProposalPort proposals, AqueductPort aqueducts, UnitOfWorkPort unitOfWork, Clock clock) {
     return new GetProposalUseCase(proposals, aqueducts, unitOfWork, clock);
+  }
+
+  @Bean
+  GetDayScheduleUseCase getDayScheduleUseCase(
+      ProposalPort proposals,
+      PublicationPort publications,
+      AqueductPort aqueducts,
+      UnitOfWorkPort unitOfWork,
+      Clock clock) {
+    return new GetDayScheduleUseCase(proposals, publications, aqueducts, unitOfWork, clock);
   }
 
   @Bean

@@ -2,6 +2,7 @@ package co.caudal.api.mapper;
 
 import co.caudal.api.dto.response.ProposalResponse;
 import co.caudal.api.dto.response.ProposalSummaryResponse;
+import co.caudal.application.schedule.ItemView;
 import co.caudal.application.schedule.ProposalDetail;
 import co.caudal.application.schedule.ProposalSummary;
 
@@ -30,20 +31,7 @@ public final class ScheduleMapper {
         s.strategyCode(),
         s.generatedAt(),
         s.lockVersion(),
-        detail.items().stream()
-            .map(
-                i ->
-                    new ProposalResponse.Item(
-                        i.id(),
-                        i.sectorId(),
-                        i.sequence(),
-                        i.startAt(),
-                        i.endAt(),
-                        i.origin(),
-                        i.reasons().stream()
-                            .map(r -> new ProposalResponse.Reason(r.code(), r.params(), r.text()))
-                            .toList()))
-            .toList(),
+        detail.items().stream().map(ScheduleMapper::toItem).toList(),
         detail.unserved().stream()
             .map(u -> new ProposalResponse.Unserved(u.sectorId(), u.reason()))
             .toList(),
@@ -54,6 +42,25 @@ public final class ScheduleMapper {
                         d.decision(), d.reason(), d.decidedBy(), d.decidedAt()))
             .toList(),
         detail.snapshotTaken());
+  }
+
+  /**
+   * Maps one shift of a proposal. The same shape is used by every endpoint that returns shifts.
+   *
+   * @param i the shift
+   * @return the response
+   */
+  public static ProposalResponse.Item toItem(ItemView i) {
+    return new ProposalResponse.Item(
+        i.id(),
+        i.sectorId(),
+        i.sequence(),
+        i.startAt(),
+        i.endAt(),
+        i.origin(),
+        i.reasons().stream()
+            .map(r -> new ProposalResponse.Reason(r.code(), r.params(), r.text()))
+            .toList());
   }
 
   /**
