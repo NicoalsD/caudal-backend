@@ -20,19 +20,19 @@ Marca `Hecho` con `[x]` cuando el commit correspondiente se haya fusionado en `d
 | Repositorio | Fase 1 | Fase 2 | Fase 3 | Fase 4 | Fase 5 | Fase 6 | Fase 7 | Fase 8 | Fase 9 | Fase 10 | Fase 11 | Fase 12 | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | `caudal-backend` | 17 | 58 | 31 | 13 | 15 | 11 | 13 | 10 | 11 | 3 | 8 | 7 | 197 |
-| `caudal-frontend` | 10 | 6 | 15 | 8 | 15 | 6 | 9 | 8 | 7 | 4 | 2 | 5 | 95 |
+| `caudal-frontend` | 10 | 6 | 15 | 9 | 15 | 6 | 9 | 9 | 7 | 4 | 2 | 6 | 98 |
 | `caudal-ia` | 8 | 6 | 3 | 0 | 0 | 16 | 0 | 0 | 0 | 8 | 0 | 4 | 45 |
 | `caudal-simulador` | 7 | 14 | 0 | 0 | 8 | 0 | 0 | 0 | 2 | 2 | 24 | 3 | 60 |
-| **Total** | **42** | **84** | **49** | **21** | **38** | **33** | **22** | **18** | **20** | **17** | **34** | **19** | **397** |
+| **Total** | **42** | **84** | **49** | **22** | **38** | **33** | **22** | **19** | **20** | **17** | **34** | **20** | **400** |
 
 | Autor | caudal-backend | caudal-frontend | caudal-ia | caudal-simulador | Total |
 |---|---:|---:|---:|---:|---:|
 | `Drako2305` | 123 | 0 | 0 | 0 | 123 |
-| `NicoalsD` | 35 | 63 | 0 | 0 | 98 |
+| `NicoalsD` | 35 | 66 | 0 | 0 | 101 |
 | `nicomora70` | 39 | 32 | 45 | 60 | 176 |
-| **Total** | **197** | **95** | **45** | **60** | **397** |
+| **Total** | **197** | **98** | **45** | **60** | **400** |
 
-**Ampliación del frontend (2026-10-14).** Se agregan la página de presentación, el rediseño del inicio de sesión, los inicios por rol y las pantallas de usuarios, entidades, privacidad, auditoría e importación que el inventario de pantallas pedía y el plan no listaba (F081 a F095), los listados de actas y dispositivos que esas pantallas necesitan en el backend (B195 y B196) y los turnos publicados del día para el cierre del fontanero (B197).
+**Ampliación del frontend (2026-10-14).** Se agregan la página de presentación, el rediseño del inicio de sesión, los inicios por rol y las pantallas de usuarios, entidades, privacidad, auditoría, importación, reporte de daño del fontanero, historial de reglas y salud técnica que el inventario de pantallas pedía y el plan no listaba (F081 a F098), los listados de actas y dispositivos que esas pantallas necesitan en el backend (B195 y B196) y los turnos publicados del día para el cierre del fontanero (B197).
 
 Fase 0: 168 commits de documentación y planeación ya realizados; excluidos de esta lista de implementación.
 
@@ -264,7 +264,7 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | B172 | `feat: finaliza acta con POST /api/v1/minutes/{id}/finalize` | `NicoalsD` | HU-30 | P13 | [x] |
 | B173 | `feat: crea PDF final y guarda pdf_sha256` | `NicoalsD` | HU-30 | P02 | [x] |
 | B196 | `feat: lista actas del acueducto en GET /api/v1/minutes` | `NicoalsD` | HU-30 | - | [x] |
-| B197 | `feat: expone turnos publicados del día al fontanero` | `NicoalsD` | HU-29 | - | [ ] |
+| B197 | `feat: expone turnos publicados del día al fontanero` | `NicoalsD` | HU-29 | - | [x] |
 
 ### Fase 10: Evaluación IA
 
@@ -340,95 +340,97 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | F023 | `feat: agrega estado de sesión sin datos secretos` | `NicoalsD` | HU-01 | P18 | [x] |
 | F024 | `feat: conserva sesiones aisladas por aqueduct_id` | `NicoalsD` | HU-04 | - | [x] |
 | F025 | `test: verifica login, expiración y cambio obligatorio` | `NicoalsD` | HU-01, HU-02 | - | [x] |
-| F082 | `feat: agrega la página de presentación de CAUDAL` | `NicoalsD` | - | - | [ ] |
-| F083 | `feat: agrega campo de contraseña con mostrar y ocultar` | `NicoalsD` | HU-01 | - | [ ] |
-| F084 | `feat: rediseña el inicio de sesión con límites del servidor` | `NicoalsD` | HU-01 | - | [ ] |
-| F085 | `test: cubre la presentación y el nuevo inicio de sesión` | `NicoalsD` | HU-01 | - | [ ] |
-| F089 | `feat: gestiona usuarios y membresías del acueducto` | `NicoalsD` | HU-04 | - | [ ] |
-| F092 | `feat: muestra y acepta el aviso de privacidad` | `NicoalsD` | HU-01 | - | [ ] |
+| F082 | `feat: agrega la página de presentación de CAUDAL` | `NicoalsD` | - | - | [x] |
+| F083 | `feat: agrega campo de contraseña con mostrar y ocultar` | `NicoalsD` | HU-01 | - | [x] |
+| F084 | `feat: rediseña el inicio de sesión con límites del servidor` | `NicoalsD` | HU-01 | - | [x] |
+| F085 | `test: cubre la presentación y el nuevo inicio de sesión` | `NicoalsD` | HU-01 | - | [x] |
+| F089 | `feat: gestiona usuarios y membresías del acueducto` | `NicoalsD` | HU-04 | - | [x] |
+| F092 | `feat: muestra y acepta el aviso de privacidad` | `NicoalsD` | HU-01 | - | [x] |
 
 ### Fase 4: Reglas y red
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| F026 | `feat: muestra reglas vigentes desde rule-sets/current` | `NicoalsD` | HU-07, HU-08 | - | [ ] |
-| F027 | `feat: crea editor de bandas de nivel` | `NicoalsD` | HU-07 | P04 | [ ] |
-| F028 | `feat: edita sectores prioritarios y su orden` | `NicoalsD` | HU-07 | - | [ ] |
-| F029 | `feat: edita ventanas de operación por día` | `NicoalsD` | HU-07 | - | [ ] |
-| F030 | `feat: exige motivo al activar reglas` | `NicoalsD` | HU-08 | - | [ ] |
-| F031 | `feat: muestra red de tanques, sectores y válvulas` | `NicoalsD` | HU-07 | P08 | [ ] |
-| F032 | `test: valida borrador, bandas y activación de reglas` | `NicoalsD` | HU-07, HU-08 | - | [ ] |
-| F081 | `feat: conecta la app a la API real con VITE_API_BASE_URL` | `NicoalsD` | - | - | [ ] |
+| F026 | `feat: muestra reglas vigentes desde rule-sets/current` | `NicoalsD` | HU-07, HU-08 | - | [x] |
+| F027 | `feat: crea editor de bandas de nivel` | `NicoalsD` | HU-07 | P04 | [x] |
+| F028 | `feat: edita sectores prioritarios y su orden` | `NicoalsD` | HU-07 | - | [x] |
+| F029 | `feat: edita ventanas de operación por día` | `NicoalsD` | HU-07 | - | [x] |
+| F030 | `feat: exige motivo al activar reglas` | `NicoalsD` | HU-08 | - | [x] |
+| F031 | `feat: muestra red de tanques, sectores y válvulas` | `NicoalsD` | HU-07 | P08 | [x] |
+| F032 | `test: valida borrador, bandas y activación de reglas` | `NicoalsD` | HU-07, HU-08 | - | [x] |
+| F081 | `feat: conecta la app a la API real con VITE_API_BASE_URL` | `NicoalsD` | - | - | [x] |
+| F097 | `feat: muestra historial de reglas y sus diferencias` | `NicoalsD` | HU-08 | - | [ ] |
 
 ### Fase 5: Lecturas y cola offline
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| F033 | `feat: agrega OfflineDatabase con Dexie` | `nicomora70` | HU-09 | P01 | [ ] |
-| F034 | `feat: guarda pista de sesión sin secretos en IndexedDB` | `nicomora70` | HU-09 | - | [ ] |
-| F035 | `feat: agrega SubmitReadingCommand a la cola offline` | `nicomora70` | HU-09 | P13 | [ ] |
-| F036 | `feat: valida lectura con reglas y catálogo en caché` | `nicomora70` | HU-09, HU-11 | - | [ ] |
-| F037 | `feat: muestra formulario de lectura del tanque` | `nicomora70` | HU-09 | - | [ ] |
-| F038 | `feat: detecta conexión con ConnectivityMonitor` | `nicomora70` | HU-10 | P17 | [ ] |
-| F039 | `feat: agrega SyncQueueStore observable` | `nicomora70` | HU-10 | P17 | [ ] |
-| F040 | `feat: sincroniza cola por POST /readings/batch` | `nicomora70` | HU-10 | P13 | [ ] |
-| F041 | `feat: conserva pendientes al cambiar de usuario` | `nicomora70` | HU-09, HU-10 | - | [ ] |
-| F042 | `feat: presenta errores de validación de lectura` | `nicomora70` | HU-11, HU-12 | P12 | [ ] |
-| F043 | `feat: agrega corrección de lectura con motivo` | `nicomora70` | HU-13 | P13 | [ ] |
-| F044 | `test: cubre persistencia, reintento y lote parcial offline` | `nicomora70` | HU-09, HU-10 | P17 | [ ] |
-| F086 | `feat: agrega inicio del fontanero con su siguiente paso` | `nicomora70` | HU-09 | - | [ ] |
-| F087 | `feat: lista lecturas pendientes por enviar` | `nicomora70` | HU-10 | - | [ ] |
-| F094 | `feat: importa historial simulado del acueducto demo` | `nicomora70` | HU-38 | - | [ ] |
+| F033 | `feat: agrega OfflineDatabase con Dexie` | `nicomora70` | HU-09 | P01 | [x] |
+| F034 | `feat: guarda pista de sesión sin secretos en IndexedDB` | `nicomora70` | HU-09 | - | [x] |
+| F035 | `feat: agrega SubmitReadingCommand a la cola offline` | `nicomora70` | HU-09 | P13 | [x] |
+| F036 | `feat: valida lectura con reglas y catálogo en caché` | `nicomora70` | HU-09, HU-11 | - | [x] |
+| F037 | `feat: muestra formulario de lectura del tanque` | `nicomora70` | HU-09 | - | [x] |
+| F038 | `feat: detecta conexión con ConnectivityMonitor` | `nicomora70` | HU-10 | P17 | [x] |
+| F039 | `feat: agrega SyncQueueStore observable` | `nicomora70` | HU-10 | P17 | [x] |
+| F040 | `feat: sincroniza cola por POST /readings/batch` | `nicomora70` | HU-10 | P13 | [x] |
+| F041 | `feat: conserva pendientes al cambiar de usuario` | `nicomora70` | HU-09, HU-10 | - | [x] |
+| F042 | `feat: presenta errores de validación de lectura` | `nicomora70` | HU-11, HU-12 | P12 | [x] |
+| F043 | `feat: agrega corrección de lectura con motivo` | `nicomora70` | HU-13 | P13 | [x] |
+| F044 | `test: cubre persistencia, reintento y lote parcial offline` | `nicomora70` | HU-09, HU-10 | P17 | [x] |
+| F086 | `feat: agrega inicio del fontanero con su siguiente paso` | `nicomora70` | HU-09 | - | [x] |
+| F087 | `feat: lista lecturas pendientes por enviar` | `nicomora70` | HU-10 | - | [x] |
+| F094 | `feat: importa historial simulado del acueducto demo` | `nicomora70` | HU-38 | - | [x] |
 
 ### Fase 6: Estado y pronóstico
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| F045 | `feat: presenta estado y antigüedad del tanque` | `nicomora70` | HU-14 | P10 | [ ] |
-| F046 | `feat: grafica p10, p50 y p90 con Recharts` | `nicomora70` | HU-15 | P06 | [ ] |
-| F047 | `feat: distingue pronóstico IA y estimación de respaldo` | `nicomora70` | HU-16 | P18 | [ ] |
-| F048 | `feat: muestra alerta de lectura obsoleta` | `nicomora70` | HU-14 | - | [ ] |
-| F049 | `feat: presenta anomalías pendientes de revisión` | `nicomora70` | HU-17 | - | [ ] |
-| F050 | `test: cubre estados vacíos, error y respaldo del tanque` | `nicomora70` | HU-14, HU-16 | - | [ ] |
+| F045 | `feat: presenta estado y antigüedad del tanque` | `nicomora70` | HU-14 | P10 | [x] |
+| F046 | `feat: grafica p10, p50 y p90 con Recharts` | `nicomora70` | HU-15 | P06 | [x] |
+| F047 | `feat: distingue pronóstico IA y estimación de respaldo` | `nicomora70` | HU-16 | P18 | [x] |
+| F048 | `feat: muestra alerta de lectura obsoleta` | `nicomora70` | HU-14 | - | [x] |
+| F049 | `feat: presenta anomalías pendientes de revisión` | `nicomora70` | HU-17 | - | [x] |
+| F050 | `test: cubre estados vacíos, error y respaldo del tanque` | `nicomora70` | HU-14, HU-16 | - | [x] |
 
 ### Fase 7: Propuesta y decisión
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| F051 | `feat: muestra propuestas pendientes de revisión` | `NicoalsD` | HU-18 | - | [ ] |
-| F052 | `feat: explica motivos de cada turno propuesto` | `NicoalsD` | HU-18 | P22 | [ ] |
-| F053 | `feat: agrega ProposalEditorMediator` | `NicoalsD` | HU-21 | P15 | [ ] |
-| F054 | `feat: valida horas y motivo en editor de propuesta` | `NicoalsD` | HU-19, HU-21 | P15 | [ ] |
-| F055 | `feat: integra aprobar, modificar y rechazar propuestas` | `NicoalsD` | HU-20, HU-21, HU-22 | P13 | [ ] |
-| F056 | `feat: muestra sectores sin turno y su explicación` | `NicoalsD` | HU-18 | - | [ ] |
-| F057 | `test: verifica edición y decisiones de la Junta` | `NicoalsD` | HU-20, HU-21, HU-22 | P15 | [ ] |
-| F058 | `test: cubre accesibilidad del editor de propuestas` | `NicoalsD` | HU-21 | - | [ ] |
-| F088 | `feat: agrega inicio de la Junta con el paso del día` | `NicoalsD` | HU-18 | - | [ ] |
+| F051 | `feat: muestra propuestas pendientes de revisión` | `NicoalsD` | HU-18 | - | [x] |
+| F052 | `feat: explica motivos de cada turno propuesto` | `NicoalsD` | HU-18 | P22 | [x] |
+| F053 | `feat: agrega ProposalEditorMediator` | `NicoalsD` | HU-21 | P15 | [x] |
+| F054 | `feat: valida horas y motivo en editor de propuesta` | `NicoalsD` | HU-19, HU-21 | P15 | [x] |
+| F055 | `feat: integra aprobar, modificar y rechazar propuestas` | `NicoalsD` | HU-20, HU-21, HU-22 | P13 | [x] |
+| F056 | `feat: muestra sectores sin turno y su explicación` | `NicoalsD` | HU-18 | - | [x] |
+| F057 | `test: verifica edición y decisiones de la Junta` | `NicoalsD` | HU-20, HU-21, HU-22 | P15 | [x] |
+| F058 | `test: cubre accesibilidad del editor de propuestas` | `NicoalsD` | HU-21 | - | [x] |
+| F088 | `feat: agrega inicio de la Junta con el paso del día` | `NicoalsD` | HU-18 | - | [x] |
 
 ### Fase 8: Publicación y reportes
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| F059 | `feat: implementa página pública por aqueductSlug` | `NicoalsD` | HU-24 | P11 | [ ] |
-| F060 | `feat: muestra solo horario publicado sin datos personales` | `NicoalsD` | HU-24 | P11 | [ ] |
-| F061 | `feat: agrega copia del horario para WhatsApp` | `NicoalsD` | HU-25 | P07 | [ ] |
-| F062 | `feat: agrega enlace de descarga del cartel PDF` | `NicoalsD` | HU-26 | P03 | [ ] |
-| F063 | `feat: publica formulario de reporte de daño` | `NicoalsD` | HU-27 | - | [ ] |
-| F064 | `feat: consulta estado por código de seguimiento` | `NicoalsD` | HU-27 | P18 | [ ] |
-| F065 | `feat: muestra transiciones de estado de incidentes` | `NicoalsD` | HU-28 | P18 | [ ] |
-| F066 | `feat: marca como simulados los datos del acueducto demo` | `NicoalsD` | HU-39 | P22 | [ ] |
+| F059 | `feat: implementa página pública por aqueductSlug` | `NicoalsD` | HU-24 | P11 | [x] |
+| F060 | `feat: muestra solo horario publicado sin datos personales` | `NicoalsD` | HU-24 | P11 | [x] |
+| F061 | `feat: agrega copia del horario para WhatsApp` | `NicoalsD` | HU-25 | P07 | [x] |
+| F062 | `feat: agrega enlace de descarga del cartel PDF` | `NicoalsD` | HU-26 | P03 | [x] |
+| F063 | `feat: publica formulario de reporte de daño` | `NicoalsD` | HU-27 | - | [x] |
+| F064 | `feat: consulta estado por código de seguimiento` | `NicoalsD` | HU-27 | P18 | [x] |
+| F065 | `feat: muestra transiciones de estado de incidentes` | `NicoalsD` | HU-28 | P18 | [x] |
+| F066 | `feat: marca como simulados los datos del acueducto demo` | `NicoalsD` | HU-39 | P22 | [x] |
+| F096 | `feat: permite al fontanero reportar un daño` | `NicoalsD` | HU-27 | - | [ ] |
 
 ### Fase 9: Cierre y actas
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| F067 | `feat: registra cumplimiento de turnos` | `nicomora70` | HU-29 | P13 | [ ] |
-| F068 | `feat: agrega formulario de cierre diario` | `nicomora70` | HU-29 | P13 | [ ] |
-| F069 | `feat: presenta actas con cuatro secciones epistémicas` | `nicomora70` | HU-30 | P21 | [ ] |
-| F070 | `feat: descarga PDF final de acta` | `nicomora70` | HU-30 | P20 | [ ] |
-| F071 | `test: verifica cierre y vista de actas` | `nicomora70` | HU-29, HU-30 | - | [ ] |
-| F090 | `feat: autoriza y revoca resúmenes para entidades` | `NicoalsD` | HU-31 | - | [ ] |
-| F091 | `feat: muestra resúmenes autorizados a la entidad` | `NicoalsD` | HU-32 | - | [ ] |
+| F067 | `feat: registra cumplimiento de turnos` | `nicomora70` | HU-29 | P13 | [x] |
+| F068 | `feat: agrega formulario de cierre diario` | `nicomora70` | HU-29 | P13 | [x] |
+| F069 | `feat: presenta actas con cuatro secciones epistémicas` | `nicomora70` | HU-30 | P21 | [x] |
+| F070 | `feat: descarga PDF final de acta` | `nicomora70` | HU-30 | P20 | [x] |
+| F071 | `test: verifica cierre y vista de actas` | `nicomora70` | HU-29, HU-30 | - | [x] |
+| F090 | `feat: autoriza y revoca resúmenes para entidades` | `NicoalsD` | HU-31 | - | [x] |
+| F091 | `feat: muestra resúmenes autorizados a la entidad` | `NicoalsD` | HU-32 | - | [x] |
 
 ### Fase 10: Evaluación IA
 
@@ -453,8 +455,9 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | F078 | `ci: despliega PWA en Vercel con CSP estricta` | `NicoalsD` | - | - | [ ] |
 | F079 | `ci: agrega pnpm audit y pruebas Playwright con axe` | `NicoalsD` | - | - | [ ] |
 | F080 | `docs: documenta publicación y verificación de v1.0.0` | `NicoalsD` | - | - | [ ] |
-| F093 | `feat: consulta auditoría y eventos de seguridad` | `NicoalsD` | HU-37 | - | [ ] |
-| F095 | `test: cubre usuarios, entidades, privacidad y auditoría` | `NicoalsD` | - | - | [ ] |
+| F093 | `feat: consulta auditoría y eventos de seguridad` | `NicoalsD` | HU-37 | - | [x] |
+| F095 | `test: cubre usuarios, entidades, privacidad y auditoría` | `NicoalsD` | - | - | [x] |
+| F098 | `feat: muestra la salud técnica del sistema` | `NicoalsD` | HU-37 | - | [ ] |
 
 ## `caudal-ia`
 
