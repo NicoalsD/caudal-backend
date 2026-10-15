@@ -19,18 +19,20 @@ Marca `Hecho` con `[x]` cuando el commit correspondiente se haya fusionado en `d
 
 | Repositorio | Fase 1 | Fase 2 | Fase 3 | Fase 4 | Fase 5 | Fase 6 | Fase 7 | Fase 8 | Fase 9 | Fase 10 | Fase 11 | Fase 12 | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `caudal-backend` | 17 | 58 | 31 | 13 | 15 | 11 | 13 | 10 | 9 | 3 | 7 | 7 | 194 |
-| `caudal-frontend` | 10 | 6 | 9 | 7 | 12 | 6 | 8 | 8 | 5 | 4 | 2 | 3 | 80 |
+| `caudal-backend` | 17 | 58 | 31 | 13 | 15 | 11 | 13 | 10 | 10 | 3 | 8 | 7 | 196 |
+| `caudal-frontend` | 10 | 6 | 15 | 8 | 15 | 6 | 9 | 8 | 7 | 4 | 2 | 5 | 95 |
 | `caudal-ia` | 8 | 6 | 3 | 0 | 0 | 16 | 0 | 0 | 0 | 8 | 0 | 4 | 45 |
 | `caudal-simulador` | 7 | 14 | 0 | 0 | 8 | 0 | 0 | 0 | 2 | 2 | 24 | 3 | 60 |
-| **Total** | **42** | **84** | **43** | **20** | **35** | **33** | **21** | **18** | **16** | **17** | **33** | **17** | **379** |
+| **Total** | **42** | **84** | **49** | **21** | **38** | **33** | **22** | **18** | **19** | **17** | **34** | **19** | **396** |
 
 | Autor | caudal-backend | caudal-frontend | caudal-ia | caudal-simulador | Total |
 |---|---:|---:|---:|---:|---:|
 | `Drako2305` | 123 | 0 | 0 | 0 | 123 |
-| `NicoalsD` | 33 | 51 | 0 | 0 | 84 |
-| `nicomora70` | 38 | 29 | 45 | 60 | 172 |
-| **Total** | **194** | **80** | **45** | **60** | **379** |
+| `NicoalsD` | 34 | 63 | 0 | 0 | 97 |
+| `nicomora70` | 39 | 32 | 45 | 60 | 176 |
+| **Total** | **196** | **95** | **45** | **60** | **396** |
+
+**Ampliación del frontend (2026-10-14).** Se agregan la página de presentación, el rediseño del inicio de sesión, los inicios por rol y las pantallas de usuarios, entidades, privacidad, auditoría e importación que el inventario de pantallas pedía y el plan no listaba (F081 a F095), y los listados de actas y dispositivos que esas pantallas necesitan en el backend (B195 y B196).
 
 Fase 0: 168 commits de documentación y planeación ya realizados; excluidos de esta lista de implementación.
 
@@ -261,6 +263,7 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | B171 | `feat: implementa POST /api/v1/minutes` | `NicoalsD` | HU-30 | P04 | [x] |
 | B172 | `feat: finaliza acta con POST /api/v1/minutes/{id}/finalize` | `NicoalsD` | HU-30 | P13 | [x] |
 | B173 | `feat: crea PDF final y guarda pdf_sha256` | `NicoalsD` | HU-30 | P02 | [x] |
+| B196 | `feat: lista actas del acueducto en GET /api/v1/minutes` | `NicoalsD` | HU-30 | - | [ ] |
 
 ### Fase 10: Evaluación IA
 
@@ -281,6 +284,7 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | B181 | `feat: procesa telemetría con DeviceTelemetryAdapter` | `nicomora70` | HU-35 | P06 | [x] |
 | B182 | `feat: obtiene comandos en GET /api/v1/devices/commands` | `nicomora70` | HU-36 | P13 | [x] |
 | B183 | `feat: confirma comandos en POST /api/v1/devices/commands/{id}/ack` | `nicomora70` | HU-36 | P18 | [x] |
+| B195 | `feat: lista dispositivos registrados en GET /api/v1/devices` | `nicomora70` | HU-34 | - | [ ] |
 
 ### Fase 12: Endurecimiento, despliegue y v1.0.0
 
@@ -300,41 +304,47 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| F001 | `build: crea la aplicación React 19 con Vite y TypeScript` | `NicoalsD` | - | - | [ ] |
-| F002 | `build: activa strict y exactOptionalPropertyTypes` | `NicoalsD` | - | - | [ ] |
-| F003 | `style: configura ESLint y Prettier` | `NicoalsD` | - | - | [ ] |
-| F004 | `ci: valida pnpm, lint y build en GitHub Actions` | `NicoalsD` | - | - | [ ] |
-| F005 | `test: configura Vitest y Testing Library` | `NicoalsD` | - | - | [ ] |
-| F006 | `feat: configura router y layouts por rol` | `NicoalsD` | - | - | [ ] |
-| F007 | `style: agrega tokens CSS y tipografías autoalojadas` | `NicoalsD` | - | - | [ ] |
-| F008 | `feat: carga textos desde src/i18n/es.ts` | `NicoalsD` | - | - | [ ] |
-| F009 | `build: genera src/services/api/schema.d.ts desde OpenAPI` | `NicoalsD` | - | - | [ ] |
-| F010 | `test: configura MSW para simular la API` | `NicoalsD` | - | - | [ ] |
+| F001 | `build: crea la aplicación React 19 con Vite y TypeScript` | `NicoalsD` | - | - | [x] |
+| F002 | `build: activa strict y exactOptionalPropertyTypes` | `NicoalsD` | - | - | [x] |
+| F003 | `style: configura ESLint y Prettier` | `NicoalsD` | - | - | [x] |
+| F004 | `ci: valida pnpm, lint y build en GitHub Actions` | `NicoalsD` | - | - | [x] |
+| F005 | `test: configura Vitest y Testing Library` | `NicoalsD` | - | - | [x] |
+| F006 | `feat: configura router y layouts por rol` | `NicoalsD` | - | - | [x] |
+| F007 | `style: agrega tokens CSS y tipografías autoalojadas` | `NicoalsD` | - | - | [x] |
+| F008 | `feat: carga textos desde src/i18n/es.ts` | `NicoalsD` | - | - | [x] |
+| F009 | `build: genera src/services/api/schema.d.ts desde OpenAPI` | `NicoalsD` | - | - | [x] |
+| F010 | `test: configura MSW para simular la API` | `NicoalsD` | - | - | [x] |
 
 ### Fase 2: Base para datos y navegación
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| F011 | `feat: agrega HttpClient con manejo de errores de API` | `NicoalsD` | - | P09 | [ ] |
-| F012 | `feat: agrega CaudalApi como fachada de servicios` | `NicoalsD` | - | P10 | [ ] |
-| F013 | `feat: adapta DTO de API con ApiDtoAdapter` | `NicoalsD` | - | P06 | [ ] |
-| F014 | `feat: construye formularios desde FormSchemaBuilder` | `NicoalsD` | - | P04 | [ ] |
-| F015 | `feat: obtiene restricciones de GET /meta/constraints` | `NicoalsD` | - | - | [ ] |
-| F016 | `test: cubre adaptador DTO y validación de formularios` | `NicoalsD` | - | P06 | [ ] |
+| F011 | `feat: agrega HttpClient con manejo de errores de API` | `NicoalsD` | - | P09 | [x] |
+| F012 | `feat: agrega CaudalApi como fachada de servicios` | `NicoalsD` | - | P10 | [x] |
+| F013 | `feat: adapta DTO de API con ApiDtoAdapter` | `NicoalsD` | - | P06 | [x] |
+| F014 | `feat: construye formularios desde FormSchemaBuilder` | `NicoalsD` | - | P04 | [x] |
+| F015 | `feat: obtiene restricciones de GET /meta/constraints` | `NicoalsD` | - | - | [x] |
+| F016 | `test: cubre adaptador DTO y validación de formularios` | `NicoalsD` | - | P06 | [x] |
 
 ### Fase 3: Seguridad y login
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| F017 | `feat: implementa AuthHttpClient con token en memoria` | `NicoalsD` | HU-01 | P09 | [ ] |
-| F018 | `feat: crea formulario de inicio de sesión` | `NicoalsD` | HU-01 | - | [ ] |
-| F019 | `feat: integra POST /api/v1/auth/login` | `NicoalsD` | HU-01 | - | [ ] |
-| F020 | `feat: renueva sesión con POST /api/v1/auth/refresh` | `NicoalsD` | HU-05 | P11 | [ ] |
-| F021 | `feat: muestra cambio obligatorio de contraseña` | `NicoalsD` | HU-02 | - | [ ] |
-| F022 | `feat: implementa formulario de cambio de contraseña` | `NicoalsD` | HU-02 | - | [ ] |
-| F023 | `feat: agrega estado de sesión sin datos secretos` | `NicoalsD` | HU-01 | P18 | [ ] |
-| F024 | `feat: conserva sesiones aisladas por aqueduct_id` | `NicoalsD` | HU-04 | - | [ ] |
-| F025 | `test: verifica login, expiración y cambio obligatorio` | `NicoalsD` | HU-01, HU-02 | - | [ ] |
+| F017 | `feat: implementa AuthHttpClient con token en memoria` | `NicoalsD` | HU-01 | P09 | [x] |
+| F018 | `feat: crea formulario de inicio de sesión` | `NicoalsD` | HU-01 | - | [x] |
+| F019 | `feat: integra POST /api/v1/auth/login` | `NicoalsD` | HU-01 | - | [x] |
+| F020 | `feat: renueva sesión con POST /api/v1/auth/refresh` | `NicoalsD` | HU-05 | P11 | [x] |
+| F021 | `feat: muestra cambio obligatorio de contraseña` | `NicoalsD` | HU-02 | - | [x] |
+| F022 | `feat: implementa formulario de cambio de contraseña` | `NicoalsD` | HU-02 | - | [x] |
+| F023 | `feat: agrega estado de sesión sin datos secretos` | `NicoalsD` | HU-01 | P18 | [x] |
+| F024 | `feat: conserva sesiones aisladas por aqueduct_id` | `NicoalsD` | HU-04 | - | [x] |
+| F025 | `test: verifica login, expiración y cambio obligatorio` | `NicoalsD` | HU-01, HU-02 | - | [x] |
+| F082 | `feat: agrega la página de presentación de CAUDAL` | `NicoalsD` | - | - | [ ] |
+| F083 | `feat: agrega campo de contraseña con mostrar y ocultar` | `NicoalsD` | HU-01 | - | [ ] |
+| F084 | `feat: rediseña el inicio de sesión con límites del servidor` | `NicoalsD` | HU-01 | - | [ ] |
+| F085 | `test: cubre la presentación y el nuevo inicio de sesión` | `NicoalsD` | HU-01 | - | [ ] |
+| F089 | `feat: gestiona usuarios y membresías del acueducto` | `NicoalsD` | HU-04 | - | [ ] |
+| F092 | `feat: muestra y acepta el aviso de privacidad` | `NicoalsD` | HU-01 | - | [ ] |
 
 ### Fase 4: Reglas y red
 
@@ -347,6 +357,7 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | F030 | `feat: exige motivo al activar reglas` | `NicoalsD` | HU-08 | - | [ ] |
 | F031 | `feat: muestra red de tanques, sectores y válvulas` | `NicoalsD` | HU-07 | P08 | [ ] |
 | F032 | `test: valida borrador, bandas y activación de reglas` | `NicoalsD` | HU-07, HU-08 | - | [ ] |
+| F081 | `feat: conecta la app a la API real con VITE_API_BASE_URL` | `NicoalsD` | - | - | [ ] |
 
 ### Fase 5: Lecturas y cola offline
 
@@ -364,6 +375,9 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | F042 | `feat: presenta errores de validación de lectura` | `nicomora70` | HU-11, HU-12 | P12 | [ ] |
 | F043 | `feat: agrega corrección de lectura con motivo` | `nicomora70` | HU-13 | P13 | [ ] |
 | F044 | `test: cubre persistencia, reintento y lote parcial offline` | `nicomora70` | HU-09, HU-10 | P17 | [ ] |
+| F086 | `feat: agrega inicio del fontanero con su siguiente paso` | `nicomora70` | HU-09 | - | [ ] |
+| F087 | `feat: lista lecturas pendientes por enviar` | `nicomora70` | HU-10 | - | [ ] |
+| F094 | `feat: importa historial simulado del acueducto demo` | `nicomora70` | HU-38 | - | [ ] |
 
 ### Fase 6: Estado y pronóstico
 
@@ -388,6 +402,7 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | F056 | `feat: muestra sectores sin turno y su explicación` | `NicoalsD` | HU-18 | - | [ ] |
 | F057 | `test: verifica edición y decisiones de la Junta` | `NicoalsD` | HU-20, HU-21, HU-22 | P15 | [ ] |
 | F058 | `test: cubre accesibilidad del editor de propuestas` | `NicoalsD` | HU-21 | - | [ ] |
+| F088 | `feat: agrega inicio de la Junta con el paso del día` | `NicoalsD` | HU-18 | - | [ ] |
 
 ### Fase 8: Publicación y reportes
 
@@ -411,6 +426,8 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | F069 | `feat: presenta actas con cuatro secciones epistémicas` | `nicomora70` | HU-30 | P21 | [ ] |
 | F070 | `feat: descarga PDF final de acta` | `nicomora70` | HU-30 | P20 | [ ] |
 | F071 | `test: verifica cierre y vista de actas` | `nicomora70` | HU-29, HU-30 | - | [ ] |
+| F090 | `feat: autoriza y revoca resúmenes para entidades` | `NicoalsD` | HU-31 | - | [ ] |
+| F091 | `feat: muestra resúmenes autorizados a la entidad` | `NicoalsD` | HU-32 | - | [ ] |
 
 ### Fase 10: Evaluación IA
 
@@ -435,6 +452,8 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | F078 | `ci: despliega PWA en Vercel con CSP estricta` | `NicoalsD` | - | - | [ ] |
 | F079 | `ci: agrega pnpm audit y pruebas Playwright con axe` | `NicoalsD` | - | - | [ ] |
 | F080 | `docs: documenta publicación y verificación de v1.0.0` | `NicoalsD` | - | - | [ ] |
+| F093 | `feat: consulta auditoría y eventos de seguridad` | `NicoalsD` | HU-37 | - | [ ] |
+| F095 | `test: cubre usuarios, entidades, privacidad y auditoría` | `NicoalsD` | - | - | [ ] |
 
 ## `caudal-ia`
 
