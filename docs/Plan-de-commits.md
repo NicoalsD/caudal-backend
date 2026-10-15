@@ -359,7 +359,7 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | F031 | `feat: muestra red de tanques, sectores y válvulas` | `NicoalsD` | HU-07 | P08 | [x] |
 | F032 | `test: valida borrador, bandas y activación de reglas` | `NicoalsD` | HU-07, HU-08 | - | [x] |
 | F081 | `feat: conecta la app a la API real con VITE_API_BASE_URL` | `NicoalsD` | - | - | [x] |
-| F097 | `feat: muestra historial de reglas y sus diferencias` | `NicoalsD` | HU-08 | - | [ ] |
+| F097 | `feat: muestra historial de reglas y sus diferencias` | `NicoalsD` | HU-08 | - | [x] |
 
 ### Fase 5: Lecturas y cola offline
 
@@ -418,7 +418,7 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | F064 | `feat: consulta estado por código de seguimiento` | `NicoalsD` | HU-27 | P18 | [x] |
 | F065 | `feat: muestra transiciones de estado de incidentes` | `NicoalsD` | HU-28 | P18 | [x] |
 | F066 | `feat: marca como simulados los datos del acueducto demo` | `NicoalsD` | HU-39 | P22 | [x] |
-| F096 | `feat: permite al fontanero reportar un daño` | `NicoalsD` | HU-27 | - | [ ] |
+| F096 | `feat: permite al fontanero reportar un daño` | `NicoalsD` | HU-27 | - | [x] |
 
 ### Fase 9: Cierre y actas
 
@@ -436,28 +436,28 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| F072 | `feat: presenta métricas MAE, WQL y cobertura` | `nicomora70` | HU-33 | - | [ ] |
-| F073 | `feat: muestra skill por horizonte de pronóstico` | `nicomora70` | HU-33 | P19 | [ ] |
-| F074 | `feat: informa muestra insuficiente sin veredicto` | `nicomora70` | HU-33 | - | [ ] |
-| F075 | `test: verifica estados de la evaluación IA` | `nicomora70` | HU-33 | - | [ ] |
+| F072 | `feat: presenta métricas MAE, WQL y cobertura` | `nicomora70` | HU-33 | - | [x] |
+| F073 | `feat: muestra skill por horizonte de pronóstico` | `nicomora70` | HU-33 | P19 | [x] |
+| F074 | `feat: informa muestra insuficiente sin veredicto` | `nicomora70` | HU-33 | - | [x] |
+| F075 | `test: verifica estados de la evaluación IA` | `nicomora70` | HU-33 | - | [x] |
 
 ### Fase 11: Dispositivos
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| F076 | `feat: agrega vista de dispositivos registrados` | `nicomora70` | HU-34 | - | [ ] |
-| F077 | `test: verifica vista de dispositivos y estado` | `nicomora70` | HU-34 | - | [ ] |
+| F076 | `feat: agrega vista de dispositivos registrados` | `nicomora70` | HU-34 | - | [x] |
+| F077 | `test: verifica vista de dispositivos y estado` | `nicomora70` | HU-34 | - | [x] |
 
 ### Fase 12: Endurecimiento y despliegue
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| F078 | `ci: despliega PWA en Vercel con CSP estricta` | `NicoalsD` | - | - | [ ] |
-| F079 | `ci: agrega pnpm audit y pruebas Playwright con axe` | `NicoalsD` | - | - | [ ] |
-| F080 | `docs: documenta publicación y verificación de v1.0.0` | `NicoalsD` | - | - | [ ] |
+| F078 | `ci: despliega PWA en Vercel con CSP estricta` | `NicoalsD` | - | - | [x] |
+| F079 | `ci: agrega pnpm audit y pruebas Playwright con axe` | `NicoalsD` | - | - | [x] |
+| F080 | `docs: documenta publicación y verificación de v1.0.0` | `NicoalsD` | - | - | [x] |
 | F093 | `feat: consulta auditoría y eventos de seguridad` | `NicoalsD` | HU-37 | - | [x] |
 | F095 | `test: cubre usuarios, entidades, privacidad y auditoría` | `NicoalsD` | - | - | [x] |
-| F098 | `feat: muestra la salud técnica del sistema` | `NicoalsD` | HU-37 | - | [ ] |
+| F098 | `feat: muestra la salud técnica del sistema` | `NicoalsD` | HU-37 | - | [x] |
 
 ## `caudal-ia`
 
