@@ -1,13 +1,16 @@
 package co.caudal.infrastructure.config;
 
 import co.caudal.application.device.DeviceCommandHandlers;
+import co.caudal.application.device.DeviceCursor;
 import co.caudal.application.device.DeviceKeyCommandHandlers;
+import co.caudal.application.device.ListDevicesUseCase;
 import co.caudal.application.device.auth.DeviceAuthenticator;
 import co.caudal.application.device.command.ManualValveCommandHandler;
 import co.caudal.application.device.command.ValveCommandScheduler;
 import co.caudal.application.device.command.ValveCommandService;
 import co.caudal.application.device.telemetry.DeviceTelemetryService;
 import co.caudal.application.event.DomainEventPublisher;
+import co.caudal.application.pagination.SignedCursorCodec;
 import co.caudal.application.port.out.CommandConfirmationPayloadPort;
 import co.caudal.application.port.out.DevicePort;
 import co.caudal.application.port.out.NetworkPort;
@@ -41,6 +44,17 @@ class DeviceServicesConfig {
   DeviceCommandHandlers.UpdateStatus updateDeviceCommandHandler(
       DevicePort devices, UnitOfWorkPort unitOfWork) {
     return new DeviceCommandHandlers.UpdateStatus(devices, unitOfWork);
+  }
+
+  @Bean
+  DeviceCursor deviceCursor(SignedCursorCodec codec) {
+    return new DeviceCursor(codec);
+  }
+
+  @Bean
+  ListDevicesUseCase listDevicesUseCase(
+      DevicePort devices, DeviceCursor cursors, UnitOfWorkPort unitOfWork) {
+    return new ListDevicesUseCase(devices, cursors, unitOfWork);
   }
 
   @Bean

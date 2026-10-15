@@ -1058,6 +1058,50 @@ Las rutas de telemetría y comandos no usan JWT. Cada petición lleva firma Ed25
 - **Errores:** `422 REASON_REQUIRED`, `400 VALIDATION_ERROR` (`expires_at <= not_before`), `404 NOT_FOUND` (válvula sin actuador).
 - **Ejemplo:** `{ "valve_id": "0190f3a2-7777-7000-8000-000000000001", "command": "CLOSE", "manual_reason": "Fuga visible en el tubo; cierre preventivo.", "not_before": "2026-10-09T10:00:00-05:00", "expires_at": "2026-10-09T10:05:00-05:00" }`
 
+### 16.9 `GET /api/v1/devices`
+
+- **Permiso:** `DEVICE_MANAGE` (`BOARD_ADMIN` y `PROJECT_TEAM`). `OPERATOR` recibe `403 FORBIDDEN`.
+- **Parámetros:** `limit` (1 a 100, por defecto 20) y `cursor` (sección 1.5).
+- **Alcance:** dispositivos del acueducto de la sesión, del registro más reciente al más antiguo (`created_at` y, a igual momento, `id`). Otro acueducto ve una lista vacía.
+- **Respuesta 200:** `items` y `next_cursor`. Cada elemento trae `id`, `kind`, `name`, `status` (`ACTIVE`, `SUSPENDED` o `RETIRED`), `tank_id` (sensores), `valve_id` (actuadores), `created_at`, `last_seen_at` (nulo si nunca reportó) y `active_key`: la clave que se acepta ahora, con `id`, `valid_from` (registro de la clave) y `valid_until` (fin de la gracia tras una rotación; nulo si no tiene fin). Si el dispositivo no tiene clave vigente, `active_key` es `null`.
+- **Nunca devuelve:** el material de la clave pública, su huella, nonces ni secretos. Un dispositivo no expone sus claves revocadas.
+- **Errores:** `400 VALIDATION_ERROR` (`limit` fuera de 1 a 100), `400 CURSOR_INVALID`, `401 UNAUTHORIZED`, `403 FORBIDDEN`.
+- **Ejemplo:** `GET /api/v1/devices?limit=2`
+
+```json
+{
+  "items": [
+    {
+      "id": "0190f3a2-6666-7000-8000-0000000000d2",
+      "kind": "VALVE_ACTUATOR",
+      "name": "Motor del puente",
+      "status": "ACTIVE",
+      "tank_id": null,
+      "valve_id": "0190f3a2-7777-7000-8000-000000000001",
+      "created_at": "2026-10-09T14:00:00Z",
+      "last_seen_at": "2026-10-14T08:30:00Z",
+      "active_key": {
+        "id": "0190f3a2-6666-7000-8000-0000000000e2",
+        "valid_from": "2026-10-09T14:05:00Z",
+        "valid_until": null
+      }
+    },
+    {
+      "id": "0190f3a2-6666-7000-8000-0000000000d1",
+      "kind": "LEVEL_SENSOR",
+      "name": "Sensor del tanque principal",
+      "status": "ACTIVE",
+      "tank_id": "0190f3a2-5555-7000-8000-000000000001",
+      "valve_id": null,
+      "created_at": "2026-10-08T12:00:00Z",
+      "last_seen_at": null,
+      "active_key": null
+    }
+  ],
+  "next_cursor": "eyJvIjoyMH0.c2lnbmF0dXJh"
+}
+```
+
 ## 17. Importación de historial simulado (`/imports`)
 
 Solo `PROJECT_TEAM` y solo para acueductos con `is_demo = true`. Cualquier otro acueducto responde `403 DEMO_ONLY`. Cada importación crea una fila en `sim.import_batches`.
@@ -1192,6 +1236,7 @@ Permiso: `IMPORT_SIMULATED` (`PROJECT_TEAM`). `aqueduct_id` debe ser el acueduct
 | Dispositivos | POST | `/devices/telemetry` | Firma |
 | Dispositivos | GET | `/devices/commands` | Firma |
 | Dispositivos | POST | `/devices/commands/{id}/ack` | Firma |
+| Dispositivos | GET | `/devices` | `DEVICE_MANAGE` |
 | Dispositivos | POST | `/devices` | `DEVICE_MANAGE` |
 | Dispositivos | POST | `/devices/{id}/keys` | `DEVICE_MANAGE` |
 | Dispositivos | PATCH | `/devices/{id}` | `DEVICE_MANAGE` |
