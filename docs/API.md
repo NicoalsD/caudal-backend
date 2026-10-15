@@ -795,7 +795,7 @@ La propuesta sigue la máquina de estados de `Reglas-de-negocio.md`, sección 12
 - **Permiso:** `SCHEDULE_VIEW` (lo tienen `BOARD_ADMIN`, `BOARD_MEMBER`, `OPERATOR` y `PROJECT_TEAM`).
 - **Parámetro:** `date` (fecha `YYYY-MM-DD`, día de servicio en la zona horaria del acueducto).
 - **Respuesta 200:** horario publicado del día: `service_date`, `proposal_id`, `published_at` (cuándo se publicó) e `items`. Cada elemento de `items` tiene la misma forma que los turnos de la propuesta (10.3): `id` (el que usa 11.1), `sector_id`, `sequence`, `start_at`, `end_at`, `origin` y `reasons` (con `code`, `params` y `text`). Es un dato interno del acueducto, no el horario público.
-- **Solo publicado:** responde la propuesta en `PUBLISHED`. Un borrador, una propuesta pendiente o aprobada pero no publicada no se muestra. Un día ya cerrado (`CLOSED`) tampoco aparece aquí; su resultado está en 11.2.
+- **Solo publicado:** responde la propuesta en `PUBLISHED` o, si el día ya se cerró, en `CLOSED` (así el cierre del día sigue mostrando sus turnos; el resultado del cierre está en 11.2). Un borrador o una propuesta pendiente o aprobada pero no publicada no se muestra.
 - **Errores:** `400 VALIDATION_ERROR` (la fecha no tiene el formato `YYYY-MM-DD`), `404 NOT_FOUND` (el día no tiene horario publicado en el acueducto).
 - **Ejemplo de respuesta:**
 
