@@ -7,6 +7,9 @@ import co.caudal.application.minutes.FinalizeMinutesCommandHandler;
 import co.caudal.application.minutes.GenerateMinutesCommandHandler;
 import co.caudal.application.minutes.GetMinutesPdfUseCase;
 import co.caudal.application.minutes.GetMinutesUseCase;
+import co.caudal.application.minutes.ListMinutesUseCase;
+import co.caudal.application.minutes.MinutesCursor;
+import co.caudal.application.pagination.SignedCursorCodec;
 import co.caudal.application.port.out.AqueductPort;
 import co.caudal.application.port.out.ClosurePort;
 import co.caudal.application.port.out.DataAccessLogPort;
@@ -55,6 +58,17 @@ class ClosureServicesConfig {
   @Bean
   GetMinutesUseCase getMinutesUseCase(MinutesPort minutes, UnitOfWorkPort unitOfWork) {
     return new GetMinutesUseCase(minutes, unitOfWork);
+  }
+
+  @Bean
+  MinutesCursor minutesCursor(SignedCursorCodec codec) {
+    return new MinutesCursor(codec);
+  }
+
+  @Bean
+  ListMinutesUseCase listMinutesUseCase(
+      MinutesPort minutes, MinutesCursor cursors, UnitOfWorkPort unitOfWork) {
+    return new ListMinutesUseCase(minutes, cursors, unitOfWork);
   }
 
   @Bean
