@@ -19,20 +19,20 @@ Marca `Hecho` con `[x]` cuando el commit correspondiente se haya fusionado en `d
 
 | Repositorio | Fase 1 | Fase 2 | Fase 3 | Fase 4 | Fase 5 | Fase 6 | Fase 7 | Fase 8 | Fase 9 | Fase 10 | Fase 11 | Fase 12 | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `caudal-backend` | 17 | 58 | 31 | 13 | 15 | 11 | 13 | 10 | 10 | 3 | 8 | 7 | 196 |
+| `caudal-backend` | 17 | 58 | 31 | 13 | 15 | 11 | 13 | 10 | 11 | 3 | 8 | 7 | 197 |
 | `caudal-frontend` | 10 | 6 | 15 | 8 | 15 | 6 | 9 | 8 | 7 | 4 | 2 | 5 | 95 |
 | `caudal-ia` | 8 | 6 | 3 | 0 | 0 | 16 | 0 | 0 | 0 | 8 | 0 | 4 | 45 |
 | `caudal-simulador` | 7 | 14 | 0 | 0 | 8 | 0 | 0 | 0 | 2 | 2 | 24 | 3 | 60 |
-| **Total** | **42** | **84** | **49** | **21** | **38** | **33** | **22** | **18** | **19** | **17** | **34** | **19** | **396** |
+| **Total** | **42** | **84** | **49** | **21** | **38** | **33** | **22** | **18** | **20** | **17** | **34** | **19** | **397** |
 
 | Autor | caudal-backend | caudal-frontend | caudal-ia | caudal-simulador | Total |
 |---|---:|---:|---:|---:|---:|
 | `Drako2305` | 123 | 0 | 0 | 0 | 123 |
-| `NicoalsD` | 34 | 63 | 0 | 0 | 97 |
+| `NicoalsD` | 35 | 63 | 0 | 0 | 98 |
 | `nicomora70` | 39 | 32 | 45 | 60 | 176 |
-| **Total** | **196** | **95** | **45** | **60** | **396** |
+| **Total** | **197** | **95** | **45** | **60** | **397** |
 
-**Ampliación del frontend (2026-10-14).** Se agregan la página de presentación, el rediseño del inicio de sesión, los inicios por rol y las pantallas de usuarios, entidades, privacidad, auditoría e importación que el inventario de pantallas pedía y el plan no listaba (F081 a F095), y los listados de actas y dispositivos que esas pantallas necesitan en el backend (B195 y B196).
+**Ampliación del frontend (2026-10-14).** Se agregan la página de presentación, el rediseño del inicio de sesión, los inicios por rol y las pantallas de usuarios, entidades, privacidad, auditoría e importación que el inventario de pantallas pedía y el plan no listaba (F081 a F095), los listados de actas y dispositivos que esas pantallas necesitan en el backend (B195 y B196) y los turnos publicados del día para el cierre del fontanero (B197).
 
 Fase 0: 168 commits de documentación y planeación ya realizados; excluidos de esta lista de implementación.
 
@@ -263,7 +263,8 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | B171 | `feat: implementa POST /api/v1/minutes` | `NicoalsD` | HU-30 | P04 | [x] |
 | B172 | `feat: finaliza acta con POST /api/v1/minutes/{id}/finalize` | `NicoalsD` | HU-30 | P13 | [x] |
 | B173 | `feat: crea PDF final y guarda pdf_sha256` | `NicoalsD` | HU-30 | P02 | [x] |
-| B196 | `feat: lista actas del acueducto en GET /api/v1/minutes` | `NicoalsD` | HU-30 | - | [ ] |
+| B196 | `feat: lista actas del acueducto en GET /api/v1/minutes` | `NicoalsD` | HU-30 | - | [x] |
+| B197 | `feat: expone turnos publicados del día al fontanero` | `NicoalsD` | HU-29 | - | [ ] |
 
 ### Fase 10: Evaluación IA
 
@@ -284,7 +285,7 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | B181 | `feat: procesa telemetría con DeviceTelemetryAdapter` | `nicomora70` | HU-35 | P06 | [x] |
 | B182 | `feat: obtiene comandos en GET /api/v1/devices/commands` | `nicomora70` | HU-36 | P13 | [x] |
 | B183 | `feat: confirma comandos en POST /api/v1/devices/commands/{id}/ack` | `nicomora70` | HU-36 | P18 | [x] |
-| B195 | `feat: lista dispositivos registrados en GET /api/v1/devices` | `nicomora70` | HU-34 | - | [ ] |
+| B195 | `feat: lista dispositivos registrados en GET /api/v1/devices` | `nicomora70` | HU-34 | - | [x] |
 
 ### Fase 12: Endurecimiento, despliegue y v1.0.0
 
