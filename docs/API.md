@@ -216,6 +216,7 @@ Los permisos de la tabla siguiente son los que se usan en las secciones de recur
 | `PROPOSAL_GENERATE`, `PROPOSAL_DECIDE`, `PROPOSAL_PUBLISH` | Sí | Sí | No | No | No | No |
 | `PROPOSAL_READ` (borradores) | Sí | Sí | No | No | No | No |
 | `EXECUTION_RECORD`, `DAY_CLOSE` | Sí | No | Sí | No | No | No |
+| `SCHEDULE_VIEW` (horario publicado del día) | Sí | Sí | Sí | Sí | No | No |
 | `INCIDENT_CREATE`, `INCIDENT_READ` | Sí | Sí | Sí | Sí | No | No (solo público) |
 | `MINUTES_GENERATE`, `MINUTES_VIEW`, `SUMMARY_SHARE_MANAGE` | Sí | Sí (sin compartir) | No | No | No | No |
 | `SUMMARY_READ` | Sí | Sí | No | No | Sí (solo autorizados) | No |
@@ -789,6 +790,34 @@ La propuesta sigue la máquina de estados de `Reglas-de-negocio.md`, sección 12
 - **Errores:** `409 INVALID_STATE_TRANSITION` (no hay propuesta `PUBLISHED`), `409 CONFLICT` (día ya cerrado, también si dos cierres llegan a la vez).
 - **Ejemplo:** `{ "notes": "Día sin novedades mayores. Un turno a medias por la lluvia." }`
 
+### 11.4 `GET /api/v1/days/{date}/schedule`
+
+- **Permiso:** `SCHEDULE_VIEW` (lo tienen `BOARD_ADMIN`, `BOARD_MEMBER`, `OPERATOR` y `PROJECT_TEAM`).
+- **Parámetro:** `date` (fecha `YYYY-MM-DD`, día de servicio en la zona horaria del acueducto).
+- **Respuesta 200:** horario publicado del día: `service_date`, `proposal_id`, `published_at` (cuándo se publicó) e `items`. Cada elemento de `items` tiene la misma forma que los turnos de la propuesta (10.3): `id` (el que usa 11.1), `sector_id`, `sequence`, `start_at`, `end_at`, `origin` y `reasons` (con `code`, `params` y `text`). Es un dato interno del acueducto, no el horario público.
+- **Solo publicado:** responde la propuesta en `PUBLISHED`. Un borrador, una propuesta pendiente o aprobada pero no publicada no se muestra. Un día ya cerrado (`CLOSED`) tampoco aparece aquí; su resultado está en 11.2.
+- **Errores:** `400 VALIDATION_ERROR` (la fecha no tiene el formato `YYYY-MM-DD`), `404 NOT_FOUND` (el día no tiene horario publicado en el acueducto).
+- **Ejemplo de respuesta:**
+
+```json
+{
+  "service_date": "2026-10-16",
+  "proposal_id": "0190f3a2-b001-7000-8000-000000000001",
+  "published_at": "2026-10-15T20:05:00Z",
+  "items": [
+    {
+      "id": "0190f3a2-c001-7000-8000-000000000001",
+      "sector_id": "0190f3a2-d001-7000-8000-000000000001",
+      "sequence": 1,
+      "start_at": "2026-10-16T08:00:00-05:00",
+      "end_at": "2026-10-16T11:00:00-05:00",
+      "origin": "PROPOSED",
+      "reasons": [{ "code": "PRIORITY_SECTOR", "params": { "sector": "La Esperanza" }, "text": "Sector prioritario por nivel bajo." }]
+    }
+  ]
+}
+```
+
 ## 12. Incidentes (`/incidents`)
 
 ### 12.1 `GET /api/v1/incidents`
@@ -1215,6 +1244,7 @@ Permiso: `IMPORT_SIMULATED` (`PROJECT_TEAM`). `aqueduct_id` debe ser el acueduct
 | Propuestas | POST | `/schedule-proposals/{id}/approve`, `/modify`, `/reject` | `PROPOSAL_DECIDE` |
 | Propuestas | POST | `/schedule-proposals/{id}/publish` | `PROPOSAL_PUBLISH` |
 | Ejecución | POST | `/schedule-items/{id}/execution` | `EXECUTION_RECORD` |
+| Horario del día | GET | `/days/{date}/schedule` | `SCHEDULE_VIEW` |
 | Cierre | GET | `/days/{date}/closure` | `EXECUTION_RECORD` o `DAY_CLOSE` |
 | Cierre | POST | `/days/{date}/closure` | `DAY_CLOSE` |
 | Incidentes | GET | `/incidents` | `INCIDENT_READ` |

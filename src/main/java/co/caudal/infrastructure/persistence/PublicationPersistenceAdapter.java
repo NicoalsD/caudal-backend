@@ -3,6 +3,7 @@ package co.caudal.infrastructure.persistence;
 import co.caudal.application.port.out.PublicationPort;
 import co.caudal.application.publication.PublicationView;
 import java.sql.Types;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
@@ -42,5 +43,23 @@ public class PublicationPersistenceAdapter implements PublicationPort {
                     rs.getString("whatsapp_text"),
                     rs.getString("poster_sha256")))
         .single();
+  }
+
+  @Override
+  public Optional<PublicationView> findByProposal(UUID proposalId) {
+    return jdbc.sql(
+            "SELECT id, proposal_id, published_at, whatsapp_text, poster_sha256"
+                + " FROM ops.publications WHERE proposal_id = :proposal"
+                + " ORDER BY published_at DESC LIMIT 1")
+        .param("proposal", proposalId)
+        .query(
+            (rs, row) ->
+                new PublicationView(
+                    rs.getObject("id", UUID.class),
+                    rs.getObject("proposal_id", UUID.class),
+                    SqlTime.instant(rs, "published_at"),
+                    rs.getString("whatsapp_text"),
+                    rs.getString("poster_sha256")))
+        .optional();
   }
 }
