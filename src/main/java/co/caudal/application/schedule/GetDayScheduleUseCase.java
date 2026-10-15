@@ -17,11 +17,13 @@ import java.util.UUID;
 
 /**
  * Reads the published schedule of a day for the shift executions (docs/API.md, section 11.4). Only
- * the proposal in status PUBLISHED counts: drafts and proposals pending review are not visible.
+ * the proposal in status PUBLISHED or CLOSED counts: a closed day still shows the shifts it had,
+ * and drafts and proposals pending review are not visible.
  */
 public class GetDayScheduleUseCase {
 
-  private static final String PUBLISHED = "PUBLISHED";
+  /** Statuses whose schedule the families already saw: published, and published then closed. */
+  private static final List<String> VISIBLE_STATUSES = List.of("PUBLISHED", "CLOSED");
 
   private final ProposalPort proposals;
   private final PublicationPort publications;
@@ -82,8 +84,8 @@ public class GetDayScheduleUseCase {
   }
 
   private UUID firstPublished(LocalDate serviceDate) {
-    List<ProposalSummary> rows = proposals.list(serviceDate, serviceDate, PUBLISHED, null, 1);
-    return rows.stream()
+    return VISIBLE_STATUSES.stream()
+        .flatMap(status -> proposals.list(serviceDate, serviceDate, status, null, 1).stream())
         .findFirst()
         .map(ProposalSummary::id)
         .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));

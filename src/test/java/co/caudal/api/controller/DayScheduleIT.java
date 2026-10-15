@@ -49,6 +49,26 @@ class DayScheduleIT extends PublishedScheduleIT {
   }
 
   @Test
+  void aClosedDayStillShowsItsShifts() throws Exception {
+    UUID aqueduct = newAqueductWithRules();
+    reading(aqueduct, "2.10");
+    Session member = login(account("day.closed.member", "BOARD_MEMBER", aqueduct));
+    Session operator = login(account("day.closed.operator", "OPERATOR", aqueduct));
+    String proposal = JsonPath.read(publishedSchedule(member), "$.proposal_id");
+    mvc.perform(
+            post("/api/v1/days/" + TOMORROW + "/closure")
+                .header("Authorization", operator.bearer())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+        .andExpect(status().isCreated());
+
+    mvc.perform(get(DAY).header("Authorization", operator.bearer()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.proposal_id").value(proposal))
+        .andExpect(jsonPath("$.items[0].id").isNotEmpty());
+  }
+
+  @Test
   void anApprovedButUnpublishedDayAnswers404() throws Exception {
     UUID aqueduct = newAqueductWithRules();
     reading(aqueduct, "2.10");
