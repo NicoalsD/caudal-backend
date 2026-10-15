@@ -1,6 +1,8 @@
 package co.caudal.infrastructure.persistence;
 
+import co.caudal.application.device.DeviceKeyValidityView;
 import co.caudal.application.device.DeviceKeyView;
+import co.caudal.application.device.DeviceListItemView;
 import co.caudal.application.device.DeviceView;
 import co.caudal.application.device.auth.DeviceCredentials;
 import co.caudal.application.device.auth.DeviceKeyCredential;
@@ -109,6 +111,27 @@ public class DevicePersistenceAdapter implements DevicePort {
         .param("id", id)
         .query(DevicePersistenceAdapter::device)
         .optional();
+  }
+
+  @Override
+  public List<DeviceListItemView> list(Instant before, UUID beforeId, int limit) {
+    return jdbc.sql(
+            "SELECT d.id, d.kind, d.name, d.tank_id, d.valve_id, d.status, d.created_at,"
+                + " d.last_seen_at, k.id AS key_id, k.activated_at AS key_valid_from,"
+                + " k.revoked_at AS key_valid_until FROM devices.devices d"
+                + " LEFT JOIN LATERAL (SELECT dk.id, dk.activated_at, dk.revoked_at"
+                + " FROM devices.device_keys dk WHERE dk.device_id = d.id"
+                + " AND (dk.revoked_at IS NULL OR dk.revoked_at > now())"
+                + " ORDER BY (dk.revoked_at IS NULL) DESC, dk.activated_at DESC, dk.id DESC"
+                + " LIMIT 1) k ON true"
+                + " WHERE (CAST(:before AS timestamptz) IS NULL OR"
+                + " (d.created_at, d.id) < (CAST(:before AS timestamptz), CAST(:beforeId AS uuid)))"
+                + " ORDER BY d.created_at DESC, d.id DESC LIMIT :limit")
+        .param("before", SqlTime.offset(before), Types.TIMESTAMP_WITH_TIMEZONE)
+        .param("beforeId", beforeId, Types.OTHER)
+        .param("limit", limit)
+        .query(DevicePersistenceAdapter::listItem)
+        .list();
   }
 
   @Override
@@ -234,6 +257,27 @@ public class DevicePersistenceAdapter implements DevicePort {
       UUID valveId,
       UUID keyId,
       String publicKey) {}
+
+  private static DeviceListItemView listItem(ResultSet rs, int row) throws SQLException {
+    UUID keyId = rs.getObject("key_id", UUID.class);
+    DeviceKeyValidityView activeKey =
+        keyId == null
+            ? null
+            : new DeviceKeyValidityView(
+                keyId,
+                SqlTime.instant(rs, "key_valid_from"),
+                SqlTime.instant(rs, "key_valid_until"));
+    return new DeviceListItemView(
+        rs.getObject("id", UUID.class),
+        rs.getString("kind"),
+        rs.getString("name"),
+        rs.getObject("tank_id", UUID.class),
+        rs.getObject("valve_id", UUID.class),
+        rs.getString("status"),
+        SqlTime.instant(rs, "created_at"),
+        SqlTime.instant(rs, "last_seen_at"),
+        activeKey);
+  }
 
   private static DeviceView device(ResultSet rs, int row) throws SQLException {
     return new DeviceView(

@@ -1,11 +1,13 @@
 package co.caudal.application.port.out;
 
 import co.caudal.application.device.DeviceKeyView;
+import co.caudal.application.device.DeviceListItemView;
 import co.caudal.application.device.DeviceView;
 import co.caudal.application.device.auth.DeviceCredentials;
 import co.caudal.domain.device.DeviceKind;
 import co.caudal.domain.security.SecurityEventType;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -32,6 +34,18 @@ public interface DevicePort {
    * @return the device, or empty if it is not in the aqueduct of the session
    */
   Optional<DeviceView> device(UUID id);
+
+  /**
+   * Lists the devices of the aqueduct of the session, the newest registration first. Each row
+   * carries the key that is valid now (not revoked, or revoked in the future), never its key
+   * material.
+   *
+   * @param before only devices registered before this moment, or null from the newest
+   * @param beforeId with {@code before}: only ids before this one, to break ties
+   * @param limit maximum number
+   * @return the devices
+   */
+  List<DeviceListItemView> list(Instant before, UUID beforeId, int limit);
 
   /**
    * Finds the active actuator of a valve of the aqueduct of the session. If a valve has several,
