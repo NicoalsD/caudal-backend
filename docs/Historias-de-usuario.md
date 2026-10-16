@@ -46,7 +46,7 @@ Escenario: ingreso correcto
   Cuando envía POST /api/v1/auth/login con usuario y contraseña
   Entonces recibe un access token en el cuerpo de la respuesta
   Y recibe el refresh token en la cookie caudal_rt (HttpOnly, Secure, SameSite=None, Path=/api/v1/auth)
-  Y GET /api/v1/auth/me devuelve su rol y su acueducto
+  Y GET /api/v1/auth/current-user devuelve su rol y su acueducto
 
 Escenario: contraseña incorrecta
   Dado una cuenta activa

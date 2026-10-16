@@ -43,7 +43,7 @@ Duración de la sesión por rol: 7 días de refresh token, y 30 días para `OPER
 - Los códigos son `UPPER_SNAKE_CASE` en inglés (`^[A-Z][A-Z0-9_]*$`, tabla `iam.permissions`).
 - Un permiso se marca **canon** si aparece en la matriz de los hechos canónicos, y **propuesto** si lo introduce este documento. Los propuestos están marcados "propuesto, por definir" y deben validarse antes de implementarse.
 - Las acciones sin login (público) no tienen permiso: pasan por el `PublicScheduleProxy` o por el formulario público con sus límites.
-- Las acciones solo sobre la propia cuenta (cambiar contraseña, cerrar sesión, MFA propio, aceptar el aviso de privacidad, consultar `GET /auth/me` y catálogos) requieren estar autenticado, sin permiso adicional.
+- Las acciones solo sobre la propia cuenta (cambiar contraseña, cerrar sesión, MFA propio, aceptar el aviso de privacidad, consultar `GET /auth/current-user` y catálogos) requieren estar autenticado, sin permiso adicional.
 
 ### 3.2 Matriz completa
 
@@ -86,7 +86,7 @@ Notas de la matriz:
 
 - **Diferencia con los hechos canónicos.** En la sección 9 de los hechos, la fila "Ver horario publicado / reportar daño" marca `SUPPORT_ENTITY` como "No". Esta matriz lo mantiene para el panel autenticado. La vía pública (sin login) está abierta a cualquiera, incluida una entidad. Por definir si la entidad debe tener además una vista de horario dentro del panel.
 - **Comandos de válvula desde turnos aprobados.** La generación de comandos al publicar un horario se ejecuta como acción del sistema, no como permiso de un rol. Por definir cómo se registra en `devices.valve_command_events` y `audit.audit_log` (actor `SYSTEM`).
-- **Permisos de cuenta propia.** `POST /auth/change-password`, `POST /auth/logout`, `POST /auth/logout-all`, `POST /auth/mfa/*`, `POST /privacy-notice/accept`, `GET /auth/me`, `GET /meta/constraints`, `GET /catalogs/{catalog}` y `GET /privacy-notice/current` requieren autenticación y no tienen código de permiso.
+- **Permisos de cuenta propia.** `POST /auth/change-password`, `POST /auth/logout`, `POST /auth/logout-all`, `POST /auth/mfa/*`, `POST /privacy-notice/accept`, `GET /auth/current-user`, `GET /meta/constraints`, `GET /catalogs/{catalog}` y `GET /privacy-notice/current` requieren autenticación y no tienen código de permiso.
 
 ### 3.3 Permisos por rol (semilla de `iam.role_permissions`)
 

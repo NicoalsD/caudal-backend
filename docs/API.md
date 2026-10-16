@@ -89,7 +89,7 @@ Toda respuesta de error tiene esta forma:
 | `NONCE_REPLAY` | 401 | Petición repetida. | `X-Nonce` ya visto en los últimos 10 minutos |
 | `TIMESTAMP_OUT_OF_WINDOW` | 401 | La hora de la petición está fuera de la ventana permitida. | `X-Timestamp` fuera de ±300 s |
 | `FORBIDDEN` | 403 | No tienes permiso para esta acción. | Falta el permiso o el recurso es de otro acueducto |
-| `PASSWORD_CHANGE_REQUIRED` | 403 | Debes cambiar tu contraseña antes de continuar. | `must_change_password = true`; solo se permiten `/auth/me`, `/auth/change-password` y `/auth/logout` |
+| `PASSWORD_CHANGE_REQUIRED` | 403 | Debes cambiar tu contraseña antes de continuar. | `must_change_password = true`; solo se permiten `/auth/current-user`, `/auth/change-password` y `/auth/logout` |
 | `PRIVACY_NOTICE_PENDING` | 403 | Debes aceptar el aviso de privacidad. | Hay una versión nueva sin aceptar |
 | `DEVICE_INACTIVE` | 403 | El dispositivo no está activo. | Dispositivo `SUSPENDED` o `RETIRED` |
 | `DEMO_ONLY` | 403 | Esta operación solo aplica al acueducto de demostración. | Importación fuera de `is_demo = true` |
@@ -291,9 +291,10 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 - **Respuesta 204.** Marca el código como usado, incrementa `token_version` y revoca las sesiones (`PASSWORD_CHANGED`). No cambia `must_change_password`: una cuenta nueva sigue obligada a cambiar su contraseña tras el primer ingreso (HU-02). Si la contraseña no cumple la política responde 422 y el código no se gasta.
 - **Errores:** `401 UNAUTHORIZED` (código inválido, vencido o usado; mensaje genérico), `422 PASSWORD_POLICY_VIOLATION`, `429 RATE_LIMITED`.
 
-### 2.7 `GET /api/v1/auth/me`
+### 2.7 `GET /api/v1/auth/current-user`
 
 - **Permiso:** autenticado. Permitido aunque `must_change_password = true`.
+- **Ruta antigua:** `GET /api/v1/auth/me` responde lo mismo mientras se publica el frontend que usa la ruta nueva; se retirará después.
 - **Respuesta 200:** `id`, `username`, `full_name`, `status`, `must_change_password`, `privacy_accepted_version`, `memberships` (lista de `aqueduct_id`, `role`, `valid_from`, `valid_to`) y `permissions` (lista de códigos).
 - **Ejemplo:**
 
@@ -423,7 +424,7 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 
 - **Permiso:** autenticado.
 - **Cuerpo:** `version` (entero, obligatorio, debe ser la versión vigente).
-- **Respuesta 201:** `user_id`, `version`, `accepted_at`. Se guarda la IP en HMAC. Aceptar otra vez la misma versión devuelve la primera aceptación. `GET /auth/me` muestra la última versión aceptada en `privacy_accepted_version`.
+- **Respuesta 201:** `user_id`, `version`, `accepted_at`. Se guarda la IP en HMAC. Aceptar otra vez la misma versión devuelve la primera aceptación. `GET /auth/current-user` muestra la última versión aceptada en `privacy_accepted_version`.
 - **Errores:** `409 CONFLICT` con `details.current_version` (la versión ya no es la vigente).
 
 ## 5. Red: tanques, sectores y válvulas
@@ -1207,7 +1208,7 @@ Permiso: `IMPORT_SIMULATED` (`PROJECT_TEAM`). `aqueduct_id` debe ser el acueduct
 | Auth | POST | `/auth/logout-all` | Autenticado |
 | Auth | POST | `/auth/change-password` | Autenticado |
 | Auth | POST | `/auth/reset-password` | Público (código) |
-| Auth | GET | `/auth/me` | Autenticado |
+| Auth | GET | `/auth/current-user` | Autenticado |
 | Auth | POST | `/auth/mfa/*` | Por definir |
 | Auth | POST | `/auth/switch-aqueduct` | Autenticado |
 | Usuarios | GET, POST | `/users` | `USER_MANAGE` |
