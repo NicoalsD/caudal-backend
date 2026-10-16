@@ -65,7 +65,7 @@ jobs:
           cache: maven
 
       - name: Reutiliza la base de datos del NVD entre ejecuciones
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.m2/repository/org/owasp/dependency-check-data
           key: owasp-nvd-${{ runner.os }}-${{ github.run_id }}
