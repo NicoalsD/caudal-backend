@@ -3,7 +3,7 @@ package co.caudal.application.auth;
 import java.util.List;
 
 /**
- * Answer of {@code GET /auth/me}.
+ * Answer of {@code GET /auth/current-user}.
  *
  * @param profile the account
  * @param memberships memberships in force

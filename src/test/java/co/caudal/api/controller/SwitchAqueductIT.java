@@ -36,7 +36,7 @@ class SwitchAqueductIT extends SessionIT {
     mvc.perform(get("/api/v1/rule-sets/current").header("Authorization", "Bearer " + token))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.version").value(1));
-    mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + token))
+    mvc.perform(get("/api/v1/auth/current-user").header("Authorization", "Bearer " + token))
         .andExpect(status().isOk());
   }
 

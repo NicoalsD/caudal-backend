@@ -77,7 +77,7 @@ class LoginFlowIT extends AppRoleIT {
         .contains("\"expires_in\":900");
     String token =
         response.getContentAsString().replaceAll(".*\"access_token\":\"([^\"]+)\".*", "$1");
-    mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + token))
+    mvc.perform(get("/api/v1/auth/current-user").header("Authorization", "Bearer " + token))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.username").value("flow.operator"))
         .andExpect(jsonPath("$.memberships[0].role").value("OPERATOR"));

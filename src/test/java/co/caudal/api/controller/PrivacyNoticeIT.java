@@ -42,7 +42,7 @@ class PrivacyNoticeIT extends SessionIT {
             jsonPath("$.accepted_at")
                 .value(first.replaceAll(".*\"accepted_at\":\"([^\"]+)\".*", "$1")));
     accept(session, 2).andExpect(status().isConflict());
-    mvc.perform(get("/api/v1/auth/me").header("Authorization", session.bearer()))
+    mvc.perform(get("/api/v1/auth/current-user").header("Authorization", session.bearer()))
         .andExpect(jsonPath("$.privacy_accepted_version").value(1));
   }
 

@@ -34,7 +34,7 @@ class ChangePasswordIT extends SessionIT {
 
     change(session, PASSWORD, NEW_PASSWORD).andExpect(status().isNoContent());
 
-    mvc.perform(get("/api/v1/auth/me").header("Authorization", otherDevice.bearer()))
+    mvc.perform(get("/api/v1/auth/current-user").header("Authorization", otherDevice.bearer()))
         .andExpect(status().isUnauthorized());
     mvc.perform(refreshWith(otherDevice.refreshSecret())).andExpect(status().isUnauthorized());
     assertThat(
@@ -59,7 +59,7 @@ class ChangePasswordIT extends SessionIT {
                 account.userId()))
         .isEqualTo(1);
     Session again = login(account, NEW_PASSWORD);
-    mvc.perform(get("/api/v1/auth/me").header("Authorization", again.bearer()))
+    mvc.perform(get("/api/v1/auth/current-user").header("Authorization", again.bearer()))
         .andExpect(status().isOk());
   }
 
@@ -86,7 +86,7 @@ class ChangePasswordIT extends SessionIT {
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
 
-    mvc.perform(get("/api/v1/auth/me").header("Authorization", session.bearer()))
+    mvc.perform(get("/api/v1/auth/current-user").header("Authorization", session.bearer()))
         .andExpect(status().isOk());
     assertThat(
             owner.queryForObject(
@@ -112,7 +112,7 @@ class ChangePasswordIT extends SessionIT {
         .andExpect(status().isUnprocessableContent())
         .andExpect(jsonPath("$.error.details.rule").value("CONTAINS_USERNAME"));
 
-    mvc.perform(get("/api/v1/auth/me").header("Authorization", session.bearer()))
+    mvc.perform(get("/api/v1/auth/current-user").header("Authorization", session.bearer()))
         .andExpect(status().isOk());
   }
 
