@@ -52,7 +52,7 @@ class LogoutFlowIT extends SessionIT {
         .andExpect(status().isNoContent());
 
     mvc.perform(refreshWith(laptop.refreshSecret())).andExpect(status().isOk());
-    mvc.perform(get("/api/v1/auth/me").header("Authorization", phone.bearer()))
+    mvc.perform(get("/api/v1/auth/current-user").header("Authorization", phone.bearer()))
         .andExpect(status().isOk());
   }
 
@@ -104,7 +104,7 @@ class LogoutFlowIT extends SessionIT {
                 Integer.class,
                 account.userId()))
         .isEqualTo(1);
-    mvc.perform(get("/api/v1/auth/me").header("Authorization", laptop.bearer()))
+    mvc.perform(get("/api/v1/auth/current-user").header("Authorization", laptop.bearer()))
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
     mvc.perform(refreshWith(laptop.refreshSecret())).andExpect(status().isUnauthorized());
@@ -118,7 +118,7 @@ class LogoutFlowIT extends SessionIT {
     mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", mine.bearer()))
         .andExpect(status().isNoContent());
 
-    mvc.perform(get("/api/v1/auth/me").header("Authorization", other.bearer()))
+    mvc.perform(get("/api/v1/auth/current-user").header("Authorization", other.bearer()))
         .andExpect(status().isOk());
   }
 }

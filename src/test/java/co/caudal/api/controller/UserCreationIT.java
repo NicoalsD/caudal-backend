@@ -97,7 +97,7 @@ class UserCreationIT extends SessionIT {
         login(
             new Account((UUID) user.get("id"), admin.aqueductId(), "new.operator"),
             "clave-de-activacion-larga");
-    mvc.perform(get("/api/v1/auth/me").header("Authorization", activated.bearer()))
+    mvc.perform(get("/api/v1/auth/current-user").header("Authorization", activated.bearer()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.must_change_password").value(true))
         .andExpect(jsonPath("$.memberships[0].role").value("OPERATOR"));

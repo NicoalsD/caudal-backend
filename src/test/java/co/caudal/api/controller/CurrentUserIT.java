@@ -12,8 +12,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.web.servlet.MockMvc;
 
-/** GET /auth/me with real tokens, the real database and the least-privilege role. */
-class AuthMeIT extends AppRoleIT {
+/** GET /auth/current-user with real tokens, the real database and the least-privilege role. */
+class CurrentUserIT extends AppRoleIT {
 
   @Autowired private MockMvc mvc;
 
@@ -35,7 +35,9 @@ class AuthMeIT extends AppRoleIT {
         Instant.now().minusSeconds(7200),
         Instant.now().minusSeconds(3600));
 
-    mvc.perform(get("/api/v1/auth/me").header("Authorization", bearer(user, aqueduct, "OPERATOR")))
+    mvc.perform(
+            get("/api/v1/auth/current-user")
+                .header("Authorization", bearer(user, aqueduct, "OPERATOR")))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.username").value("me.operator"))
         .andExpect(jsonPath("$.memberships.length()").value(1))
@@ -53,7 +55,9 @@ class AuthMeIT extends AppRoleIT {
     UUID aqueduct = newAqueduct();
     newMembership(user, aqueduct, "OPERATOR");
 
-    mvc.perform(get("/api/v1/auth/me").header("Authorization", bearer(user, aqueduct, "OPERATOR")))
+    mvc.perform(
+            get("/api/v1/auth/current-user")
+                .header("Authorization", bearer(user, aqueduct, "OPERATOR")))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.must_change_password").value(true));
   }
@@ -64,7 +68,9 @@ class AuthMeIT extends AppRoleIT {
     UUID aqueduct = newAqueduct();
     owner.update("UPDATE iam.users SET token_version = 5 WHERE id = ?", user);
 
-    mvc.perform(get("/api/v1/auth/me").header("Authorization", bearer(user, aqueduct, "OPERATOR")))
+    mvc.perform(
+            get("/api/v1/auth/current-user")
+                .header("Authorization", bearer(user, aqueduct, "OPERATOR")))
         .andExpect(status().isUnauthorized());
   }
 }

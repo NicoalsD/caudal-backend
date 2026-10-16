@@ -59,7 +59,7 @@ class UserAdministrationIT extends SessionIT {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value("LOCKED"));
 
-    mvc.perform(get("/api/v1/auth/me").header("Authorization", operatorSession.bearer()))
+    mvc.perform(get("/api/v1/auth/current-user").header("Authorization", operatorSession.bearer()))
         .andExpect(status().isUnauthorized());
     mvc.perform(refreshWith(operatorSession.refreshSecret())).andExpect(status().isUnauthorized());
     loginAttempt("operator.lock")

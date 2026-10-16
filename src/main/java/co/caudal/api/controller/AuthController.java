@@ -146,14 +146,15 @@ public class AuthController {
       description =
           "Devuelve la cuenta, las membresías vigentes y los permisos del rol de la sesión. Los"
               + " permisos se leen de la base de datos, así que reflejan la matriz actual. Está"
-              + " permitido aunque la persona deba cambiar su contraseña.")
+              + " permitido aunque la persona deba cambiar su contraseña. La ruta antigua"
+              + " /auth/me sigue respondiendo mientras se publica el frontend que usa esta.")
   @SecurityRequirement(name = "bearerAuth")
   @ApiResponse(
       responseCode = "200",
       description = "Datos de la sesión",
       content = @Content(schema = @Schema(implementation = CurrentUserResponse.class)))
-  @GetMapping("/me")
-  public ResponseEntity<CurrentUserResponse> me(@AuthenticationPrincipal Jwt jwt) {
+  @GetMapping({"/current-user", "/me"})
+  public ResponseEntity<CurrentUserResponse> currentUser(@AuthenticationPrincipal Jwt jwt) {
     UUID userId = parseUserId(jwt.getSubject());
     CurrentUserResponse body =
         AuthMapper.toResponse(currentUser.execute(userId, jwt.getClaimAsString("role")));

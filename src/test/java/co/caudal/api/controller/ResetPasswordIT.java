@@ -55,11 +55,11 @@ class ResetPasswordIT extends SessionIT {
 
     reset("reset.ok", code.display().toLowerCase(), NEW_PASSWORD).andExpect(status().isNoContent());
 
-    mvc.perform(get("/api/v1/auth/me").header("Authorization", before.bearer()))
+    mvc.perform(get("/api/v1/auth/current-user").header("Authorization", before.bearer()))
         .andExpect(status().isUnauthorized());
     mvc.perform(refreshWith(before.refreshSecret())).andExpect(status().isUnauthorized());
     Session after = login(account, NEW_PASSWORD);
-    mvc.perform(get("/api/v1/auth/me").header("Authorization", after.bearer()))
+    mvc.perform(get("/api/v1/auth/current-user").header("Authorization", after.bearer()))
         .andExpect(status().isOk());
     assertThat(
             owner.queryForObject(

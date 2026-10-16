@@ -36,7 +36,7 @@ import org.springframework.test.web.servlet.MockMvc;
   RequestIdFilter.class,
   MessagesConfig.class
 })
-class AuthControllerMeWebTest {
+class AuthControllerCurrentUserWebTest {
 
   private static final UUID USER = UUID.fromString("0190f3a2-0000-7000-8000-000000000001");
   private static final UUID AQUEDUCT = UUID.fromString("0190f3a2-0000-7000-8000-0000000000aa");
@@ -48,7 +48,7 @@ class AuthControllerMeWebTest {
 
   @Test
   void withoutTokenAnswers401InTheCanonicalFormat() throws Exception {
-    mvc.perform(get("/api/v1/auth/me"))
+    mvc.perform(get("/api/v1/auth/current-user"))
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
     verifyNoInteractions(currentUser);
@@ -65,7 +65,7 @@ class AuthControllerMeWebTest {
                 List.of("DAY_CLOSE", "READING_CREATE")));
 
     mvc.perform(
-            get("/api/v1/auth/me")
+            get("/api/v1/auth/current-user")
                 .with(jwt().jwt(j -> j.subject(USER.toString()).claim("role", "OPERATOR"))))
         .andExpect(status().isOk())
         .andExpect(header().string("Cache-Control", "no-store"))
@@ -83,7 +83,7 @@ class AuthControllerMeWebTest {
 
   @Test
   void aTokenWhoseSubjectIsNotAnAccountIdAnswers401() throws Exception {
-    mvc.perform(get("/api/v1/auth/me").with(jwt().jwt(j -> j.subject("not-a-uuid"))))
+    mvc.perform(get("/api/v1/auth/current-user").with(jwt().jwt(j -> j.subject("not-a-uuid"))))
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
   }
@@ -93,17 +93,33 @@ class AuthControllerMeWebTest {
     when(currentUser.execute(any(), any())).thenThrow(new UnauthorizedException());
 
     mvc.perform(
-            get("/api/v1/auth/me")
+            get("/api/v1/auth/current-user")
                 .with(jwt().jwt(j -> j.subject(USER.toString()).claim("role", "OPERATOR"))))
         .andExpect(status().isUnauthorized());
     verify(currentUser).execute(USER, "OPERATOR");
   }
 
   @Test
+  void theOldMeRouteStillAnswersWhileTheFrontendMoves() throws Exception {
+    when(currentUser.execute(USER, "OPERATOR"))
+        .thenReturn(
+            new CurrentUser(
+                new UserProfile(USER, "test.operator", "Persona de Prueba Uno", "ACTIVE", false, 1),
+                List.of(),
+                List.of()));
+
+    mvc.perform(
+            get("/api/v1/auth/me")
+                .with(jwt().jwt(j -> j.subject(USER.toString()).claim("role", "OPERATOR"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(USER.toString()));
+  }
+
+  @Test
   void onlyGetIsAllowed() throws Exception {
     mvc.perform(
             org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(
-                    "/api/v1/auth/me")
+                    "/api/v1/auth/current-user")
                 .with(jwt()))
         .andExpect(status().isNotFound());
   }
