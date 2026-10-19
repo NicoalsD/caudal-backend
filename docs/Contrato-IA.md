@@ -17,7 +17,7 @@ Principios:
 | GET | `/v1/ready` | Ninguna | Listo para atender (modelo cargado) |
 | GET | `/v1/models` | Token de servicio | Modelos disponibles y su estado |
 
-Documentación interactiva del servicio: Swagger en `/docs` (FastAPI). Se apaga con `API_DOCS_ENABLED=false` (propuesta de nombre).
+Documentación interactiva del servicio: Swagger en `/docs` (FastAPI). Se apaga con `API_DOCS_ENABLED=false`.
 
 ## 2. Autenticación y rotación del token de servicio
 
@@ -78,14 +78,15 @@ Reglas que el esquema no expresa (las valida la IA con código):
 | `timestamps` estrictamente crecientes | Sin repetidos | `422 INVALID_SERIES` (`reason = TIMESTAMPS_NOT_INCREASING`) |
 | `timestamps` parseables con zona | ISO-8601 con offset | `422 INVALID_SERIES` (`reason = TIMESTAMP_PARSE_ERROR`) |
 | `values` finitos | Sin `NaN`, `Infinity` ni `-Infinity` (JSON estándar no los admite, pero Python sí los parsea: se rechazan explícitamente) | `422 INVALID_SERIES` (`reason = NOT_FINITE_VALUE`) |
-| Historia mínima | `FORECAST_MIN_POINTS` (variable de entorno del servicio; valor de ejemplo: 7) | `422 INSUFFICIENT_HISTORY` |
+| Historia mínima | Días con lectura después de remuestrear: al menos `FORECAST_MIN_POINTS` (variable del servicio; por defecto: 7). Varias lecturas el mismo día cuentan como uno. Se responde aunque el modelo todavía esté cargando. | `422 INSUFFICIENT_HISTORY` |
+| Valores dentro del rango de float32 | `abs(valor)` no mayor que el máximo finito de float32 (unos 3,4028235e38). Un valor mayor se convertiría en infinito dentro del modelo. | `422 INVALID_SERIES` (`reason = VALUE_OUT_OF_RANGE`) |
 | Serie máxima | 2.000 puntos (hechos, sección 11) | `422 INVALID_SERIES` (`reason = TOO_MANY_POINTS`) |
 | `prediction_length` | 1 a 30 (técnico, hechos, sección 11). El horizonte de negocio es 1 a 3 y lo valida el backend. | `400 VALIDATION_ERROR` |
 | `quantile_levels` | Exactamente `[0.1, 0.5, 0.9]` en v1 | `400 VALIDATION_ERROR` |
 | Campos desconocidos | Se rechazan | `400 VALIDATION_ERROR` |
-| Tamaño del cuerpo | 256 KiB (propuesta, verificar) | `413 PAYLOAD_TOO_LARGE` |
+| Tamaño del cuerpo | 256 KiB (`MAX_BODY_BYTES`) | `413 PAYLOAD_TOO_LARGE` |
 
-Remuestreo: el servicio agrega la serie a frecuencia diaria con `RESAMPLE_AGGREGATION` (por defecto `last`: el último valor del día). Los días sin lectura quedan como hueco que Chronos debe tolerar. El soporte de huecos en Chronos está por verificar; si no lo soporta, el servicio rellena con interpolación lineal y lo informa en `model.notes` (propuesta).
+Remuestreo: antes de agrupar, el servicio convierte cada marca de tiempo a la zona `SERIES_TIMEZONE` (`America/Bogota` por defecto) y después agrupa las lecturas por día local. `RESAMPLE_AGGREGATION` elige el valor del día: `last` (por defecto, la última lectura) o `mean` (el promedio). Los días sin lectura no se interpolan: se envían a Chronos como `NaN`, que `chronos-forecasting` 2.3.2 acepta en Chronos-2 y en Chronos-Bolt como valores faltantes. La cantidad de días enviados así se informa en `model.notes`.
 
 Ejemplo de petición (valores ficticios, 7 días de lecturas efectivas de las 18:00, pronóstico de 1 día):
 
@@ -146,7 +147,7 @@ Ejemplo (valores ficticios):
 
 ```json
 {
-  "model": { "name": "autogluon/chronos-2-small", "version": "2.0.0" },
+  "model": { "name": "autogluon/chronos-2-small", "version": "2.3.2+last" },
   "generated_at": "2026-10-09T09:30:00Z",
   "frequency": "D",
   "points": [
@@ -155,10 +156,12 @@ Ejemplo (valores ficticios):
 }
 ```
 
+`model.version` tiene el formato `<versión de chronos-forecasting>+<agregación>`, por ejemplo `2.3.2+last`. Cambia si cambia la versión de la librería o `RESAMPLE_AGGREGATION`. `model.notes` se omite cuando no hay nada que informar (por ejemplo, cuando no hubo días sin lectura).
+
 Reglas de la respuesta (el servicio las garantiza y el backend las vuelve a verificar):
 
 - `len(points) == prediction_length`.
-- Los `timestamp` son días consecutivos, que empiezan el día siguiente al último día de la serie. Se expresan a medianoche en `America/Bogota` (`-05:00`).
+- Los `timestamp` son días consecutivos, que empiezan el día siguiente al último día de la serie. Se expresan a medianoche en la zona `SERIES_TIMEZONE` (`America/Bogota`, `-05:00` por defecto).
 - `p10 <= p50 <= p90`, todos finitos.
 - `frequency` siempre es `D`.
 
@@ -174,7 +177,7 @@ Forma de error: igual que la de la API del backend (`error.code`, `error.message
 | 401 | `UNAUTHORIZED` | Token faltante o no válido | Ninguno |
 | 413 | `PAYLOAD_TOO_LARGE` | Cuerpo mayor de 256 KiB | `limit_bytes` |
 | 422 | `INSUFFICIENT_HISTORY` | Menos de `FORECAST_MIN_POINTS` valores | `received`, `minimum` |
-| 422 | `INVALID_SERIES` | Longitud, orden, parseo, valores no finitos, más de 2.000 puntos | `reason`, `index` (primera posición que falla) |
+| 422 | `INVALID_SERIES` | Longitud, orden, parseo, valores no finitos, valores fuera del rango de float32, más de 2.000 puntos | `reason`, `index` (primera posición que falla) |
 | 500 | `INTERNAL_ERROR` | Error no controlado | Ninguno |
 | 503 | `MODEL_NOT_READY` | Modelo no cargado. Cabecera `Retry-After: 30`. | `model_name` |
 
@@ -263,14 +266,14 @@ El backend guarda siempre ambos pronósticos (IA y respaldo) para compararlos en
 
 ### 5.3 `GET /v1/models`
 
-- Con token de servicio (verificar si debe ser público). Respuesta:
+- Con token de servicio. Respuesta:
 
 ```json
 {
   "models": [
     {
       "name": "autogluon/chronos-2-small",
-      "version": "2.0.0",
+      "version": "2.3.2",
       "loaded": true,
       "quantile_levels": [0.1, 0.5, 0.9],
       "max_prediction_length": 30,
@@ -308,8 +311,11 @@ Los valores de negocio (horizonte, reserva, días de historia enviados a la IA) 
 | `IA_SERVICE_TOKEN_PREVIOUS` | No | `<secreto anterior>` | Segundo token aceptado durante la rotación |
 | `CHRONOS_MODEL_ID` | No | `autogluon/chronos-2-small` | Modelo activo. Alternativa: `amazon/chronos-bolt-small` |
 | `CHRONOS_DEVICE` | No | `cpu` | Dispositivo de inferencia |
-| `FORECAST_MIN_POINTS` | No | `7` (ejemplo, verificar) | Historia mínima después del remuestreo |
-| `RESAMPLE_AGGREGATION` | No | `last` | `last` o `mean` |
+| `SERIES_TIMEZONE` | No | `America/Bogota` | Zona en la que empieza cada día de la serie. Debe coincidir con la del backend (ver la advertencia de abajo). |
+| `FORECAST_MIN_POINTS` | No | `7` | Días con lectura mínimos después del remuestreo |
+| `RESAMPLE_AGGREGATION` | No | `last` | `last` (por defecto) o `mean` |
+| `FORECAST_CACHE_SIZE` | No | `64` | Número máximo de entradas de la caché en memoria de pronósticos. `0` la apaga. La clave es un SHA-256 de la entrada del modelo (serie diaria ya remuestreada, horizonte y cuantiles). La serie no se guarda. |
+| `FORECAST_CACHE_TTL_SECONDS` | No | `300` | Segundos que una entrada de la caché sigue válida. Solo guarda el pronóstico. |
 | `MAX_SERIES_POINTS` | No | `2000` | Límite de la serie |
 | `MAX_PREDICTION_LENGTH` | No | `30` | Límite técnico del horizonte |
 | `MAX_BODY_BYTES` | No | `262144` | 256 KiB |
@@ -317,6 +323,8 @@ Los valores de negocio (horizonte, reserva, días de historia enviados a la IA) 
 | `LOG_LEVEL` | No | `INFO` | Nivel de logs |
 
 Los nombres de la tabla 6.1 son los de `caudal-backend/.env.example`. Los de la tabla 6.2 se documentan en `.env.example` de `caudal-ia`, con marcadores, sin valores reales.
+
+> **Advertencia:** `SERIES_TIMEZONE` del servicio debe coincidir con la zona que usa el backend para calcular el primer día de la serie. Las fechas de la respuesta salen a medianoche de la zona del servicio; si el backend espera otra, descarta las respuestas como `IA_ERROR` y abre el circuito.
 
 ## 7. Pruebas de contrato
 
@@ -364,6 +372,6 @@ Reglas de las pruebas:
 
 | Versión del contrato | Fecha | Cambio |
 |---|---|---|
-| `v1` | Por definir (Fase 6) | Primera versión: pronóstico diario con cuantiles p10, p50 y p90 |
+| `v1` | `2026-10-19` | Primera versión, implementada en `caudal-ia` (PR #6, #7 y #8): pronóstico diario con cuantiles p10, p50 y p90. Los ajustes posteriores descritos en este documento (motivo `VALUE_OUT_OF_RANGE`, `model.notes` opcional, formato de `model.version`, caché y `SERIES_TIMEZONE`) son aditivos y no cambian la versión del contrato. |
 
 Relacionados: [API.md](API.md), [Reglas-de-negocio.md](Reglas-de-negocio.md), [Protocolo-de-dispositivos.md](Protocolo-de-dispositivos.md), [Diccionario-de-datos.md](Diccionario-de-datos.md)
