@@ -25,24 +25,24 @@ El modelo es **Chronos** (`chronos-forecasting`), un modelo de series de tiempo 
 
 | Familia | Modelo por defecto | Tamaño | Cuantiles | Notas |
 |---|---|---|---|---|
-| **Chronos-2** | `autogluon/chronos-2-small` | 28M parámetros | Niveles configurables en la petición (`quantile_levels`). Verificar en la documentación de `chronos-forecasting`. | Admite covariables conocidas en el futuro (ver sección 11), que el MVP no usa. |
-| **Chronos-Bolt** | `amazon/chronos-bolt-small` | 48M parámetros | **Cuantiles fijos** entre 0.1 y 0.9 (los que entrega el modelo). | Según su documentación, con inferencia más rápida (verificar). Antes de usarlo, verificar que el conjunto fijo incluya 0.1, 0.5 y 0.9. |
+| **Chronos-2** | `autogluon/chronos-2-small` | 28M parámetros | Cuantiles de 0.01 a 0.99; incluye 0.1, 0.5 y 0.9, que son los que usa el servicio. | Admite covariables conocidas en el futuro (ver sección 11), que el MVP no usa. |
+| **Chronos-Bolt** | `amazon/chronos-bolt-small` | 48M parámetros | **Cuantiles fijos** de 0.1 a 0.9; incluye 0.1, 0.5 y 0.9. | Según su documentación, con inferencia más rápida (verificar). |
 
-- El modelo se elige por variable de entorno (por ejemplo, `IA_MODEL_NAME`, nombre propuesto). El valor por defecto es `autogluon/chronos-2-small`.
-- El campo `model.name` de la respuesta y `model_name` de `ops.forecast_runs` guardan el nombre del modelo usado (por ejemplo, `chronos-2-small`).
+- El modelo se elige con `CHRONOS_MODEL_ID`. El valor por defecto es `autogluon/chronos-2-small`. Ambos identificadores existen en Hugging Face y se cargan con `chronos-forecasting` 2.3.2.
+- El campo `model.name` de la respuesta y `model_name` de `ops.forecast_runs` guardan el nombre del modelo usado (por ejemplo, `autogluon/chronos-2-small`).
 - Otros tamaños (base, large, etc.) se pueden probar en la fase de evaluación, pero no están en el alcance del MVP.
 
 ### 2.2 Ejecución en CPU
 
 - El servicio usa **PyTorch CPU**. No requiere GPU.
 - Se pronostica por tanque cuando el backend lo necesita (frecuencia por definir; propuesta: una vez al día y a petición de la Junta). El recálculo a petición tiene límite de 10 por hora por acueducto en el backend.
-- La latencia real en CPU se mide en la prueba de memoria y tiempo (sección 13). Ningún valor de latencia se da por cierto antes de medirlo.
+- La latencia real en CPU se mide en la prueba de memoria y tiempo (sección 12.1). Ningún valor de latencia se da por cierto antes de medirlo.
 
 ### 2.3 Cuantiles
 
 - El contrato pide `quantile_levels: [0.1, 0.5, 0.9]`, que se convierten en `p10`, `p50` y `p90`.
 - `p50` es la mediana, lo más probable. `p10` y `p90` forman el rango.
-- La BD exige `p10 <= p50 <= p90` en `ops.forecast_points`. Propuesta: si el modelo devuelve cuantiles cruzados, el servicio los reordena y lo registra en el log.
+- La BD exige `p10 <= p50 <= p90` en `ops.forecast_points`. Si el modelo devuelve cuantiles cruzados, el servicio los reordena y registra el hecho en el log, sin los valores.
 
 ## 3. Arquitectura del servicio y del cliente
 
@@ -104,8 +104,9 @@ Las zonas horarias van con offset explícito (`-05:00`, zona `America/Bogota`). 
 
 | Campo | Tipo | Nota |
 |---|---|---|
-| `model.name` | texto | Por ejemplo, `chronos-2-small`. |
-| `model.version` | texto | Versión del modelo o del servicio (verificar formato). |
+| `model.name` | texto | Nombre del modelo en Hugging Face, por ejemplo `autogluon/chronos-2-small`. |
+| `model.version` | texto | `<versión de chronos-forecasting>+<agregación>`, por ejemplo `2.3.2+last`. |
+| `model.notes` | texto, opcional | Solo aparece si hay algo que informar, por ejemplo la cantidad de días sin lectura enviados como `NaN`. |
 | `generated_at` | ISO-8601 con zona | Momento de la inferencia. |
 | `frequency` | texto | Siempre `D` (diaria). |
 | `points[].timestamp` | ISO-8601 con zona | Día pronosticado, a las 00:00 de `America/Bogota`. |
@@ -115,7 +116,7 @@ Ejemplo de respuesta:
 
 ```json
 {
-  "model": { "name": "chronos-2-small", "version": "verificar" },
+  "model": { "name": "autogluon/chronos-2-small", "version": "2.3.2+last" },
   "generated_at": "2026-09-09T06:00:00-05:00",
   "frequency": "D",
   "points": [
@@ -130,14 +131,14 @@ Los números del ejemplo son ilustrativos. No son una predicción.
 
 ### 4.3 Errores
 
-Formato de error propuesto para el servicio, alineado con el backend (`error.code` en inglés, `message` en español). Verificar con el equipo de `caudal-ia` antes de implementar.
+Formato de error del servicio, alineado con el backend (`error.code` en inglés, `message` en español). La tabla completa de códigos está en `Contrato-IA.md`, sección 3.3.
 
 ```json
 {
   "error": {
     "code": "INSUFFICIENT_HISTORY",
-    "message": "Historia insuficiente: se recibieron 4 puntos válidos y se requieren al menos 7.",
-    "details": { "received": 4, "required": 7 },
+    "message": "La serie tiene 4 días con lectura; se requieren al menos 7.",
+    "details": { "received": 4, "minimum": 7 },
     "request_id": "9b1e6c0a-2f4d-4e8b-a1c3-6d7f0e5b2a90"
   }
 }
@@ -146,10 +147,10 @@ Formato de error propuesto para el servicio, alineado con el backend (`error.cod
 | HTTP | `code` | Cuándo | Qué hace el backend |
 |---|---|---|---|
 | `422` | `INSUFFICIENT_HISTORY` | Menos puntos válidos que el mínimo (después de re-muestreo y huecos). | No cuenta como fallo del servicio. Usa la estimación simple con `fallback_reason = INSUFFICIENT_HISTORY`. |
-| `422` | `INVALID_SERIES` | Largo distinto de `timestamps` y `values`, valores no finitos, timestamps no crecientes, más de 2.000 puntos, `prediction_length` fuera de 1 a 30, o cuantiles fuera de lo soportado. | Error de integración: se registra y se usa la estimación simple con `fallback_reason = IA_ERROR`. Cuenta como fallo. |
-| `401` | `UNAUTHORIZED` (propuesta) | Token ausente, malformado o no vigente. | Usa la estimación simple con `IA_ERROR` y genera alerta de configuración (posible rotación pendiente). Cuenta como fallo. |
+| `422` | `INVALID_SERIES` | Largo distinto de `timestamps` y `values`, valores no finitos o fuera del rango de float32, timestamps no crecientes o más de 2.000 puntos. (`prediction_length` fuera de 1 a 30 o cuantiles distintos de `[0.1, 0.5, 0.9]` responden `400 VALIDATION_ERROR`, que el backend trata igual.) | Error de integración: se registra y se usa la estimación simple con `fallback_reason = IA_ERROR`. Cuenta como fallo. |
+| `401` | `UNAUTHORIZED` | Token ausente, malformado o no vigente. | Usa la estimación simple con `IA_ERROR` y genera alerta de configuración (posible rotación pendiente). Cuenta como fallo. |
 | `503` | `MODEL_NOT_READY` | El modelo aún se está cargando (ver `GET /v1/ready`). | Usa la estimación simple con `IA_ERROR`. Cuenta como fallo. |
-| `5xx` u otro | `INTERNAL_ERROR` (propuesta) | Error inesperado del servicio. | Usa la estimación simple con `IA_ERROR`. Cuenta como fallo. |
+| `5xx` u otro | `INTERNAL_ERROR` | Error inesperado del servicio. | Usa la estimación simple con `IA_ERROR`. Cuenta como fallo. |
 | Sin respuesta en 2 s (conexión) o 10 s (lectura) | No aplica | Timeout del cliente. | Usa la estimación simple con `IA_TIMEOUT`. Cuenta como fallo. |
 | Circuito abierto | No aplica | El cliente no llama al servicio. | Usa la estimación simple con `CIRCUIT_OPEN`. No se llama al servicio. |
 
@@ -169,13 +170,13 @@ El pipeline de `caudal-ia` (`ForecastPipeline`) recibe la serie cruda y produce 
 
 | Paso | Regla | Estado |
 |---|---|---|
-| 1. Orden y duplicados | Ordenar por `timestamp`. Si hay dos puntos en el mismo instante, conservar el último (propuesta). | Propuesta. |
-| 2. Zona horaria | Convertir a `America/Bogota` antes de agrupar por día. Los días se cortan a medianoche de esa zona (propuesta). | Propuesta. |
-| 3. Agregación diaria | Un valor por día. Por defecto, el **último valor del día** (`IA_DAILY_AGGREGATION = last`, nombre propuesto). Alternativa: `mean`. | Por decidir con la evaluación. |
+| 1. Orden y duplicados | Ordenar por `timestamp`. Si hay dos puntos en el mismo instante, se conserva el último recibido. | Definido. |
+| 2. Zona horaria | Convertir a la zona `SERIES_TIMEZONE` (`America/Bogota` por defecto) antes de agrupar por día. Los días se cortan a medianoche de esa zona. | Definido. |
+| 3. Agregación diaria | Un valor por día. Por defecto, el **último valor del día** (`RESAMPLE_AGGREGATION = last`). Alternativa: `mean`. | Definido (`last` por defecto; `mean` configurable). |
 | 4. Re-muestreo | Reindexar a frecuencia diaria desde el primer hasta el último día de la serie. Los días sin lectura quedan como `NaN`. | Definido. |
-| 5. Huecos | Verificar si Chronos admite `NaN` en el contexto. **Verificar.** Si no lo admite: rellenar hacia adelante hasta `N` días (`IA_MAX_FFILL_DAYS`, nombre propuesto) y, si el hueco es mayor, devolver `INSUFFICIENT_HISTORY`. | Verificar. |
-| 6. Mínimo de puntos | Contar los días válidos (no `NaN`). Si son menos que `IA_MIN_HISTORY_POINTS` (nombre propuesto; valor **por definir**), responder `422 INSUFFICIENT_HISTORY`. | Valor por definir. |
-| 7. Validación final | Valores finitos, timestamps estrictamente crecientes, no más de 2.000 puntos. Si falla, `422 INVALID_SERIES`. | Definido. |
+| 5. Huecos | No se rellenan. Los días sin lectura se envían a Chronos como `NaN` (Chronos-2 y Chronos-Bolt los tratan como valores faltantes) y la cantidad se informa en `model.notes`. | Definido. |
+| 6. Mínimo de puntos | Contar los días con lectura (no `NaN`), después del remuestreo; varias lecturas el mismo día cuentan como uno. Si son menos que `FORECAST_MIN_POINTS` (por defecto: 7), responder `422 INSUFFICIENT_HISTORY`, aunque el modelo todavía esté cargando. | Definido. |
+| 7. Validación final | Valores finitos y dentro del rango de float32, timestamps estrictamente crecientes, no más de 2.000 puntos. Si falla, `422 INVALID_SERIES`. | Definido. |
 | 8. Horizonte | Los pronósticos empiezan el día siguiente al último día de la serie. Longitud = `prediction_length`. | Definido. |
 
 El backend envía las **lecturas efectivas** de los últimos `forecast_context_days` días de reglas. Efectivas significa aceptadas o corregidas, nunca rechazadas (propuesta de criterio, a confirmar con la regla de validación de lecturas).
@@ -332,11 +333,11 @@ Los datos de evaluación con datos simulados se marcan "Datos simulados" en la U
 | Comparación | En tiempo constante (`hmac.compare_digest` u equivalente). |
 | Rotación | El servicio acepta el token actual y el anterior (`IA_SERVICE_TOKEN` e `IA_SERVICE_TOKEN_PREVIOUS`). Luego se retira el anterior. |
 | Límites | Serie de hasta 2.000 puntos; valores finitos; timestamps crecientes; `prediction_length` de 1 a 30. |
-| Tamaño de cuerpo | Límite por definir (orientativo: suficiente para 2.000 puntos con timestamps). |
+| Tamaño de cuerpo | 256 KiB (`MAX_BODY_BYTES`). |
 | Sin almacenamiento | El servicio no guarda series, pronósticos ni tokens de usuario. No tiene acceso a la BD. |
 | Logs | Se registran `request_id`, largo de la serie, modelo, latencia y código de respuesta. **No** se registran valores de la serie ni el token. |
 | Secretos | `IA_SERVICE_TOKEN` solo en variables de entorno del hosting. Nunca en git. `.env.example` con marcadores. |
-| Documentación | Swagger en `/docs`. Solo documenta; ejecutar un pronóstico requiere el token. Apagable por variable si se decide (propuesta). |
+| Documentación | Swagger en `/docs`. Solo documenta; ejecutar un pronóstico requiere el token. Apagable con `API_DOCS_ENABLED=false`. |
 
 ## 11. Covariables futuras (a futuro)
 
@@ -367,6 +368,8 @@ Antes de elegir hosting, se mide con el modelo elegido:
 2. Memoria pico con una petición de 2.000 puntos y `prediction_length = 30`.
 3. Tiempo de arranque hasta `GET /v1/ready` en `200`.
 4. Latencia de una petición del caso típico (8 a 60 puntos, horizonte 3) y del caso máximo.
+
+**Mediciones locales (no del hosting):** con los dos modelos en CPU, la carga tarda entre 5 y 11 s y el proceso ocupa unos 700 MB de RSS. Son cifras de la máquina de desarrollo; las del hosting elegido se miden antes del despliegue.
 
 Criterio de aceptación: la memoria pico queda por debajo del límite del plan con un margen **por definir**. Los resultados se anotan en el README de `caudal-ia`. Hasta medirlo, ningún valor de latencia ni de memoria de este documento se considera confirmado.
 
