@@ -465,33 +465,33 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| I001 | `build: crea servicio FastAPI con Python 3.12 y uv` | `nicomora70` | - | - | [ ] |
-| I002 | `build: configura Pydantic v2 y pydantic-settings` | `nicomora70` | - | - | [ ] |
-| I003 | `style: configura Ruff y mypy para el servicio IA` | `nicomora70` | - | - | [ ] |
-| I004 | `ci: valida formato, tipos y pruebas en GitHub Actions` | `nicomora70` | - | - | [ ] |
-| I005 | `test: configura pytest y cliente de FastAPI` | `nicomora70` | - | - | [ ] |
-| I006 | `feat: define contratos Pydantic de POST /v1/forecasts` | `nicomora70` | HU-15 | P06 | [ ] |
-| I007 | `feat: agrega GET /v1/health y GET /v1/ready` | `nicomora70` | HU-16 | - | [ ] |
-| I008 | `feat: agrega GET /v1/models` | `nicomora70` | HU-15 | - | [ ] |
+| I001 | `build: crea servicio FastAPI con Python 3.12 y uv` | `nicomora70` | - | - | [x] |
+| I002 | `build: configura Pydantic v2 y pydantic-settings` | `nicomora70` | - | - | [x] |
+| I003 | `style: configura Ruff y mypy para el servicio IA` | `nicomora70` | - | - | [x] |
+| I004 | `ci: valida formato, tipos y pruebas en GitHub Actions` | `nicomora70` | - | - | [x] |
+| I005 | `test: configura pytest y cliente de FastAPI` | `nicomora70` | - | - | [x] |
+| I006 | `feat: define contratos Pydantic de POST /v1/forecasts` | `nicomora70` | HU-15 | P06 | [x] |
+| I007 | `feat: agrega GET /v1/health y GET /v1/ready` | `nicomora70` | HU-16 | - | [x] |
+| I008 | `feat: agrega GET /v1/models` | `nicomora70` | HU-15 | - | [x] |
 
 ### Fase 2: Base del servicio
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| I009 | `feat: valida series finitas y marcas de tiempo crecientes` | `nicomora70` | HU-15 | - | [ ] |
-| I010 | `feat: valida prediction_length y cuantiles solicitados` | `nicomora70` | HU-15 | - | [ ] |
-| I011 | `feat: registra modelos disponibles en ModelRegistry` | `nicomora70` | HU-15 | P01 | [ ] |
-| I012 | `feat: configura nombre de modelo por entorno` | `nicomora70` | HU-15 | - | [ ] |
-| I013 | `feat: agrega respuesta uniforme de errores de pronóstico` | `nicomora70` | HU-16 | - | [ ] |
-| I014 | `test: cubre validación de series y errores HTTP` | `nicomora70` | HU-15, HU-16 | - | [ ] |
+| I009 | `feat: valida series finitas y marcas de tiempo crecientes` | `nicomora70` | HU-15 | - | [x] |
+| I010 | `feat: valida prediction_length y cuantiles solicitados` | `nicomora70` | HU-15 | - | [x] |
+| I011 | `feat: registra modelos disponibles en ModelRegistry` | `nicomora70` | HU-15 | P01 | [x] |
+| I012 | `feat: configura nombre de modelo por entorno` | `nicomora70` | HU-15 | - | [x] |
+| I013 | `feat: agrega respuesta uniforme de errores de pronóstico` | `nicomora70` | HU-16 | - | [x] |
+| I014 | `test: cubre validación de series y errores HTTP` | `nicomora70` | HU-15, HU-16 | - | [x] |
 
 ### Fase 3: Seguridad del servicio
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| I015 | `feat: protege POST /v1/forecasts con token de servicio` | `nicomora70` | HU-15 | - | [ ] |
-| I016 | `feat: compara token actual y anterior en tiempo constante` | `nicomora70` | HU-15 | - | [ ] |
-| I017 | `test: verifica autenticación y rotación del token IA` | `nicomora70` | HU-15 | - | [ ] |
+| I015 | `feat: protege POST /v1/forecasts con token de servicio` | `nicomora70` | HU-15 | - | [x] |
+| I016 | `feat: compara token actual y anterior en tiempo constante` | `nicomora70` | HU-15 | - | [x] |
+| I017 | `test: verifica autenticación y rotación del token IA` | `nicomora70` | HU-15 | - | [x] |
 
 ### Fase 4: Sin trabajo de implementación asignado
 
@@ -505,22 +505,22 @@ Sin commits planeados en esta fase para este repositorio.
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| I018 | `feat: adapta Chronos con ChronosForecasterAdapter` | `nicomora70` | HU-15 | P06 | [ ] |
-| I019 | `feat: carga Chronos desde ModelRegistry` | `nicomora70` | HU-15 | P01 | [ ] |
-| I020 | `feat: agrega ForecasterCreator para modelos Chronos` | `nicomora70` | HU-15 | P02 | [ ] |
-| I021 | `feat: prepara series diarias con pandas` | `nicomora70` | HU-15 | - | [ ] |
-| I022 | `feat: re-muestrea lecturas con agregación configurable` | `nicomora70` | HU-15 | P19 | [ ] |
-| I023 | `feat: maneja huecos de series antes de inferir` | `nicomora70` | HU-15 | - | [ ] |
-| I024 | `feat: exige mínimo configurable de puntos históricos` | `nicomora70` | HU-16 | - | [ ] |
-| I025 | `feat: genera cuantiles p10, p50 y p90 con Chronos` | `nicomora70` | HU-15 | - | [ ] |
-| I026 | `feat: implementa POST /v1/forecasts sin estado` | `nicomora70` | HU-15 | P06 | [ ] |
-| I027 | `feat: valida orden y frecuencia diaria de resultados` | `nicomora70` | HU-15 | - | [ ] |
-| I028 | `feat: identifica modelo y versión en la respuesta` | `nicomora70` | HU-15 | - | [ ] |
-| I029 | `feat: informa INSUFFICIENT_HISTORY con HTTP 422` | `nicomora70` | HU-16 | - | [ ] |
-| I030 | `feat: informa INVALID_SERIES con HTTP 422` | `nicomora70` | HU-15 | - | [ ] |
-| I031 | `feat: agrega TimingForecaster para medir inferencia` | `nicomora70` | HU-15 | P09 | [ ] |
-| I032 | `feat: agrega CachingForecaster para series repetidas` | `nicomora70` | HU-15 | P09 | [ ] |
-| I033 | `test: verifica cuantiles, re-muestreo y fallos Chronos` | `nicomora70` | HU-15, HU-16 | P06 | [ ] |
+| I018 | `feat: adapta Chronos con ChronosForecasterAdapter` | `nicomora70` | HU-15 | P06 | [x] |
+| I019 | `feat: carga Chronos desde ModelRegistry` | `nicomora70` | HU-15 | P01 | [x] |
+| I020 | `feat: agrega ForecasterCreator para modelos Chronos` | `nicomora70` | HU-15 | P02 | [x] |
+| I021 | `feat: prepara series diarias con pandas` | `nicomora70` | HU-15 | - | [x] |
+| I022 | `feat: re-muestrea lecturas con agregación configurable` | `nicomora70` | HU-15 | P19 | [x] |
+| I023 | `feat: maneja huecos de series antes de inferir` | `nicomora70` | HU-15 | - | [x] |
+| I024 | `feat: exige mínimo configurable de puntos históricos` | `nicomora70` | HU-16 | - | [x] |
+| I025 | `feat: genera cuantiles p10, p50 y p90 con Chronos` | `nicomora70` | HU-15 | - | [x] |
+| I026 | `feat: implementa POST /v1/forecasts sin estado` | `nicomora70` | HU-15 | P06 | [x] |
+| I027 | `feat: valida orden y frecuencia diaria de resultados` | `nicomora70` | HU-15 | - | [x] |
+| I028 | `feat: identifica modelo y versión en la respuesta` | `nicomora70` | HU-15 | - | [x] |
+| I029 | `feat: informa INSUFFICIENT_HISTORY con HTTP 422` | `nicomora70` | HU-16 | - | [x] |
+| I030 | `feat: informa INVALID_SERIES con HTTP 422` | `nicomora70` | HU-15 | - | [x] |
+| I031 | `feat: agrega TimingForecaster para medir inferencia` | `nicomora70` | HU-15 | P09 | [x] |
+| I032 | `feat: agrega CachingForecaster para series repetidas` | `nicomora70` | HU-15 | P09 | [x] |
+| I033 | `test: verifica cuantiles, re-muestreo y fallos Chronos` | `nicomora70` | HU-15, HU-16 | P06 | [x] |
 
 ### Fase 7: Sin trabajo de implementación asignado
 
