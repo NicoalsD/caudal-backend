@@ -27,8 +27,9 @@ El modelo es **Chronos** (`chronos-forecasting`), un modelo de series de tiempo 
 |---|---|---|---|---|
 | **Chronos-2** | `autogluon/chronos-2-small` | 28M parámetros | Cuantiles de 0.01 a 0.99; incluye 0.1, 0.5 y 0.9, que son los que usa el servicio. | Admite covariables conocidas en el futuro (ver sección 11), que el MVP no usa. |
 | **Chronos-Bolt** | `amazon/chronos-bolt-small` | 48M parámetros | **Cuantiles fijos** de 0.1 a 0.9; incluye 0.1, 0.5 y 0.9. | Según su documentación, con inferencia más rápida (verificar). |
+| **Chronos-Bolt** | `amazon/chronos-bolt-tiny` | 9M parámetros | **Cuantiles fijos** de 0.1 a 0.9; incluye 0.1, 0.5 y 0.9. | Modelo de la imagen desplegada en Render free (ver sección 12). |
 
-- El modelo se elige con `CHRONOS_MODEL_ID`. El valor por defecto es `autogluon/chronos-2-small`. Ambos identificadores existen en Hugging Face y se cargan con `chronos-forecasting` 2.3.2.
+- El modelo se elige con `CHRONOS_MODEL_ID`. El valor por defecto local (`config.py` de `caudal-ia`) es `autogluon/chronos-2-small`; la imagen Docker desplegada usa `amazon/chronos-bolt-tiny`. Los tres identificadores existen en Hugging Face y se cargan con `chronos-forecasting` 2.3.2.
 - El campo `model.name` de la respuesta y `model_name` de `ops.forecast_runs` guardan el nombre del modelo usado (por ejemplo, `autogluon/chronos-2-small`).
 - Otros tamaños (base, large, etc.) se pueden probar en la fase de evaluación, pero no están en el alcance del MVP.
 
@@ -268,7 +269,7 @@ El estado del circuito vive en la memoria de la instancia del backend. Si el bac
 
 Siempre se calcula también la estimación simple, aunque la IA responda bien.
 
-- Cada vez que se pide un pronóstico, el backend guarda **dos** corridas en `ops.forecast_runs`: una de la IA (`chronos-2-small`, u otro modelo configurado) y una de `naive-persistence` con los mismos datos de entrada.
+- Cada vez que se pide un pronóstico, el backend guarda **dos** corridas en `ops.forecast_runs`: una de la IA (el modelo configurado; en el despliegue, `chronos-bolt-tiny`) y una de `naive-persistence` con los mismos datos de entrada.
 - La corrida simple de la sombra lleva `fallback_reason = SHADOW_BASELINE`.
 - La UI muestra solo el pronóstico principal (la IA si respondió, la simple si no). La sombra no se muestra al fontanero ni a la Junta como respaldo.
 - Ambas corridas se evalúan con los mismos datos reales. Sin esta simetría, la comparación de la sección 9 no vale.
@@ -325,6 +326,18 @@ Los datos de evaluación con datos simulados se marcan "Datos simulados" en la U
 - Módulo M10 del sistema.
 - Backtest offline en `caudal-ia` (`Backtest`) para comparar modelos antes de activarlos.
 
+### 9.5 Resultado del backtest con datos simulados
+
+Backtest offline sobre la serie simulada `normal-year` (semilla 42, horizonte 3 días):
+
+| Modelo | MAE h1 | MAE h2 | MAE h3 | Cobertura p10-p90 en h3 | Veredicto |
+|---|---:|---:|---:|---:|---|
+| `amazon/chronos-bolt-tiny` | 0,225 | 0,362 | 0,479 | 0,76 | `does_not_help` |
+| `autogluon/chronos-2-small` | 0,212 | 0,332 | 0,434 | 0,73 | `does_not_help` |
+| `naive-persistence` (estimación simple) | 0,188 | 0,320 | 0,419 | 0,49 | Referencia |
+
+Con estos datos simulados ningún modelo supera a la persistencia en MAE en ningún horizonte, así que el skill es negativo y el veredicto es `does_not_help` para ambos. En h3, los rangos de Chronos sí quedan dentro de la meta de cobertura (70 % a 90 %) y el de la persistencia no. El cambio a `chronos-bolt-tiny` empeora un poco el MAE frente a `chronos-2-small`. Como dice la sección 9.3, esto prueba la integración y no la calidad del modelo en el campo; la evaluación con lecturas reales decide si la IA ayuda.
+
 ## 10. Seguridad del servicio
 
 | Control | Regla |
@@ -351,13 +364,14 @@ Esto **no está en el MVP**. Para incorporarlo:
 
 ## 12. Despliegue
 
-| Opción | Cuándo | Condición |
+| Opción | Estado | Motivo |
 |---|---|---|
-| **Hugging Face Spaces** (Docker, CPU) | Opción inicial. | Espacio con CPU y memoria suficientes para el modelo elegido. |
-| **Render** | Si el modelo cabe en la memoria del plan. | Verificar el límite de memoria del plan antes de elegir. |
+| **Render free** (Docker, 512 MB, región ohio) | Despliegue actual: servicio `caudal-ia` en `https://caudal-ia.onrender.com`, definido en `render.yaml` de `caudal-ia`. | `amazon/chronos-bolt-tiny` cabe en 512 MB y responde dentro del timeout del backend (sección 12.1). |
+| **Hugging Face Spaces** | Descartado. | Las cuentas gratis no permiten Spaces Docker ni visibilidad protegida (exigen PRO), y ZeroGPU exige una cuenta con más de 30 días. |
 
-- Imagen Docker con PyTorch CPU (sin CUDA).
-- Pesos del modelo: descargados al construir la imagen o al iniciar. Decisión por tomar, según el tiempo de arranque y el límite de tamaño del hosting (verificar).
+- Imagen Docker con PyTorch CPU (sin CUDA), con `amazon/chronos-bolt-tiny` y `OMP_NUM_THREADS=1` y `MKL_NUM_THREADS=1`. `autogluon/chronos-2-small` sigue como valor por defecto local, pero no cabe en el plan (sección 12.1).
+- Pesos del modelo: descargados al construir la imagen; en ejecución el servicio no los baja de Hugging Face (`HF_HUB_OFFLINE=1`).
+- En Render free el servicio se duerme cuando no recibe tráfico. La primera llamada después de dormir vence el timeout del backend, que responde con la estimación simple y `fallback_reason = IA_TIMEOUT`.
 - El servicio arranca con `GET /v1/health` disponible de inmediato y `GET /v1/ready` en `503` hasta que el modelo cargue.
 
 ### 12.1 Prueba de memoria y tiempo
@@ -369,9 +383,19 @@ Antes de elegir hosting, se mide con el modelo elegido:
 3. Tiempo de arranque hasta `GET /v1/ready` en `200`.
 4. Latencia de una petición del caso típico (8 a 60 puntos, horizonte 3) y del caso máximo.
 
-**Mediciones locales (no del hosting):** con los dos modelos en CPU, la carga tarda entre 5 y 11 s y el proceso ocupa unos 700 MB de RSS. Son cifras de la máquina de desarrollo; las del hosting elegido se miden antes del despliegue.
+**Mediciones locales (no del hosting):** con los dos modelos en CPU, la carga tarda entre 5 y 11 s y el proceso ocupa unos 700 MB de RSS. Son cifras de la máquina de desarrollo.
 
-Criterio de aceptación: la memoria pico queda por debajo del límite del plan con un margen **por definir**. Los resultados se anotan en el README de `caudal-ia`. Hasta medirlo, ningún valor de latencia ni de memoria de este documento se considera confirmado.
+**Mediciones con el límite de Render** (contenedor con `--cpus=0.1 --memory=512m`, sin caché):
+
+| Modelo | Hilos de torch | Pronóstico de 2.000 puntos, horizonte 30 | 3 peticiones a la vez | Memoria pico |
+|---|---|---|---|---|
+| `amazon/chronos-bolt-tiny` | 1 | 0,2 s | 0,6 a 0,7 s | 334 MiB |
+| `amazon/chronos-bolt-tiny` | Por defecto | 11,2 s (supera `IA_READ_TIMEOUT_MS=10000`) | - | - |
+| `autogluon/chronos-2-small` | - | - | - | Llegó al tope de 512 MiB |
+
+Un guion indica que no hay dato. Por eso la imagen usa `chronos-bolt-tiny` con un hilo.
+
+Criterio de aceptación: la memoria pico queda por debajo del límite del plan con un margen **por definir**. Los resultados se anotan en el README de `caudal-ia`. Fuera de las mediciones anotadas en esta sección, ningún valor de latencia ni de memoria de este documento se considera confirmado.
 
 ## 13. Responsabilidades
 
