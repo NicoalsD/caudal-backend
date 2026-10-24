@@ -88,7 +88,7 @@ Grupos:
 | Base de datos | `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD` | Neon, rama `main`, usuario `caudal_app`. |
 | Migraciones | `FLYWAY_URL`, `FLYWAY_USER`, `FLYWAY_PASSWORD` | Neon, conexión directa, usuario `caudal_migrator`. |
 | Seguridad | `JWT_SECRET`, `JWT_ISSUER`, `JWT_AUDIENCE`, `IP_HMAC_KEY`, `MFA_ENCRYPTION_KEY`, `MFA_KEY_ID` | Generados con `openssl rand -base64 32`. |
-| Servicio IA | `IA_SERVICE_URL`, `IA_SERVICE_TOKEN` | Hugging Face Spaces o Render (IA). El token se genera aparte. |
+| Servicio IA | `IA_SERVICE_URL`, `IA_SERVICE_TOKEN` | Servicio `caudal-ia` en Render free (`https://caudal-ia.onrender.com`). El token se genera aparte. |
 | Web | `CORS_ALLOWED_ORIGINS`, `COOKIE_SAME_SITE`, `COOKIE_SECURE` | URL de la PWA en Vercel. |
 | Operación | `LOG_LEVEL`, `API_DOCS_ENABLED`, `SEED_DEMO_DATA` | Valores por entorno. |
 
@@ -205,7 +205,7 @@ Notas de TLS en local:
 | Migración al arrancar (opción A) o job separado (opción B) | Riesgo de arranque y de reversión. |
 | Política de cabeceras para Swagger UI | Si se cambia la política de la sección 3.3, Swagger deja de cargar en el navegador. |
 | Comportamiento de suspensión del plan gratuito de Render | Experiencia de la PWA sin conexión. |
-| Hosting de la IA: Hugging Face Spaces o Render | Depende de la memoria que necesite Chronos. |
+| Hosting de la IA en Render free | `chronos-bolt-tiny` cabe en 512 MB (pico medido de 334 MiB); el servicio se duerme sin tráfico. |
 | Procedimiento de rotación de secretos | Requisito de la especificación, sin procedimiento escrito. |
 
 Relacionados: [Arquitectura](../docs/Arquitectura.md), [Modelo de datos](../docs/Modelo-de-datos.md), [Documentación de API](api-documentation.md), [Plan de pruebas](testing-plan.md)

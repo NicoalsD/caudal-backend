@@ -135,7 +135,7 @@ Las fases van en orden de dependencia. Las columnas indican qué se puede empeza
 | **9** | Cierre y actas: M8 cierre del día, M9 actas y resúmenes para entidades. | 7 y 5 | `caudal-backend`, `caudal-frontend` | Drako (actas), NicoalsD (cierre). |
 | **10** | Evaluación IA vs estimación simple: M10 con MAE, WQL, cobertura y skill. | 6 y 9 | `caudal-backend`, `caudal-frontend`, `caudal-ia` (backtest) | Drako (cálculo), NicoalsD (vista), nicomora70 (backtest). |
 | **11** | Simulador en vivo y dispositivos: modo `live`, tablero, firma Ed25519, telemetría, comandos de válvula. | 1, 3 y 5. El simulador en vivo depende de la API estable de las fases 5 y 7. | `caudal-simulador`, `caudal-backend` | nicomora70 (simulador), Drako (dispositivos en el backend). |
-| **12** | Endurecimiento, despliegue y `v1.0.0`: pruebas de seguridad, despliegue en Render, Vercel y Hugging Face Spaces, etiqueta `v1.0.0`. | 1 a 11 | Los cuatro. | NicoalsD (DevOps y release), Drako (seguridad). |
+| **12** | Endurecimiento, despliegue y `v1.0.0`: pruebas de seguridad, despliegue en Render (backend e IA) y Vercel, etiqueta `v1.0.0`. | 1 a 11 | Los cuatro. | NicoalsD (DevOps y release), Drako (seguridad). |
 
 ### 4.1 Trabajo en paralelo
 
