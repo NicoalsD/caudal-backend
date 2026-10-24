@@ -21,18 +21,20 @@ Marca `Hecho` con `[x]` cuando el commit correspondiente se haya fusionado en `d
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | `caudal-backend` | 17 | 58 | 31 | 13 | 15 | 11 | 13 | 10 | 11 | 3 | 8 | 7 | 197 |
 | `caudal-frontend` | 10 | 6 | 15 | 9 | 15 | 6 | 9 | 9 | 7 | 4 | 2 | 6 | 98 |
-| `caudal-ia` | 8 | 6 | 3 | 0 | 0 | 16 | 0 | 0 | 0 | 8 | 0 | 4 | 45 |
+| `caudal-ia` | 8 | 6 | 3 | 0 | 0 | 16 | 0 | 0 | 0 | 8 | 0 | 5 | 46 |
 | `caudal-simulador` | 7 | 14 | 0 | 0 | 8 | 0 | 0 | 0 | 2 | 2 | 24 | 3 | 60 |
-| **Total** | **42** | **84** | **49** | **22** | **38** | **33** | **22** | **19** | **20** | **17** | **34** | **20** | **400** |
+| **Total** | **42** | **84** | **49** | **22** | **38** | **33** | **22** | **19** | **20** | **17** | **34** | **21** | **401** |
 
 | Autor | caudal-backend | caudal-frontend | caudal-ia | caudal-simulador | Total |
 |---|---:|---:|---:|---:|---:|
 | `Drako2305` | 123 | 0 | 0 | 0 | 123 |
 | `NicoalsD` | 35 | 66 | 0 | 0 | 101 |
-| `nicomora70` | 39 | 32 | 45 | 60 | 176 |
-| **Total** | **197** | **98** | **45** | **60** | **400** |
+| `nicomora70` | 39 | 32 | 46 | 60 | 177 |
+| **Total** | **197** | **98** | **46** | **60** | **401** |
 
 **Ampliación del frontend (2026-10-14).** Se agregan la página de presentación, el rediseño del inicio de sesión, los inicios por rol y las pantallas de usuarios, entidades, privacidad, auditoría, importación, reporte de daño del fontanero, historial de reglas y salud técnica que el inventario de pantallas pedía y el plan no listaba (F081 a F098), los listados de actas y dispositivos que esas pantallas necesitan en el backend (B195 y B196) y los turnos publicados del día para el cierre del fontanero (B197).
+
+**Corrección del servicio IA (2026-10-23).** Se agrega I046, un fix que limita también los cuerpos chunked sin Content-Length, surgido durante el endurecimiento de la Fase 12.
 
 Fase 0: 168 commits de documentación y planeación ya realizados; excluidos de esta lista de implementación.
 
@@ -538,14 +540,14 @@ Sin commits planeados en esta fase para este repositorio.
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| I034 | `feat: agrega RollingWindowIterator para backtest` | `nicomora70` | HU-33 | P14 | [ ] |
-| I035 | `feat: implementa ForecastPipeline para ventanas temporales` | `nicomora70` | HU-33 | P20 | [ ] |
-| I036 | `feat: calcula MAE y WQL en ventanas de backtest` | `nicomora70` | HU-33 | P20 | [ ] |
-| I037 | `feat: calcula cobertura y ancho de intervalo` | `nicomora70` | HU-33 | P20 | [ ] |
-| I038 | `feat: calcula skill frente a persistencia por horizonte` | `nicomora70` | HU-33 | P19 | [ ] |
-| I039 | `feat: exporta resultados de backtest en JSON` | `nicomora70` | HU-33 | - | [ ] |
-| I040 | `test: verifica métricas y cobertura del backtest` | `nicomora70` | HU-33 | P20 | [ ] |
-| I041 | `docs: documenta ejecución reproducible del backtest` | `nicomora70` | HU-33 | - | [ ] |
+| I034 | `feat: agrega RollingWindowIterator para backtest` | `nicomora70` | HU-33 | P14 | [x] |
+| I035 | `feat: implementa ForecastPipeline para ventanas temporales` | `nicomora70` | HU-33 | P20 | [x] |
+| I036 | `feat: calcula MAE y WQL en ventanas de backtest` | `nicomora70` | HU-33 | P20 | [x] |
+| I037 | `feat: calcula cobertura y ancho de intervalo` | `nicomora70` | HU-33 | P20 | [x] |
+| I038 | `feat: calcula skill frente a persistencia por horizonte` | `nicomora70` | HU-33 | P19 | [x] |
+| I039 | `feat: exporta resultados de backtest en JSON` | `nicomora70` | HU-33 | - | [x] |
+| I040 | `test: verifica métricas y cobertura del backtest` | `nicomora70` | HU-33 | P20 | [x] |
+| I041 | `docs: documenta ejecución reproducible del backtest` | `nicomora70` | HU-33 | - | [x] |
 
 ### Fase 11: Sin trabajo de implementación asignado
 
@@ -555,10 +557,11 @@ Sin commits planeados en esta fase para este repositorio.
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| I042 | `build: crea imagen Docker CPU para Hugging Face Spaces` | `nicomora70` | - | - | [ ] |
-| I043 | `ci: agrega pip-audit y escaneo de dependencias` | `nicomora70` | - | - | [ ] |
-| I044 | `ci: valida consumo de memoria del modelo en CPU` | `nicomora70` | - | - | [ ] |
-| I045 | `docs: documenta despliegue y límites del servicio IA` | `nicomora70` | - | - | [ ] |
+| I042 | `build: crea imagen Docker CPU para Hugging Face Spaces` | `nicomora70` | - | - | [x] |
+| I043 | `ci: agrega pip-audit y escaneo de dependencias` | `nicomora70` | - | - | [x] |
+| I044 | `ci: valida consumo de memoria del modelo en CPU` | `nicomora70` | - | - | [x] |
+| I045 | `docs: documenta despliegue y límites del servicio IA` | `nicomora70` | - | - | [x] |
+| I046 | `fix: limita también cuerpos sin Content-Length` | `nicomora70` | - | - | [x] |
 
 ## `caudal-simulador`
 
@@ -566,32 +569,32 @@ Sin commits planeados en esta fase para este repositorio.
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| S001 | `build: crea paquete Python 3.12 con uv y Typer` | `nicomora70` | - | - | [ ] |
-| S002 | `style: configura Ruff y mypy para el simulador` | `nicomora70` | - | - | [ ] |
-| S003 | `ci: valida formato, tipos y pruebas del simulador` | `nicomora70` | - | - | [ ] |
-| S004 | `test: configura pytest e Hypothesis` | `nicomora70` | - | - | [ ] |
-| S005 | `feat: valida escenarios YAML con Pydantic` | `nicomora70` | - | P04 | [ ] |
-| S006 | `feat: agrega SimulationClock con semilla reproducible` | `nicomora70` | - | P01 | [ ] |
+| S001 | `build: crea paquete Python 3.12 con uv y Typer` | `nicomora70` | - | - | [x] |
+| S002 | `style: configura Ruff y mypy para el simulador` | `nicomora70` | - | - | [x] |
+| S003 | `ci: valida formato, tipos y pruebas del simulador` | `nicomora70` | - | - | [x] |
+| S004 | `test: configura pytest e Hypothesis` | `nicomora70` | - | - | [x] |
+| S005 | `feat: valida escenarios YAML con Pydantic` | `nicomora70` | - | P04 | [x] |
+| S006 | `feat: agrega SimulationClock con semilla reproducible` | `nicomora70` | - | P01 | [x] |
 | S007 | `build: ignora .env y directorio keys` | `nicomora70` | - | - | [ ] |
 
 ### Fase 2: Escenarios y generación inicial
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| S008 | `feat: agrega ScenarioBuilder para parámetros YAML` | `nicomora70` | - | P04 | [ ] |
-| S009 | `feat: modela clima húmedo y seco por mes` | `nicomora70` | - | P19 | [ ] |
-| S010 | `feat: genera lluvia gamma con semilla estable` | `nicomora70` | - | P19 | [ ] |
-| S011 | `feat: modela caudal de fuente con retardo de lluvia` | `nicomora70` | - | P19 | [ ] |
-| S012 | `feat: simula balance de masa del tanque` | `nicomora70` | - | - | [ ] |
-| S013 | `feat: simula demanda horaria por sector` | `nicomora70` | - | - | [ ] |
-| S014 | `feat: simula turnos a partir del horario publicado` | `nicomora70` | HU-29 | - | [ ] |
-| S015 | `feat: simula fugas con proceso Poisson` | `nicomora70` | HU-27 | - | [ ] |
-| S016 | `feat: simula ruido y redondeo de lecturas humanas` | `nicomora70` | HU-11 | P19 | [ ] |
-| S017 | `feat: simula duplicados y lecturas sin señal` | `nicomora70` | HU-10, HU-12 | P19 | [ ] |
-| S018 | `feat: genera datos de terreno separados del backend` | `nicomora70` | HU-39 | - | [ ] |
-| S019 | `feat: exporta datasets CSV y Parquet con manifiesto` | `nicomora70` | - | - | [ ] |
-| S020 | `feat: agrega comando CLI generate` | `nicomora70` | - | - | [ ] |
-| S021 | `test: verifica reproducibilidad y límites del tanque` | `nicomora70` | - | P01 | [ ] |
+| S008 | `feat: agrega ScenarioBuilder para parámetros YAML` | `nicomora70` | - | P04 | [x] |
+| S009 | `feat: modela clima húmedo y seco por mes` | `nicomora70` | - | P19 | [x] |
+| S010 | `feat: genera lluvia gamma con semilla estable` | `nicomora70` | - | P19 | [x] |
+| S011 | `feat: modela caudal de fuente con retardo de lluvia` | `nicomora70` | - | P19 | [x] |
+| S012 | `feat: simula balance de masa del tanque` | `nicomora70` | - | - | [x] |
+| S013 | `feat: simula demanda horaria por sector` | `nicomora70` | - | - | [x] |
+| S014 | `feat: simula turnos a partir del horario publicado` | `nicomora70` | HU-29 | - | [x] |
+| S015 | `feat: simula fugas con proceso Poisson` | `nicomora70` | HU-27 | - | [x] |
+| S016 | `feat: simula ruido y redondeo de lecturas humanas` | `nicomora70` | HU-11 | P19 | [x] |
+| S017 | `feat: simula duplicados y lecturas sin señal` | `nicomora70` | HU-10, HU-12 | P19 | [x] |
+| S018 | `feat: genera datos de terreno separados del backend` | `nicomora70` | HU-39 | - | [x] |
+| S019 | `feat: exporta datasets CSV y Parquet con manifiesto` | `nicomora70` | - | - | [x] |
+| S020 | `feat: agrega comando CLI generate` | `nicomora70` | - | - | [x] |
+| S021 | `test: verifica reproducibilidad y límites del tanque` | `nicomora70` | - | P01 | [x] |
 
 ### Fase 3: Sin trabajo de implementación asignado
 
@@ -605,14 +608,14 @@ Sin commits planeados en esta fase para este repositorio.
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| S022 | `feat: adapta payloads con ApiPayloadAdapter` | `nicomora70` | HU-38 | P06 | [ ] |
-| S023 | `feat: agrega cliente HTTP para la API de CAUDAL` | `nicomora70` | HU-38 | P06 | [ ] |
-| S024 | `feat: valida destino demo antes de importar historial` | `nicomora70` | HU-38 | - | [ ] |
-| S025 | `feat: implementa comando backfill de lecturas` | `nicomora70` | HU-38 | - | [ ] |
-| S026 | `feat: implementa backfill de ejecuciones de turnos` | `nicomora70` | HU-38 | - | [ ] |
-| S027 | `feat: implementa backfill de incidentes simulados` | `nicomora70` | HU-38 | - | [ ] |
-| S028 | `feat: firma manifiesto de importación con Ed25519` | `nicomora70` | HU-38 | - | [ ] |
-| S029 | `test: verifica conteos y rechazo de importación no demo` | `nicomora70` | HU-38 | - | [ ] |
+| S022 | `feat: adapta payloads con ApiPayloadAdapter` | `nicomora70` | HU-38 | P06 | [x] |
+| S023 | `feat: agrega cliente HTTP para la API de CAUDAL` | `nicomora70` | HU-38 | P06 | [x] |
+| S024 | `feat: valida destino demo antes de importar historial` | `nicomora70` | HU-38 | - | [x] |
+| S025 | `feat: implementa comando backfill de lecturas` | `nicomora70` | HU-38 | - | [x] |
+| S026 | `feat: implementa backfill de ejecuciones de turnos` | `nicomora70` | HU-38 | - | [x] |
+| S027 | `feat: implementa backfill de incidentes simulados` | `nicomora70` | HU-38 | - | [x] |
+| S028 | `feat: firma manifiesto de importación con Ed25519` | `nicomora70` | HU-38 | - | [x] |
+| S029 | `test: verifica conteos y rechazo de importación no demo` | `nicomora70` | HU-38 | - | [x] |
 
 ### Fase 6: Sin trabajo de implementación asignado
 
@@ -630,51 +633,51 @@ Sin commits planeados en esta fase para este repositorio.
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| S030 | `feat: exporta ejecuciones confirmadas para actas` | `nicomora70` | HU-29, HU-30 | P06 | [ ] |
-| S031 | `test: verifica consistencia de periodo en exportaciones` | `nicomora70` | HU-30 | - | [ ] |
+| S030 | `feat: exporta ejecuciones confirmadas para actas` | `nicomora70` | HU-29, HU-30 | P06 | [x] |
+| S031 | `test: verifica consistencia de periodo en exportaciones` | `nicomora70` | HU-30 | - | [x] |
 
 ### Fase 10: Backtest
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| S032 | `feat: exporta ventanas históricas para el backtest IA` | `nicomora70` | HU-33 | P20 | [ ] |
-| S033 | `test: verifica separación entre verdad y pronóstico` | `nicomora70` | HU-33 | - | [ ] |
+| S032 | `feat: exporta ventanas históricas para el backtest IA` | `nicomora70` | HU-33 | P20 | [x] |
+| S033 | `test: verifica separación entre verdad y pronóstico` | `nicomora70` | HU-33 | - | [x] |
 
 ### Fase 11: Simulador en vivo y dispositivos
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| S034 | `feat: agrega ValveState para actuadores simulados` | `nicomora70` | HU-36 | P18 | [ ] |
-| S035 | `feat: agrega SimulationEventBus` | `nicomora70` | - | P17 | [ ] |
-| S036 | `feat: recorre eventos con EventScheduleIterator` | `nicomora70` | - | P14 | [ ] |
-| S037 | `feat: crea dispositivos con DeviceCreator` | `nicomora70` | HU-34 | P02 | [ ] |
-| S038 | `feat: ensambla sensores y actuadores con DeviceKitFactory` | `nicomora70` | HU-34 | P03 | [ ] |
-| S039 | `feat: conecta ValveActuator con ActuatorDriver` | `nicomora70` | HU-36 | P07 | [ ] |
-| S040 | `feat: agrega OpenValveCommand y CloseValveCommand` | `nicomora70` | HU-36 | P13 | [ ] |
-| S041 | `feat: simula entrega y confirmación de comandos` | `nicomora70` | HU-36 | P18 | [ ] |
-| S042 | `feat: implementa SimulationStep para avance temporal` | `nicomora70` | - | P20 | [ ] |
-| S043 | `feat: guarda y restaura SimulationSnapshot` | `nicomora70` | - | P16 | [ ] |
-| S044 | `feat: agrega NoisySensor para lecturas ruidosas` | `nicomora70` | HU-35 | P09 | [ ] |
-| S045 | `feat: agrega StuckSensor para lecturas congeladas` | `nicomora70` | HU-35 | P09 | [ ] |
-| S046 | `feat: agrega DriftingSensor para deriva gradual` | `nicomora70` | HU-35 | P09 | [ ] |
-| S047 | `feat: agrega OfflineBufferTransport para cortes de red` | `nicomora70` | HU-10 | P11 | [ ] |
-| S048 | `feat: publica API local del tablero con FastAPI` | `nicomora70` | - | - | [ ] |
-| S049 | `feat: emite eventos del tablero mediante SSE` | `nicomora70` | - | P17 | [ ] |
-| S050 | `feat: crea tablero Vite y React para modo live` | `nicomora70` | - | - | [ ] |
-| S051 | `feat: agrega controles manuales de escenario en tablero` | `nicomora70` | - | - | [ ] |
-| S052 | `feat: agrega modo live con cliente API firmado` | `nicomora70` | HU-35, HU-36 | P06 | [ ] |
-| S053 | `feat: agrega modo demo con guion de fallos de campo` | `nicomora70` | HU-11, HU-16, HU-39 | P19 | [ ] |
-| S054 | `feat: agrega escenarios seco, lluvioso y fugas frecuentes` | `nicomora70` | - | P04 | [ ] |
-| S055 | `test: verifica idempotencia y eventos del modo live` | `nicomora70` | HU-35, HU-36 | P17 | [ ] |
-| S056 | `test: verifica el guion demo con Hypothesis` | `nicomora70` | HU-11, HU-16, HU-39 | P19 | [ ] |
-| S057 | `docs: documenta operación live y manejo de claves` | `nicomora70` | HU-34, HU-35 | - | [ ] |
+| S034 | `feat: agrega ValveState para actuadores simulados` | `nicomora70` | HU-36 | P18 | [x] |
+| S035 | `feat: agrega SimulationEventBus` | `nicomora70` | - | P17 | [x] |
+| S036 | `feat: recorre eventos con EventScheduleIterator` | `nicomora70` | - | P14 | [x] |
+| S037 | `feat: crea dispositivos con DeviceCreator` | `nicomora70` | HU-34 | P02 | [x] |
+| S038 | `feat: ensambla sensores y actuadores con DeviceKitFactory` | `nicomora70` | HU-34 | P03 | [x] |
+| S039 | `feat: conecta ValveActuator con ActuatorDriver` | `nicomora70` | HU-36 | P07 | [x] |
+| S040 | `feat: agrega OpenValveCommand y CloseValveCommand` | `nicomora70` | HU-36 | P13 | [x] |
+| S041 | `feat: simula entrega y confirmación de comandos` | `nicomora70` | HU-36 | P18 | [x] |
+| S042 | `feat: implementa SimulationStep para avance temporal` | `nicomora70` | - | P20 | [x] |
+| S043 | `feat: guarda y restaura SimulationSnapshot` | `nicomora70` | - | P16 | [x] |
+| S044 | `feat: agrega NoisySensor para lecturas ruidosas` | `nicomora70` | HU-35 | P09 | [x] |
+| S045 | `feat: agrega StuckSensor para lecturas congeladas` | `nicomora70` | HU-35 | P09 | [x] |
+| S046 | `feat: agrega DriftingSensor para deriva gradual` | `nicomora70` | HU-35 | P09 | [x] |
+| S047 | `feat: agrega OfflineBufferTransport para cortes de red` | `nicomora70` | HU-10 | P11 | [x] |
+| S048 | `feat: publica API local del tablero con FastAPI` | `nicomora70` | - | - | [x] |
+| S049 | `feat: emite eventos del tablero mediante SSE` | `nicomora70` | - | P17 | [x] |
+| S050 | `feat: crea tablero Vite y React para modo live` | `nicomora70` | - | - | [x] |
+| S051 | `feat: agrega controles manuales de escenario en tablero` | `nicomora70` | - | - | [x] |
+| S052 | `feat: agrega modo live con cliente API firmado` | `nicomora70` | HU-35, HU-36 | P06 | [x] |
+| S053 | `feat: agrega modo demo con guion de fallos de campo` | `nicomora70` | HU-11, HU-16, HU-39 | P19 | [x] |
+| S054 | `feat: agrega escenarios seco, lluvioso y fugas frecuentes` | `nicomora70` | - | P04 | [x] |
+| S055 | `test: verifica idempotencia y eventos del modo live` | `nicomora70` | HU-35, HU-36 | P17 | [x] |
+| S056 | `test: verifica el guion demo con Hypothesis` | `nicomora70` | HU-11, HU-16, HU-39 | P19 | [x] |
+| S057 | `docs: documenta operación live y manejo de claves` | `nicomora70` | HU-34, HU-35 | - | [x] |
 
 ### Fase 12: Endurecimiento y despliegue
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| S058 | `ci: agrega pip-audit y escaneo de secretos` | `nicomora70` | - | - | [ ] |
-| S059 | `build: crea imagen Docker para el tablero simulador` | `nicomora70` | - | - | [ ] |
-| S060 | `docs: documenta escenarios y despliegue del simulador` | `nicomora70` | - | - | [ ] |
+| S058 | `ci: agrega pip-audit y escaneo de secretos` | `nicomora70` | - | - | [x] |
+| S059 | `build: crea imagen Docker para el tablero simulador` | `nicomora70` | - | - | [x] |
+| S060 | `docs: documenta escenarios y despliegue del simulador` | `nicomora70` | - | - | [x] |
 
 Relacionados: [Roles-y-planeacion.md](Roles-y-planeacion.md), [workflow.md](../.agents/workflow.md), [Historias-de-usuario.md](Historias-de-usuario.md)
