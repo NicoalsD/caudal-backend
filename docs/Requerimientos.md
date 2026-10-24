@@ -265,7 +265,7 @@ Todas las metas son objetivos hasta medirlas en la fase 12.
 ### RNF-23 Portabilidad y despliegue
 
 - Entorno local con Docker Compose (PostgreSQL 18 local).
-- Despliegue: Render (backend, Docker), Neon (PostgreSQL), Vercel (frontend), Hugging Face Spaces o Render (IA, por verificar).
+- Despliegue: Render (backend, Docker), Neon (PostgreSQL), Vercel (frontend), Render free (IA, Docker, con `amazon/chronos-bolt-tiny`).
 - Cambiar de proveedor debe requerir cambiar variables de entorno y no código (objetivo, verificar).
 
 ### RNF-24 Observabilidad

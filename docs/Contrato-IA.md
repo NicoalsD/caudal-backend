@@ -223,6 +223,8 @@ Nota sobre el 422: como el backend arma la serie, un `INVALID_SERIES` es un defe
 
 Sin reintentos automáticos en el mismo ciclo de petición. El reintento lo hace el siguiente cálculo programado o la siguiente petición del usuario. Así una IA lenta no multiplica la espera del usuario.
 
+En el despliegue actual (Render free) el servicio se duerme cuando no recibe tráfico. La primera llamada después de dormir vence el timeout y el backend responde con la estimación simple y `fallback_reason = IA_TIMEOUT`.
+
 ### 4.2 Circuit breaker
 
 Estados (`CircuitBreakerState`, patrón P18): `CLOSED` (cerrado, llama a la IA), `OPEN` (abierto, no llama) y `HALF_OPEN` (semiabierto, deja pasar una prueba).
@@ -284,7 +286,8 @@ El backend guarda siempre ambos pronósticos (IA y respaldo) para compararlos en
 }
 ```
 
-- Modelos: `autogluon/chronos-2-small` (28 M, por defecto) o `amazon/chronos-bolt-small` (48 M). Se elige con `CHRONOS_MODEL_ID`. Ambos corren en CPU.
+- Modelos: `autogluon/chronos-2-small` (28 M, por defecto local), `amazon/chronos-bolt-small` (48 M) o `amazon/chronos-bolt-tiny` (9 M). Se elige con `CHRONOS_MODEL_ID`. Los tres corren en CPU.
+- La imagen desplegada en Render free (512 MB) usa `amazon/chronos-bolt-tiny`, porque `chronos-2-small` llegó al tope de 512 MiB en la prueba de memoria (ver `Modulo-IA.md`, sección 12). En ese despliegue `name` y `active` valen `amazon/chronos-bolt-tiny`; el ejemplo de arriba es el de la configuración local.
 
 ## 6. Variables de entorno
 
@@ -292,7 +295,7 @@ El backend guarda siempre ambos pronósticos (IA y respaldo) para compararlos en
 
 | Variable | Obligatoria | Valor de ejemplo | Descripción |
 |---|---|---|---|
-| `IA_SERVICE_URL` | Sí | `https://caudal-ia.example.invalid` | URL base del servicio, sin barra final |
+| `IA_SERVICE_URL` | Sí | `https://caudal-ia.example.invalid` | URL base del servicio, sin barra final. En el despliegue actual (Render free): `https://caudal-ia.onrender.com` |
 | `IA_SERVICE_TOKEN` | Sí | `<secreto, nunca en git>` | Token de servicio actual |
 | `IA_SERVICE_TOKEN_PREVIOUS` | No | `<secreto anterior>` | Solo durante una rotación. El backend no lo usa para llamar. |
 | `IA_CONNECT_TIMEOUT_MS` | No (por defecto 2000) | `2000` | Timeout de conexión |
@@ -309,7 +312,7 @@ Los valores de negocio (horizonte, reserva, días de historia enviados a la IA) 
 |---|---|---|---|
 | `IA_SERVICE_TOKEN` | Sí | `<secreto>` | Token que el servicio acepta |
 | `IA_SERVICE_TOKEN_PREVIOUS` | No | `<secreto anterior>` | Segundo token aceptado durante la rotación |
-| `CHRONOS_MODEL_ID` | No | `autogluon/chronos-2-small` | Modelo activo. Alternativa: `amazon/chronos-bolt-small` |
+| `CHRONOS_MODEL_ID` | No | `autogluon/chronos-2-small` | Modelo activo. Alternativas: `amazon/chronos-bolt-small` y `amazon/chronos-bolt-tiny`. La imagen Docker lo fija al construir en `amazon/chronos-bolt-tiny` |
 | `CHRONOS_DEVICE` | No | `cpu` | Dispositivo de inferencia |
 | `SERIES_TIMEZONE` | No | `America/Bogota` | Zona en la que empieza cada día de la serie. Debe coincidir con la del backend (ver la advertencia de abajo). |
 | `FORECAST_MIN_POINTS` | No | `7` | Días con lectura mínimos después del remuestreo |
@@ -322,7 +325,7 @@ Los valores de negocio (horizonte, reserva, días de historia enviados a la IA) 
 | `API_DOCS_ENABLED` | No | `true` | Swagger en `/docs` |
 | `LOG_LEVEL` | No | `INFO` | Nivel de logs |
 
-Los nombres de la tabla 6.1 son los de `caudal-backend/.env.example`. Los de la tabla 6.2 se documentan en `.env.example` de `caudal-ia`, con marcadores, sin valores reales.
+Los nombres de la tabla 6.1 son los de `caudal-backend/.env.example`. Los de la tabla 6.2 se documentan en `.env.example` de `caudal-ia`, con marcadores, sin valores reales. Además, la imagen Docker fija `OMP_NUM_THREADS=1` y `MKL_NUM_THREADS=1`: con los hilos por defecto, un pronóstico de 2.000 puntos tardó 11,2 s con 0,1 CPU y superó `IA_READ_TIMEOUT_MS`.
 
 > **Advertencia:** `SERIES_TIMEZONE` del servicio debe coincidir con la zona que usa el backend para calcular el primer día de la serie. Las fechas de la respuesta salen a medianoche de la zona del servicio; si el backend espera otra, descarta las respuestas como `IA_ERROR` y abre el circuito.
 

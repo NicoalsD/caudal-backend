@@ -31,7 +31,7 @@ Todos los datos del campo son simulados. La UI, la página pública, el mensaje 
 | PWA (`caudal-frontend`) | React 19, Vite, TypeScript, Dexie | Vercel | Interfaz de todos los roles, cola offline, página pública. |
 | API (`caudal-backend`) | Java 25 LTS, Spring Boot 4.1.x | Render (Docker) | Reglas de negocio, seguridad, auditoría, orquestación del pronóstico. |
 | Base de datos | PostgreSQL 18 | Neon (local: Docker Compose) | Fuente de verdad, 7 esquemas, RLS por acueducto. |
-| Servicio IA (`caudal-ia`) | Python 3.12, FastAPI, Chronos | Hugging Face Spaces (Docker, CPU) o Render (verificar) | Pronóstico probabilístico sin estado. |
+| Servicio IA (`caudal-ia`) | Python 3.12, FastAPI, Chronos | Render free (Docker, CPU, 512 MB) | Pronóstico probabilístico sin estado. |
 | Simulador (`caudal-simulador`) | Python 3.12, Typer, FastAPI, tablero Vite/React | Local | Gemelo digital del acueducto, modos `generate`, `backfill`, `live` y `demo`. |
 | CI/CD | GitHub Actions, CodeQL, gitleaks, Dependabot | GitHub | Validación de commits, pruebas, análisis de seguridad. |
 
@@ -339,7 +339,7 @@ La regla de separación es: el simulador no conoce la base de datos. Todo lo que
 | PWA | Vercel | Despliegue por rama `main` (producción) y vistas previas por PR. |
 | API | Render (servicio web con Docker) | Imagen construida desde el `Dockerfile` multi-etapa. Health check en `/actuator/health`. |
 | PostgreSQL 18 | Neon | Rama de producción y rama de desarrollo. Conexión TLS `verify-full`. PITR de Neon como respaldo. |
-| Servicio IA | Hugging Face Spaces (Docker, CPU) | Alternativa: Render si la memoria alcanza (verificar). |
+| Servicio IA | Render free (servicio web con Docker, 512 MB) | Servicio `caudal-ia` definido en `render.yaml` de `caudal-ia`, con `amazon/chronos-bolt-tiny` y un hilo de torch. Hugging Face Spaces se descartó: las cuentas gratis no permiten Spaces Docker. Se duerme sin tráfico; la primera llamada después usa la estimación simple (`IA_TIMEOUT`). |
 | Simulador | Local | No se despliega. Se ejecuta en la máquina del equipo. |
 
 Detalles de configuración en [`.agents/deployment.md`](../.agents/deployment.md).
