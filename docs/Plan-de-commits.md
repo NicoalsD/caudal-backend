@@ -21,20 +21,22 @@ Marca `Hecho` con `[x]` cuando el commit correspondiente se haya fusionado en `d
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | `caudal-backend` | 17 | 58 | 31 | 13 | 15 | 11 | 13 | 10 | 11 | 3 | 8 | 7 | 197 |
 | `caudal-frontend` | 10 | 6 | 15 | 9 | 15 | 6 | 9 | 9 | 7 | 4 | 2 | 6 | 98 |
-| `caudal-ia` | 8 | 6 | 3 | 0 | 0 | 16 | 0 | 0 | 0 | 8 | 0 | 5 | 46 |
+| `caudal-ia` | 8 | 6 | 3 | 0 | 0 | 16 | 0 | 0 | 0 | 8 | 0 | 10 | 51 |
 | `caudal-simulador` | 7 | 14 | 0 | 0 | 8 | 0 | 0 | 0 | 2 | 2 | 24 | 3 | 60 |
-| **Total** | **42** | **84** | **49** | **22** | **38** | **33** | **22** | **19** | **20** | **17** | **34** | **21** | **401** |
+| **Total** | **42** | **84** | **49** | **22** | **38** | **33** | **22** | **19** | **20** | **17** | **34** | **26** | **406** |
 
 | Autor | caudal-backend | caudal-frontend | caudal-ia | caudal-simulador | Total |
 |---|---:|---:|---:|---:|---:|
 | `Drako2305` | 123 | 0 | 0 | 0 | 123 |
 | `NicoalsD` | 35 | 66 | 0 | 0 | 101 |
-| `nicomora70` | 39 | 32 | 46 | 60 | 177 |
-| **Total** | **197** | **98** | **46** | **60** | **401** |
+| `nicomora70` | 39 | 32 | 51 | 60 | 182 |
+| **Total** | **197** | **98** | **51** | **60** | **406** |
 
 **Ampliación del frontend (2026-10-14).** Se agregan la página de presentación, el rediseño del inicio de sesión, los inicios por rol y las pantallas de usuarios, entidades, privacidad, auditoría, importación, reporte de daño del fontanero, historial de reglas y salud técnica que el inventario de pantallas pedía y el plan no listaba (F081 a F098), los listados de actas y dispositivos que esas pantallas necesitan en el backend (B195 y B196) y los turnos publicados del día para el cierre del fontanero (B197).
 
 **Corrección del servicio IA (2026-10-23).** Se agrega I046, un fix que limita también los cuerpos chunked sin Content-Length, surgido durante el endurecimiento de la Fase 12.
+
+**Despliegue del servicio IA en Render (2026-10-24).** Se agregan I047 a I051: las cuentas gratis de Hugging Face no permiten Spaces Docker, así que `caudal-ia` se despliega en Render free (512 MB) con `amazon/chronos-bolt-tiny` y un hilo de torch.
 
 Fase 0: 168 commits de documentación y planeación ya realizados; excluidos de esta lista de implementación.
 
@@ -562,6 +564,11 @@ Sin commits planeados en esta fase para este repositorio.
 | I044 | `ci: valida consumo de memoria del modelo en CPU` | `nicomora70` | - | - | [x] |
 | I045 | `docs: documenta despliegue y límites del servicio IA` | `nicomora70` | - | - | [x] |
 | I046 | `fix: limita también cuerpos sin Content-Length` | `nicomora70` | - | - | [x] |
+| I047 | `feat: agrega chronos-bolt-tiny al catálogo de modelos` | `nicomora70` | - | - | [x] |
+| I048 | `build: usa chronos-bolt-tiny y un hilo de torch en la imagen` | `nicomora70` | - | - | [x] |
+| I049 | `ci: mide chronos-bolt-tiny con el límite de 512 MB de Render` | `nicomora70` | - | - | [x] |
+| I050 | `build: agrega render.yaml para el servicio IA en Render free` | `nicomora70` | - | - | [x] |
+| I051 | `docs: documenta el despliegue en Render free con chronos-bolt-tiny` | `nicomora70` | - | - | [x] |
 
 ## `caudal-simulador`
 
