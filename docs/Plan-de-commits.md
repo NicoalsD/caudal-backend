@@ -462,6 +462,7 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | F093 | `feat: consulta auditoría y eventos de seguridad` | `NicoalsD` | HU-37 | - | [x] |
 | F095 | `test: cubre usuarios, entidades, privacidad y auditoría` | `NicoalsD` | - | - | [x] |
 | F098 | `feat: muestra la salud técnica del sistema` | `NicoalsD` | HU-37 | - | [x] |
+| F099 | `feat: agrega el botón para recalcular el pronóstico` | `NicoalsD` | HU-15 | - | [x] |
 
 ## `caudal-ia`
 
