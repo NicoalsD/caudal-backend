@@ -48,10 +48,6 @@ springdoc:
   default-produces-media-type: application/json
 
 caudal:
-  # Demo accounts: created at startup only if SEED_DEMO_DATA=true and DEMO_USER_PASSWORD is set.
-  demo:
-    enabled: ${SEED_DEMO_DATA:false}
-    user-password: ${DEMO_USER_PASSWORD:}
   api-docs:
     server-url: ${API_PUBLIC_URL:http://localhost:8080}
   # Forecast service caudal-ia (docs/Contrato-IA.md). Without a URL every forecast is the simple
