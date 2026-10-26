@@ -90,7 +90,7 @@ Grupos:
 | Seguridad | `JWT_SECRET`, `JWT_ISSUER`, `JWT_AUDIENCE`, `IP_HMAC_KEY`, `MFA_ENCRYPTION_KEY`, `MFA_KEY_ID` | Generados con `openssl rand -base64 32`. |
 | Servicio IA | `IA_SERVICE_URL`, `IA_SERVICE_TOKEN` | Servicio `caudal-ia` en Render free (`https://caudal-ia.onrender.com`). El token se genera aparte. |
 | Web | `CORS_ALLOWED_ORIGINS`, `COOKIE_SAME_SITE`, `COOKIE_SECURE` | URL de la PWA en Vercel. |
-| Operación | `LOG_LEVEL`, `API_DOCS_ENABLED`, `SEED_DEMO_DATA` | Valores por entorno. |
+| Operación | `LOG_LEVEL`, `API_DOCS_ENABLED` | Valores por entorno. |
 
 Reglas de secretos:
 - Un secreto no aparece en logs, en respuestas ni en la interfaz de Render más allá de su campo oculto.
