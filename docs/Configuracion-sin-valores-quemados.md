@@ -140,8 +140,6 @@ Los nombres son los de `caudal-backend/.env.example`, que es la fuente de las va
 | `API_DOCS_ENABLED` | Activa Swagger y `/v3/api-docs` | `true` (apagar con `false`) | No |
 | `API_PUBLIC_URL` | URL pública de la API que muestra Swagger como servidor | `http://localhost:8080` | No |
 | `LOG_LEVEL` | Nivel de log | `INFO` | No |
-| `SEED_DEMO_DATA` | Crea al arrancar las cuentas de la demo en `vereda-demo` (el acueducto lo siembra V47) | `false` | No |
-| `DEMO_USER_PASSWORD` | Contraseña de las cuentas de la demo (mínimo 12 caracteres); sin ella no se crean cuentas | sin valor | Sí, si `SEED_DEMO_DATA=true` |
 | `PORT` | Puerto HTTP (lo inyecta Render) | `8080` | No |
 
 
