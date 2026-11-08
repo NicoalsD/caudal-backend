@@ -36,6 +36,13 @@ public class AqueductPersistenceAdapter implements AqueductPort {
         .optional();
   }
 
+  @Override
+  public java.util.List<UUID> allIds() {
+    return jdbc.sql("SELECT id FROM org.aqueducts ORDER BY created_at, id")
+        .query((rs, row) -> rs.getObject("id", UUID.class))
+        .list();
+  }
+
   private static AqueductRef map(java.sql.ResultSet rs, int row) throws java.sql.SQLException {
     return new AqueductRef(
         rs.getObject("id", UUID.class),

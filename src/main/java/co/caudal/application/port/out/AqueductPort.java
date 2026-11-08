@@ -22,4 +22,11 @@ public interface AqueductPort {
    * @return the aqueduct, or empty
    */
   Optional<AqueductRef> findById(UUID id);
+
+  /**
+   * Lists the ids of every aqueduct, for work that runs without a session (the autopilot cycle).
+   *
+   * @return the ids
+   */
+  java.util.List<UUID> allIds();
 }

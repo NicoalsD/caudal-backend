@@ -16,6 +16,7 @@ import tools.jackson.databind.json.JsonMapper;
 public class AuditLogPersistenceAdapter implements AuditLogPort {
 
   private static final String ACTOR_USER = "USER";
+  private static final String ACTOR_SYSTEM = "SYSTEM";
 
   private final JdbcClient jdbc;
   private final JsonMapper json;
@@ -33,7 +34,7 @@ public class AuditLogPersistenceAdapter implements AuditLogPort {
                 + " (:aqueduct, :actorType, :actor, :action, :entityType, :entityId,"
                 + " CAST(:after AS jsonb), :requestId, :ip, '', '')")
         .param("aqueduct", entry.aqueductId())
-        .param("actorType", ACTOR_USER)
+        .param("actorType", entry.actorId() == null ? ACTOR_SYSTEM : ACTOR_USER)
         .param("actor", entry.actorId())
         .param("action", entry.action())
         .param("entityType", entry.entityType())
