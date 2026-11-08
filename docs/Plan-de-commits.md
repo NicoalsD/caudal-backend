@@ -344,7 +344,7 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | B229 | `test: cubre el circuit breaker y el respaldo del asistente` | `Drako2305` | HU-43 | P18 | [x] |
 | B230 | `docs: documenta los endpoints v2 en Swagger y API.md` | `NicoalsD` | HU-40, HU-44 | - | [x] |
 | B231 | `docs: agrega el diagrama de secuencia del piloto automático` | `NicoalsD` | HU-42 | - | [x] |
-| B232 | `docs: agrega el diagrama de secuencia de aceptar una recomendación` | `NicoalsD` | HU-41 | - | [ ] |
+| B232 | `docs: agrega el diagrama de secuencia de aceptar una recomendación` | `NicoalsD` | HU-41 | - | [x] |
 | B233 | `docs: documenta las migraciones V54 y V55` | `NicoalsD` | HU-40 | - | [x] |
 
 ## `caudal-frontend`
