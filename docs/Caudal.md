@@ -37,7 +37,7 @@ Hacer el racionamiento menos manual, con registros digitales en lugar de papel, 
 | OE-08 | Medir si la IA ayuda de verdad, comparándola con una estimación simple. | Existe una evaluación con MAE, WQL, cobertura y skill por horizonte. |
 | OE-09 | Probar el sistema sin datos reales, con un simulador que produce datos verosímiles. | Los datos del acueducto demo se marcan como "Datos simulados" en todas las pantallas. |
 | OE-10 | Mostrar el sistema en una escena 3D interactiva (three.js): tanque, tuberías, flujo de agua y llaves que se pueden pulsar. | El fontanero entra a la escena 3D y puede abrir o cerrar una llave con confirmación. Los demás roles entran a un dashboard (ver [Estudio-dashboards-por-rol.md](Estudio-dashboards-por-rol.md)). |
-| OE-11 | Ofrecer un piloto automático con 3 modos por acueducto: `MANUAL`, `ASISTIDO` y `AUTOMATICO`. | La Junta (`BOARD_ADMIN`, permiso `AUTOPILOT_CONFIGURE`) elige el modo. En `AUTOMATICO`, si el operario no actúa en `operator_absence_minutes`, el sistema abre o cierra llaves solo, sin bajar del piso de reserva (`reserve_floor_pct`). Cualquier acción manual pausa el piloto. |
+| OE-11 | Ofrecer un piloto automático con 3 modos por acueducto: `MANUAL`, `ASSISTED` y `AUTOMATIC`. | La Junta (`BOARD_ADMIN`, permiso `AUTOPILOT_CONFIGURE`) elige el modo. En `AUTOMATIC`, si el operario no actúa en `operator_absence_minutes`, el sistema abre o cierra llaves solo, sin bajar del piso de reserva (`reserve_floor_pct`). Cualquier acción manual pausa el piloto. |
 | OE-12 | Dar un asistente de IA que ayude a decidir y a redactar reportes, con un respaldo determinista. | Recomendaciones, reporte narrativo y preguntas en lenguaje natural vienen de un LLM compatible con OpenAI (por defecto Gemini Flash). Si falla, responden reglas y plantillas. Cada decisión queda en `ops.autopilot_decisions`. |
 | OE-13 | Construir una maqueta física (`caudal-maqueta`): 1 tanque, sensores y 2 tuberías de salida, con el mismo protocolo firmado. | La maqueta cumple un lazo cerrado con el backend: telemetría, comando de llave y ack. Hay una maqueta virtual equivalente en el simulador. |
 | OE-14 | Permitir regiones de racionamiento configurables. | La Junta crea, edita y asigna llaves a regiones (sectores raíz, con `parent_sector_id`) desde un editor de árbol simple. |
@@ -48,7 +48,7 @@ Hacer el racionamiento menos manual, con registros digitales en lugar de papel, 
 
 - Aplicación web instalable (PWA) a todo el ancho, con three.js: escena 3D para el fontanero y dashboards para los demás roles.
 - Botones para controlar las llaves (Abrir/Cerrar con confirmación y motivo) y estado del comando en vivo.
-- Piloto automático con 3 modos (`MANUAL`, `ASISTIDO`, `AUTOMATICO`) y dos guardas: piso de reserva y prioridad humana.
+- Piloto automático con 3 modos (`MANUAL`, `ASSISTED`, `AUTOMATIC`) y dos guardas: piso de reserva y prioridad humana.
 - Asistente de IA (LLM compatible con OpenAI, con respaldo de reglas): recomendaciones, reportes narrativos y preguntas.
 - Regiones de racionamiento configurables (sector raíz, editor de árbol simple).
 - Maqueta física (`caudal-maqueta`) y maqueta virtual en el simulador.
@@ -72,7 +72,7 @@ Hacer el racionamiento menos manual, con registros digitales en lugar de papel, 
 | Facturación, cobro de agua o pagos | Fuera del problema. | No aplica. |
 | Validación clínica o técnica formal de la IA | Requiere más datos. | El criterio de evaluación queda documentado (ver `Requerimientos.md`). |
 
-El sistema **no reemplaza a la Junta ni al fontanero**. Propone, explica y registra. La Junta fija las reglas y configura el modo del piloto. En `MANUAL` y `ASISTIDO` una persona actúa. En `AUTOMATICO` el sistema decide y ejecuta con dos guardas: no baja del piso de reserva y cualquier acción manual pausa el piloto. Toda decisión queda auditada.
+El sistema **no reemplaza a la Junta ni al fontanero**. Propone, explica y registra. La Junta fija las reglas y configura el modo del piloto. En `MANUAL` y `ASSISTED` una persona actúa. En `AUTOMATIC` el sistema decide y ejecuta con dos guardas: no baja del piso de reserva y cualquier acción manual pausa el piloto. Toda decisión queda auditada.
 
 ## 4. Cómo funciona: los 10 pasos
 
@@ -89,7 +89,7 @@ Esta sección resume el flujo completo en palabras simples. El diagrama está en
 7. **Las familias se enteran:** página pública sin nombres ni teléfonos, mensaje para WhatsApp (botón que copia el mensaje) o cartel impreso. También pueden reportar un daño.
 8. **Al final del día, el fontanero anota qué pasó realmente:** turnos cumplidos, a medias y novedades.
 9. **La Junta saca un acta cuando la necesite**, separando cuatro tipos de información: **observado** (lo que se vio), **estimado** (lo que se calculó), **inferido** (lo que se sospecha) y **confirmado** (lo confirmado en campo).
-10. **El piloto automático y el asistente ayudan a decidir:** cada pocos segundos el backend arma una foto del estado y le pide recomendaciones al asistente (`OPEN`, `CLOSE`, `WAIT`, `INSPECT`). En `MANUAL` solo se muestran, en `ASISTIDO` el operario las acepta con un clic, y en `AUTOMATICO` el sistema las ejecuta si el operario no actúa en `operator_absence_minutes`. Cada decisión queda en `ops.autopilot_decisions`. El fontanero también puede pulsar las llaves en la escena 3D.
+10. **El piloto automático y el asistente ayudan a decidir:** cada pocos segundos el backend arma una foto del estado y le pide recomendaciones al asistente (`OPEN`, `CLOSE`, `WAIT`, `INSPECT`). En `MANUAL` solo se muestran, en `ASSISTED` el operario las acepta con un clic, y en `AUTOMATIC` el sistema las ejecuta si el operario no actúa en `operator_absence_minutes`. Cada decisión queda en `ops.autopilot_decisions`. El fontanero también puede pulsar las llaves en la escena 3D.
 11. **Los demás actores:** el equipo del proyecto mantiene el sistema y compara la IA con la estimación simple para saber si de verdad ayuda; las entidades de apoyo solo ven resúmenes que la Junta autorice.
 
 Puntos clave de los pasos:
@@ -115,7 +115,7 @@ Puntos clave de los pasos:
 | M11 | Dispositivos | Registro de dispositivos, telemetría firmada, comandos de válvula desde turnos aprobados. | 10 | `caudal-backend`, `caudal-simulador` |
 | M12 | Auditoría | Bitácora de cambios, eventos de seguridad, cadena de hashes. | Transversal | `caudal-backend`, `caudal-frontend` |
 | M13 | Datos simulados e importación de historial | Generación de datos, backfill en el acueducto demo, marcas de "Datos simulados". | Transversal | `caudal-simulador`, `caudal-backend` |
-| M14 | Piloto automático y asistente IA | Modos `MANUAL`/`ASISTIDO`/`AUTOMATICO`, guardas, decisiones auditadas, recomendaciones, reportes narrativos y preguntas. | 10 | `caudal-backend`, `caudal-ia`, `caudal-frontend` |
+| M14 | Piloto automático y asistente IA | Modos `MANUAL`/`ASSISTED`/`AUTOMATIC`, guardas, decisiones auditadas, recomendaciones, reportes narrativos y preguntas. | 10 | `caudal-backend`, `caudal-ia`, `caudal-frontend` |
 | M15 | Escena 3D y control de llaves | Escena three.js, flujo del agua, llaves pulsables, botones Abrir/Cerrar, estado del comando en vivo. | 10 | `caudal-frontend`, `caudal-backend` |
 | M16 | Maqueta física | Tanque, sensores y 2 salidas con ESP32; maqueta virtual en el simulador. | 10 | `caudal-maqueta`, `caudal-simulador` |
 | M17 | Regiones | Regiones de racionamiento como sectores raíz, editor de árbol, asignación de llaves, `GET /network`. | 1 | `caudal-backend`, `caudal-frontend` |

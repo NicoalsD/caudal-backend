@@ -18,7 +18,7 @@ El hardware de campo se adopta en tres fases. Cada fase agrega una capacidad sin
 | **B** | Telemetría de nivel | Sensor sumergido, nodo ESP32-S3, radio LoRa y gateway. Telemetría de `LEVEL`, `BATTERY_V` y `RSSI` que genera lecturas automáticas. | Actuación de válvulas. El fontanero sigue confirmando. | Datos de telemetría con continuidad aceptable y lecturas automáticas consistentes con las del fontanero (criterio por definir). |
 | **C** | Actuación de válvulas | Válvulas de bola motorizadas con finales de carrera, comandos firmados (de turnos aprobados, manuales con motivo o del piloto automático), acuse de recibo y bypass manual. Piloto en un sector. | Nada fuera de las guardas del piloto. | Piloto sin incidentes de seguridad y con aprobación formal de la Junta (acta). |
 
-> **Regla de la fase C (v2):** el sistema mueve una válvula solo con un comando firmado que tenga un origen registrado: un turno aprobado por la Junta, un comando manual con motivo (`BOARD_ADMIN` u `OPERATOR`, permiso `VALVE_COMMAND_MANUAL`) o una decisión del piloto automático (`autopilot_decision_id`). El piloto automático existe en tres modos por acueducto (`MANUAL`, `ASISTIDO`, `AUTOMATICO`) que configura `BOARD_ADMIN` con `AUTOPILOT_CONFIGURE`. En `AUTOMATICO` nunca baja del piso de reserva (`reserve_floor_pct`) y cualquier acción manual lo pausa.
+> **Regla de la fase C (v2):** el sistema mueve una válvula solo con un comando firmado que tenga un origen registrado: un turno aprobado por la Junta, un comando manual con motivo (`BOARD_ADMIN` u `OPERATOR`, permiso `VALVE_COMMAND_MANUAL`) o una decisión del piloto automático (`autopilot_decision_id`). El piloto automático existe en tres modos por acueducto (`MANUAL`, `ASSISTED`, `AUTOMATIC`) que configura `BOARD_ADMIN` con `AUTOPILOT_CONFIGURE`. En `AUTOMATIC` nunca baja del piso de reserva (`reserve_floor_pct`) y cualquier acción manual lo pausa.
 
 ## 2. Arquitectura del nodo de campo
 
@@ -208,7 +208,7 @@ La elección de `fail_safe_position` por válvula es una decisión de la Junta y
 
 ### 5.4 Reglas de operación
 
-- **Toda maniobra automática pasa por el piloto y sus guardas.** La Junta configura el modo por acueducto. Ninguna anomalía, pronóstico o lectura mueve una válvula por sí sola: solo lo hace una decisión del piloto en `AUTOMATICO`, registrada en `ops.autopilot_decisions`.
+- **Toda maniobra automática pasa por el piloto y sus guardas.** La Junta configura el modo por acueducto. Ninguna anomalía, pronóstico o lectura mueve una válvula por sí sola: solo lo hace una decisión del piloto en `AUTOMATIC`, registrada en `ops.autopilot_decisions`.
 - Las dos guardas del piloto son el piso de reserva (`reserve_floor_pct`) y la prioridad humana (cualquier acción manual pausa el piloto).
 - El dispositivo nunca decide solo: ejecuta el comando firmado dentro de su ventana y, si pierde contacto, aplica `fail_safe_position`.
 - El bypass manual siempre está disponible y no depende del sistema.
@@ -347,7 +347,7 @@ Primero sin agua y luego con agua:
 3. **Caudal:** medir un volumen conocido y calibrar los pulsos por litro de cada YF-S201.
 4. **Flotador de corte:** llenar el tanque y comprobar que la bomba se corta sin intervención del firmware.
 5. **Pérdida de contacto:** apagar el Wi-Fi y comprobar que se aplica `fail_safe_position`.
-6. **Corrida completa:** lazo cerrado con el piloto en `AUTOMATICO` (nivel bajo y operario ausente: comando del piloto, ack, decisión auditada).
+6. **Corrida completa:** lazo cerrado con el piloto en `AUTOMATIC` (nivel bajo y operario ausente: comando del piloto, ack, decisión auditada).
 
 ### 8.7 Relación con el modelo físico
 

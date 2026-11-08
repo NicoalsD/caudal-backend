@@ -1193,7 +1193,7 @@ Escenario: el texto de WhatsApp
 
 ## M14: Piloto automático y asistente de IA
 
-El piloto automático es el actor de sistema `AUTOPILOT` (ver [Actores-y-permisos.md](Actores-y-permisos.md)). Tiene tres modos por acueducto: `MANUAL`, `ASISTIDO` y `AUTOMATICO`. Solo hay dos guardas: el piso de reserva (`reserve_floor_pct`) y la prioridad humana (cualquier acción manual pausa el piloto). Lo central es la ayuda del asistente de IA para decidir y para los reportes; si el LLM falla, responde un respaldo determinista de reglas y plantillas. Las rutas del piloto (modo, decisiones) están por definir; las del asistente son `POST /assistant/ask`, `GET /reports` y `POST /reports/narrative`.
+El piloto automático es el actor de sistema `AUTOPILOT` (ver [Actores-y-permisos.md](Actores-y-permisos.md)). Tiene tres modos por acueducto: `MANUAL`, `ASSISTED` y `AUTOMATIC`. Solo hay dos guardas: el piso de reserva (`reserve_floor_pct`) y la prioridad humana (cualquier acción manual pausa el piloto). Lo central es la ayuda del asistente de IA para decidir y para los reportes; si el LLM falla, responde un respaldo determinista de reglas y plantillas. Las rutas del piloto (modo, decisiones) están por definir; las del asistente son `POST /assistant/ask`, `GET /reports` y `POST /reports/narrative`.
 
 ### HU-40: Configurar el modo del piloto automático
 
@@ -1204,7 +1204,7 @@ El piloto automático es el actor de sistema `AUTOPILOT` (ver [Actores-y-permiso
 ```gherkin
 Escenario: cambiar el modo
   Dado un acueducto con el piloto en MANUAL
-  Cuando el administrador cambia el modo a ASISTIDO con el permiso AUTOPILOT_CONFIGURE
+  Cuando el administrador cambia el modo a ASSISTED con el permiso AUTOPILOT_CONFIGURE
   Entonces org.autopilot_settings guarda el nuevo modo
   Y se registra el cambio en audit.audit_log con el usuario
 
@@ -1225,7 +1225,7 @@ Escenario: un rol sin permiso
 
 ### HU-41: Aceptar o rechazar una recomendación del asistente
 
-- **Actor:** `OPERATOR`, `BOARD_ADMIN` (con el piloto en modo `ASISTIDO`); `BOARD_MEMBER` solo las ve.
+- **Actor:** `OPERATOR`, `BOARD_ADMIN` (con el piloto en modo `ASSISTED`); `BOARD_MEMBER` solo las ve.
 - **Historia:** Como fontanero, quiero ver qué recomienda el asistente y su motivo, y aceptarla o rechazarla con un clic, para decidir con ayuda sin perder el control.
 - **Prioridad:** must
 
@@ -1236,15 +1236,15 @@ Escenario: ver la recomendación
   Entonces ve la acción, el motivo y la confianza
   Y ve si la recomendación vino del LLM o de las reglas (campo source)
 
-Escenario: aceptar en modo ASISTIDO
-  Dado una recomendación pendiente y el piloto en ASISTIDO
+Escenario: aceptar en modo ASSISTED
+  Dado una recomendación pendiente y el piloto en ASSISTED
   Cuando un usuario con VALVE_COMMAND_MANUAL pulsa Aceptar
-  Entonces la decisión queda ACEPTADA en ops.autopilot_decisions con decided_by
-  Y se genera un comando con autopilot_decision_id que pasa a EJECUTADA al confirmarse (ACKED)
+  Entonces la decisión queda ACCEPTED en ops.autopilot_decisions con decided_by
+  Y se genera un comando con autopilot_decision_id que pasa a EXECUTED al confirmarse (ACKED)
 
 Escenario: rechazar
   Cuando el usuario pulsa Rechazar
-  Entonces la decisión queda RECHAZADA y no se genera comando
+  Entonces la decisión queda REJECTED y no se genera comando
 
 Escenario: modo MANUAL
   Dado el piloto en MANUAL
@@ -1261,27 +1261,27 @@ Escenario: modo MANUAL
 - **Prioridad:** must
 
 ```gherkin
-Escenario: ausencia del operario en modo AUTOMATICO
-  Dado el piloto en AUTOMATICO y una recomendación CLOSE de la válvula V-02
+Escenario: ausencia del operario en modo AUTOMATIC
+  Dado el piloto en AUTOMATIC y una recomendación CLOSE de la válvula V-02
   Y ningún usuario ha actuado en operator_absence_minutes
   Cuando corre el ciclo del piloto
-  Entonces se crea una decisión en ops.autopilot_decisions con outcome EJECUTADA
+  Entonces se crea una decisión en ops.autopilot_decisions con status EXECUTED
   Y un comando CLOSE con autopilot_decision_id, firmado y entregado a la maqueta
 
 Escenario: piso de reserva
   Dado un nivel igual o menor a reserve_floor_pct
   Cuando la recomendación sería abrir una salida
-  Entonces el piloto no ejecuta la apertura y registra la decisión como RECHAZADA con el motivo RESERVE_FLOOR
+  Entonces el piloto no ejecuta la apertura y registra la decisión como SKIPPED con el motivo RESERVE_FLOOR
 
 Escenario: prioridad humana
-  Dado el piloto en AUTOMATICO
+  Dado el piloto en AUTOMATIC
   Cuando un usuario envía un comando manual
   Entonces el piloto queda en pausa y no ejecuta nada hasta que se reanude (el criterio de reanudación está por definir)
 
 Escenario: LLM caído
   Dado que el LLM no responde o agotó su cuota
   Cuando corre el ciclo
-  Entonces las reglas de respaldo generan la recomendación con source REGLAS
+  Entonces las reglas de respaldo generan la recomendación con source RULES
 ```
 
 - **Requisitos:** RF-44, RF-36; RNF-08, RNF-19, RNF-29, RNF-32.
@@ -1303,7 +1303,7 @@ Escenario: pregunta respondida
 Escenario: respaldo determinista
   Dado que el LLM no está disponible
   Cuando se hace la pregunta
-  Entonces responde 200 con un texto de plantilla y source REGLAS
+  Entonces responde 200 con un texto de plantilla y source RULES
 
 Escenario: pregunta inválida
   Cuando la pregunta está vacía o supera el límite
@@ -1334,7 +1334,7 @@ Escenario: imprimir
 Escenario: LLM caído
   Dado que el LLM no responde
   Cuando se pide la narrativa
-  Entonces el texto sale de una plantilla con los mismos agregados y source REGLAS
+  Entonces el texto sale de una plantilla con los mismos agregados y source RULES
 
 Escenario: periodo inválido
   Cuando from es posterior a to
@@ -1404,7 +1404,7 @@ Escenario: comando sin confirmar
   Entonces queda EXPIRED y la escena mantiene el estado anterior de la llave
 
 Escenario: prioridad humana
-  Dado el piloto en AUTOMATICO
+  Dado el piloto en AUTOMATIC
   Cuando el usuario envía el comando
   Entonces el piloto queda en pausa y la pantalla lo indica
 ```

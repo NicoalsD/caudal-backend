@@ -56,9 +56,9 @@ Cambio de alcance v2 (2026-11-07): ya no se diseña para las limitaciones de cam
 | RF-39 | Todo dato simulado se marca "Datos simulados" en pantallas, PDF, mensajes y en la API (`simulated`). | M13 | HU-39 | B, F, S |
 | RF-40 | Toda operación se autoriza por permiso (leído de la BD), por membresía vigente y por acueducto. | M1, M9 | HU-04, HU-32 | B |
 | RF-41 | Toda entrada se valida con los límites de `FieldLimits` y la normalización de texto. | M3 | HU-09, HU-11 | B, F |
-| RF-42 | La Junta elige por acueducto el modo del piloto automático (`MANUAL`, `ASISTIDO` o `AUTOMATICO`) y sus parámetros (`operator_absence_minutes`, `reserve_floor_pct`) con el permiso `AUTOPILOT_CONFIGURE`. | M14 | HU-40 | B, F |
-| RF-43 | El asistente muestra recomendaciones `{action, valve_id, reason, confidence}` con su origen (LLM o reglas); en modo `ASISTIDO` el usuario las acepta o rechaza, y cada decisión se guarda en `ops.autopilot_decisions`. | M14 | HU-41 | B, IA, F |
-| RF-44 | En modo `AUTOMATICO`, si el operario no actúa en `operator_absence_minutes`, el piloto ejecuta la recomendación. Solo hay dos guardas: el piso de reserva y la prioridad humana (una acción manual pausa el piloto). Cada decisión queda auditada. | M14 | HU-42 | B, IA |
+| RF-42 | La Junta elige por acueducto el modo del piloto automático (`MANUAL`, `ASSISTED` o `AUTOMATIC`) y sus parámetros (`operator_absence_minutes`, `reserve_floor_pct`) con el permiso `AUTOPILOT_CONFIGURE`. | M14 | HU-40 | B, F |
+| RF-43 | El asistente muestra recomendaciones `{action, valve_id, reason, confidence}` con su origen (LLM o reglas); en modo `ASSISTED` el usuario las acepta o rechaza, y cada decisión se guarda en `ops.autopilot_decisions`. | M14 | HU-41 | B, IA, F |
+| RF-44 | En modo `AUTOMATIC`, si el operario no actúa en `operator_absence_minutes`, el piloto ejecuta la recomendación. Solo hay dos guardas: el piso de reserva y la prioridad humana (una acción manual pausa el piloto). Cada decisión queda auditada. | M14 | HU-42 | B, IA |
 | RF-45 | Un usuario con permiso pregunta al asistente en lenguaje natural y recibe una respuesta sobre el estado actual, con su origen (LLM o reglas). | M14 | HU-43 | B, IA, F |
 | RF-46 | El sistema arma los agregados de un periodo y genera un reporte narrativo (resumen, hallazgos y recomendaciones); se ve en la app y se imprime desde el navegador, sin PDF de servidor. | M14 | HU-44 | B, IA, F |
 | RF-47 | La interfaz muestra una escena 3D a todo el ancho con tanque, tuberías, flujo y llaves, actualizada por polling cada ~2 s; es la pantalla inicial del fontanero. | M15 | HU-45 | F, B |
@@ -328,7 +328,7 @@ Todas las metas son objetivos hasta medirlas en la fase 12.
 
 - El asistente de IA (recomendaciones, reporte y preguntas) usa un LLM compatible con OpenAI (por defecto Gemini Flash en su capa gratuita; de respaldo Groq u OpenRouter), configurado con `LLM_BASE_URL`, `LLM_MODEL` y `LLM_API_KEY`.
 - Si el LLM falla, responde tarde o agota su cuota, se aplican reglas simples y textos de plantilla. El asistente siempre responde.
-- Cada respuesta indica su origen (`source`: LLM o REGLAS). Las salidas del LLM se validan contra un esquema (Pydantic); si no cumplen, se usa el respaldo.
+- Cada respuesta indica su origen (`source`: LLM o RULES). Las salidas del LLM se validan contra un esquema (Pydantic); si no cumplen, se usa el respaldo.
 - El backend llama a `caudal-ia` con el mismo cliente con circuit breaker del pronóstico.
 
 ### RNF-30 Secretos y datos enviados al LLM

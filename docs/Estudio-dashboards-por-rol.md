@@ -18,7 +18,7 @@ Los sistemas SCADA de agua y de plantas industriales usan las pautas de HMI de a
 
 En CAUDAL v2 se agregan dos más:
 
-5. **El asistente de IA está en todas las pantallas.** Un panel lateral muestra la recomendación del momento con su motivo, en ASISTIDO deja aceptarla o rechazarla, y tiene la caja "Pregúntale a Caudal". También dice si la respuesta vino del LLM o de las reglas de respaldo.
+5. **El asistente de IA está en todas las pantallas.** Un panel lateral muestra la recomendación del momento con su motivo, en ASSISTED deja aceptarla o rechazarla, y tiene la caja "Pregúntale a Caudal". También dice si la respuesta vino del LLM o de las reglas de respaldo.
 6. **Pantalla completa.** El contenido usa todo el ancho, en celular y en escritorio. En escritorio, las páginas se arman en grillas de 2 o 3 columnas.
 
 ## 2. Fontanero (`OPERATOR`): la escena 3D primero

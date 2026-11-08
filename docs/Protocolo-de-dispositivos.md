@@ -250,7 +250,7 @@ Los comandos solo se generan de tres maneras:
 |---|---|---|---|---|
 | Turno | La propuesta está en `PUBLISHED` (aprobada y publicada) | Obligatorio | Nulo | Nulo (lo generó el sistema) |
 | Manual | `POST /valve-commands/manual` por `BOARD_ADMIN` u `OPERATOR` (permiso `VALVE_COMMAND_MANUAL`) | Nulo | Obligatorio, 10 a 500 caracteres | El usuario |
-| Piloto automático | Decisión de `ops.autopilot_decisions` en modo `ASISTIDO` (aceptada por el operario) o `AUTOMATICO` (sin acción del operario en `operator_absence_minutes`, sin bajar de `reserve_floor_pct`) | Nulo | Nulo | Nulo (lo generó el sistema) |
+| Piloto automático | Decisión de `ops.autopilot_decisions` en modo `ASSISTED` (aceptada por el operario) o `AUTOMATIC` (sin acción del operario en `operator_absence_minutes`, sin bajar de `reserve_floor_pct`) | Nulo | Nulo | Nulo (lo generó el sistema) |
 
 Cada comando lleva exactamente un origen: `schedule_item_id`, `manual_reason` o `autopilot_decision_id` (columna nueva, migración V54). El campo `autopilot_decision_id` apunta a la decisión auditada que originó el comando. El dispositivo no distingue el origen: verifica la firma y ejecuta igual.
 
@@ -304,8 +304,8 @@ Un comando vencido nunca se ejecuta, aunque llegue tarde. El servidor lo marca `
 | Falla | Qué pasa | Por qué es seguro |
 |---|---|---|
 | Se corta internet en campo | El dispositivo guarda sus lecturas en un buffer local y las reenvía con los mismos `id` cuando vuelve la señal (patrón P11, `OfflineBufferTransport` en el simulador) | La idempotencia por `id` evita duplicados |
-| El servidor no responde | El dispositivo reintenta con espera creciente. No abre ni cierra válvulas por su cuenta, tampoco con el piloto en `AUTOMATICO`: el piloto decide en el backend y el dispositivo solo ejecuta comandos firmados. | La válvula queda en su última posición |
-| El dispositivo no recibe comandos (o pierde contacto con el backend) | Mantiene la posición actual. Si la válvula tiene `fail_safe_position` distinto de `KEEP`, aplica esa posición al perder la comunicación (por definir la lógica exacta y el tiempo de espera en el firmware). Con el piloto en `AUTOMATICO` el dispositivo sigue sin decidir solo. | Cada válvula define su posición segura en `org.valves.fail_safe_position` (`KEEP`, `OPEN` o `CLOSED`) |
+| El servidor no responde | El dispositivo reintenta con espera creciente. No abre ni cierra válvulas por su cuenta, tampoco con el piloto en `AUTOMATIC`: el piloto decide en el backend y el dispositivo solo ejecuta comandos firmados. | La válvula queda en su última posición |
+| El dispositivo no recibe comandos (o pierde contacto con el backend) | Mantiene la posición actual. Si la válvula tiene `fail_safe_position` distinto de `KEEP`, aplica esa posición al perder la comunicación (por definir la lógica exacta y el tiempo de espera en el firmware). Con el piloto en `AUTOMATIC` el dispositivo sigue sin decidir solo. | Cada válvula define su posición segura en `org.valves.fail_safe_position` (`KEEP`, `OPEN` o `CLOSED`) |
 | Un comando llega tarde | Se descarta si pasó `expires_at` | Evita abrir agua fuera del turno |
 | Falla la firma o la clave | El dispositivo no envía ni ejecuta. Se avisa por la página de estado (por definir). | Un dispositivo sin autenticación no puede mover válvulas |
 | Falla la válvula (no responde al comando) | Responde `ACK` con `FAILED`. La Junta puede usar el bypass manual. | La válvula manual en paralelo siempre permite operar |
