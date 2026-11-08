@@ -105,6 +105,6 @@ class DatabasePrivilegesIT extends DatabaseIT {
                 "SELECT count(*) FROM information_schema.tables WHERE table_type = 'BASE TABLE'"
                     + " AND table_schema IN ('iam','org','ops','reporting','devices','audit','sim')",
                 Integer.class))
-        .isEqualTo(57);
+        .isEqualTo(59);
   }
 }

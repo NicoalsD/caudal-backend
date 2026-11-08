@@ -179,7 +179,20 @@ class ManualValveCommandIT extends SessionIT {
   }
 
   @Test
-  void anOperatorCannotSendAManualCommand() throws Exception {
+  void aBoardMemberCannotSendAManualCommand() throws Exception {
+    Aqueduct on = aqueduct("manual.member");
+    UUID valve = on.valves().get(0);
+    motorize(on, valve);
+    actuator(on, valve);
+    Session member = login(account("manual.mem", "BOARD_MEMBER", on.aqueduct()));
+
+    send(member, body(valve, "OPEN", REASON, 60, 600))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+  }
+
+  @Test
+  void anOperatorCanSendAManualCommand() throws Exception {
     Aqueduct on = aqueduct("manual.operator");
     UUID valve = on.valves().get(0);
     motorize(on, valve);
@@ -187,8 +200,8 @@ class ManualValveCommandIT extends SessionIT {
     Session operator = login(account("manual.op", "OPERATOR", on.aqueduct()));
 
     send(operator, body(valve, "OPEN", REASON, 60, 600))
-        .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.status").value("PENDING"));
   }
 
   @Test
