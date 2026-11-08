@@ -395,7 +395,7 @@ Reglas comunes:
 - **Sin estado:** `caudal-ia` no guarda la foto del estado, ni las preguntas, ni las respuestas. El backend guarda cada decisión en `ops.autopilot_decisions`.
 - **Respaldo:** si el LLM falla, da timeout, responde 429 o devuelve un JSON que no valida, `caudal-ia` responde `200` con `source = RULES` usando reglas y plantillas deterministas. Una falla del LLM nunca llega al backend como `5xx`.
 - **Validación:** la salida del LLM se valida con Pydantic antes de responder.
-- **Errores:** los errores de entrada (`422`) y de token (`401`) usan la forma de la sección 3.3.
+- **Errores:** un campo desconocido o inválido responde `400 VALIDATION_ERROR` (con `details.reason`, por ejemplo `UNKNOWN_FIELD`), igual que `POST /v1/forecasts`. Un token inválido responde `401 UNAUTHORIZED`. Ambos usan la forma de la sección 3.3.
 
 
 ### 9.1 Foto del estado (`Snapshot`) (estado del acueducto que envía el backend)
