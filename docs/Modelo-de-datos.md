@@ -1,6 +1,6 @@
 # Modelo de datos de CAUDAL
 
-> PostgreSQL 18 con 7 esquemas y 57 tablas. Este documento explica la estructura, las convenciones y las decisiones de la base de datos. El detalle de cada columna (tipo, banderas, clasificación y restricciones) está en el [Diccionario de datos](Diccionario-de-datos.md), que genera otra persona del equipo a partir de la especificación del esquema.
+> PostgreSQL 18 con 7 esquemas y 59 tablas. Este documento explica la estructura, las convenciones y las decisiones de la base de datos. El detalle de cada columna (tipo, banderas, clasificación y restricciones) está en el [Diccionario de datos](Diccionario-de-datos.md), que genera otra persona del equipo a partir de la especificación del esquema.
 
 ## 1. Visión general
 
@@ -48,7 +48,7 @@ Nota: la especificación cuenta 7 páginas. Las seis páginas por esquema más l
 
 Cada tabla indica su propósito, si es append-only (solo se insertan filas, sin `UPDATE` ni `DELETE`), si tiene RLS por acueducto y sus relaciones principales (FK). Las columnas de cada tabla están en el diccionario de datos.
 
-Totales: 57 tablas. 23 son append-only. 37 tienen RLS.
+Totales: 59 tablas. 23 son append-only. 39 tienen RLS (la v2 agrega `org.autopilot_settings` y `ops.autopilot_decisions`).
 
 #### Esquema `iam` (16 tablas)
 
@@ -71,7 +71,7 @@ Totales: 57 tablas. 23 son append-only. 37 tienen RLS.
 | `security_events` | Eventos de seguridad para monitoreo (bloqueos, reutilización de token, firma inválida, etc.). | Sí | No | `aqueduct_id` → `org.aqueducts`; `actor_user_id` → `iam.users`; `device_id` → `devices.devices` |
 | `rate_limit_buckets` | Estado de Bucket4j en PostgreSQL para límites compartidos entre instancias. | No | No | Ninguna |
 
-#### Esquema `org` (10 tablas)
+#### Esquema `org` (11 tablas)
 
 | Tabla | Propósito | Append-only | RLS | Relaciones principales (FK) |
 |---|---|---|---|---|
@@ -85,8 +85,9 @@ Totales: 57 tablas. 23 son append-only. 37 tienen RLS.
 | `rule_sector_settings` | Prioridad e inclusión de cada sector por versión de reglas. | No | Sí | `rule_set_id` → `org.rule_sets`; `sector_id` → `org.sectors` |
 | `rule_valve_orders` | Orden de apertura de las válvulas por versión de reglas. | No | Sí | `rule_set_id` → `org.rule_sets`; `valve_id` → `org.valves` |
 | `rule_operating_windows` | Horarios en los que se puede operar, por versión de reglas. | No | Sí | `rule_set_id` → `org.rule_sets` |
+| `autopilot_settings` | Configuración del piloto automático (v2): modo `MANUAL`, `ASSISTED` o `AUTOMATIC`, minutos de ausencia del operario y piso de reserva. Una fila por acueducto, creada con los valores por defecto de las columnas (`ASSISTED`, 30 minutos, 25 %). | No | Sí | `aqueduct_id` → `org.aqueducts`; `updated_by` → `iam.users` |
 
-#### Esquema `ops` (18 tablas)
+#### Esquema `ops` (19 tablas)
 
 | Tabla | Propósito | Append-only | RLS | Relaciones principales (FK) |
 |---|---|---|---|---|
@@ -108,6 +109,7 @@ Totales: 57 tablas. 23 son append-only. 37 tienen RLS.
 | `day_closures` | Cierre del día de servicio. | No | Sí | `aqueduct_id` → `org.aqueducts`; `closed_by` → `iam.users` |
 | `incidents` | Reportes de daño (públicos, del fontanero o derivados de anomalías). Sin datos personales. | No | Sí | `aqueduct_id` → `org.aqueducts`; `sector_id` → `org.sectors`; `import_batch_id` → `sim.import_batches` |
 | `incident_status_history` | Historial de estados de un incidente. | Sí | Sí | `aqueduct_id` → `org.aqueducts`; `incident_id` → `ops.incidents`; `changed_by` → `iam.users` |
+| `autopilot_decisions` | Decisiones del piloto automático (v2): acción, llave, motivo, confianza, origen (`LLM` o `RULES`), estado y quién la resolvió. `inputs` guarda el resumen del estado que la originó. | No (solo cambian `status`, `status_detail`, `decided_by` y `decided_at`) | Sí | `aqueduct_id` → `org.aqueducts`; `valve_id` → `org.valves`; `decided_by` → `iam.users` |
 
 #### Esquema `reporting` (2 tablas)
 
@@ -124,7 +126,7 @@ Totales: 57 tablas. 23 son append-only. 37 tienen RLS.
 | `device_keys` | Claves públicas Ed25519 con rotación (la privada nunca llega al servidor). | No | Sí | `aqueduct_id` → `org.aqueducts`; `device_id` → `devices.devices` |
 | `device_nonces` | Nonces ya vistos (anti-repetición); se purgan según retention_policies. | No | No | `device_id` → `devices.devices` |
 | `telemetry_points` | Telemetría cruda de los dispositivos (idempotente por id del punto). | Sí | Sí | `aqueduct_id` → `org.aqueducts`; `device_id` → `devices.devices`; `reading_id` → `ops.readings` |
-| `valve_commands` | Comandos de válvula, solo desde turnos aprobados o manuales con motivo. | No | Sí | `aqueduct_id` → `org.aqueducts`; `valve_id` → `org.valves`; `device_id` → `devices.devices`; `schedule_item_id` → `ops.schedule_items`; `created_by` → `iam.users` |
+| `valve_commands` | Comandos de válvula, con un solo origen: turno aprobado, comando manual con motivo o decisión del piloto. | No | Sí | `aqueduct_id` → `org.aqueducts`; `valve_id` → `org.valves`; `device_id` → `devices.devices`; `schedule_item_id` → `ops.schedule_items`; `created_by` → `iam.users` |
 | `valve_command_events` | Historial de entrega y confirmación de cada comando. | Sí | Sí | `aqueduct_id` → `org.aqueducts`; `command_id` → `devices.valve_commands` |
 
 #### Esquema `audit` (4 tablas)
