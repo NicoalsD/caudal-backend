@@ -221,7 +221,10 @@ Los permisos de la tabla siguiente son los que se usan en las secciones de recur
 | `MINUTES_GENERATE`, `MINUTES_VIEW`, `SUMMARY_SHARE_MANAGE` | Sí | Sí (sin compartir) | No | No | No | No |
 | `SUMMARY_READ` | Sí | Sí | No | No | Sí (solo autorizados) | No |
 | `EVALUATION_READ`, `IMPORT_RUN`, `AUDIT_READ`, `DEVICE_MANAGE` | Sí | No | No | Sí | No | No |
-| `VALVE_COMMAND_MANUAL` | Sí | No | No | No | No | No |
+| `VALVE_COMMAND_MANUAL` (comando manual y aceptar una decisión del piloto) | Sí | No | Sí | No | No | No |
+| `AUTOPILOT_CONFIGURE` (modo del piloto, ciclo forzado) | Sí | No | No | No | No | No |
+| `ASSISTANT_USE` (decisiones del piloto, preguntas al asistente) | Sí | Sí | Sí | Sí | No | No |
+| `REPORT_VIEW` (reportes del periodo y su narrativa) | Sí | Sí | No | Sí | No | No |
 
 Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla responde a la matriz de la sección 9 de los hechos. Los nombres de permisos son propuesta y se confirman al cargar `iam.permissions` (Fase 2).
 
@@ -469,9 +472,10 @@ La red (tanques, sectores y válvulas) la gestiona `BOARD_ADMIN` (`NETWORK_MANAG
 ### 5.5 `PATCH /api/v1/sectors/{id}`
 
 - **Permiso:** `NETWORK_MANAGE` (`BOARD_ADMIN`).
-- **Cuerpo (todos opcionales):** `name` (2 a 60), `households_count` (mayor o igual a 0), `is_active`. El `code` no cambia.
-- **Respuesta 200:** sector actualizado.
-- **Errores:** `404 NOT_FOUND` (no existe o es de otro acueducto).
+- **Cuerpo (todos opcionales):** `name` (2 a 60), `households_count` (mayor o igual a 0), `is_active`, `parent_sector_id` (UUID de otro sector del acueducto: lo mueve debajo de él) e `is_region` (`true` lo convierte en región, es decir, en sector raíz sin padre; no se combina con `parent_sector_id`). El `code` no cambia.
+- **Regiones (v2):** una región es un sector raíz. El árbol de sectores no admite ciclos (un sector no puede quedar debajo de sí mismo ni de uno de sus descendientes) ni huérfanos (el padre debe existir en el acueducto).
+- **Respuesta 200:** sector actualizado; ahora incluye `is_region`.
+- **Errores:** `400 VALIDATION_ERROR` (padre inexistente, el mismo sector, un descendiente, o `parent_sector_id` junto con `is_region`), `404 NOT_FOUND` (no existe o es de otro acueducto).
 
 ### 5.6 `GET /api/v1/sectors/{id}/valves`
 
@@ -1082,7 +1086,7 @@ Las rutas de telemetría y comandos no usan JWT. Cada petición lleva firma Ed25
 
 ### 16.6 `POST /api/v1/valve-commands/manual`
 
-- **Permiso:** `VALVE_COMMAND_MANUAL` (solo `BOARD_ADMIN`).
+- **Permiso:** `VALVE_COMMAND_MANUAL` (`BOARD_ADMIN` y, desde la v2, `OPERATOR`). Enviar un comando manual cuenta como acción humana y pausa al piloto automático.
 - **Cuerpo:** `valve_id` (UUID), `command` (`OPEN` o `CLOSE`), `manual_reason` (texto, 10 a 500, obligatorio), `not_before` (fecha y hora), `expires_at` (mayor que `not_before`).
 - **Respuesta 201:** comando en `PENDING`.
 - **Errores:** `422 REASON_REQUIRED`, `400 VALIDATION_ERROR` (`expires_at <= not_before`), `404 NOT_FOUND` (válvula sin actuador).
@@ -1198,7 +1202,106 @@ Permiso: `IMPORT_SIMULATED` (`PROJECT_TEAM`). `aqueduct_id` debe ser el acueduct
 - **Respuesta 200:** `{"status": "UP"}`. No muestra detalles de base de datos, IA ni disco.
 - **Nota:** la sonda de la plataforma usa este endpoint. Los detalles internos quedan solo en logs.
 
-## 20. Lista de endpoints
+## 20. Piloto automático, asistente y reportes (v2)
+
+El piloto automático es el actor de sistema `AUTOPILOT` (sin cuenta). Cada `AUTOPILOT_INTERVAL_SECONDS` segundos (60 por defecto) toma una foto del estado del acueducto (tanque, pronóstico, llaves, turnos, anomalías), pide recomendaciones a `caudal-ia` (`POST /v1/insights/recommendations`, con el mismo cliente, token y circuit breaker del pronóstico, pero con un circuito propio) y, si el servicio no responde, usa reglas deterministas (`source: "RULES"`, `model: "rules-v1"`). El backend vuelve a validar todo lo que recibe: descarta acciones desconocidas y llaves que no vienen en la foto, exige una llave motorizada para `OPEN` y `CLOSE`, recorta el motivo a 280 caracteres, limita la confianza a 0..1 y deja como máximo 5 recomendaciones. Cada una queda como una **decisión** en `ops.autopilot_decisions`.
+
+**Qué hace el piloto con cada decisión según el modo** (`org.autopilot_settings.mode`):
+
+| Modo | Efecto |
+|---|---|
+| `MANUAL` | La decisión queda `PENDING` y solo se muestra; no se puede aceptar. |
+| `ASSISTED` | Queda `PENDING` hasta que una persona la acepte (crea el comando) o la rechace. |
+| `AUTOMATIC` | Un `OPEN` o `CLOSE` se ejecuta solo si nadie actuó en `operator_absence_minutes` (un comando manual, una aceptación o un rechazo): crea el comando con origen `AUTOPILOT` y la decisión pasa a `EXECUTED`. Si el operario estuvo activo, queda `PENDING` con `status_detail: "OPERATOR_ACTIVE"`. |
+
+**Reglas comunes a todos los modos:**
+
+- Un `OPEN` nunca se ejecuta con el nivel en o por debajo de `reserve_floor_pct` (un nivel desconocido cuenta como bajo la reserva): la decisión queda `SKIPPED` con `status_detail: "RESERVE_FLOOR"`. La misma guarda se aplica al aceptar a mano, con el nivel de ese momento (responde `409 CONFLICT`).
+- Cuando un ciclo crea decisiones nuevas, las `PENDING` anteriores pasan a `EXPIRED`.
+- Un comando de una decisión lleva `autopilot_decision_id` como único origen; si lo acepta una persona, `created_by` es esa persona. La decisión aceptada pasa a `EXECUTED` cuando el actuador confirma el comando (`ACKED`).
+- Todo queda en la auditoría: `AUTOPILOT_SETTINGS_CHANGED`, `AUTOPILOT_DECISION_ACCEPTED`, `AUTOPILOT_DECISION_REJECTED` y `AUTOPILOT_EXECUTED` (esta última con el actor `SYSTEM`).
+
+**Esquema `Decision`:** `id`, `created_at`, `source` (`LLM` o `RULES`), `model`, `action` (`OPEN`, `CLOSE`, `WAIT` o `INSPECT`), `valve_id` (nulo en `WAIT` e `INSPECT`), `reason`, `confidence` (0..1), `status` (`PENDING`, `ACCEPTED`, `REJECTED`, `EXECUTED`, `EXPIRED` o `SKIPPED`), `status_detail` (nulo, `RESERVE_FLOOR`, `COMMAND_REFUSED`, `OPERATOR_ACTIVE` o el motivo del rechazo), `decided_by`, `decided_at` y `valve_command_id`.
+
+### 20.1 `GET /api/v1/autopilot/settings`
+
+- **Permiso:** `ASSISTANT_USE`.
+- **Respuesta 200:** `{ "mode": "ASSISTED", "operator_absence_minutes": 30, "reserve_floor_pct": 25.00, "updated_at": "..." }`. Un acueducto que no configuró nada recibe los valores por defecto de las columnas de la tabla (`ASSISTED`, 30 minutos, 25 %).
+
+### 20.2 `PUT /api/v1/autopilot/settings`
+
+- **Permiso:** `AUTOPILOT_CONFIGURE` (`BOARD_ADMIN`).
+- **Cuerpo (todo obligatorio):** `mode` (`MANUAL`, `ASSISTED` o `AUTOMATIC`), `operator_absence_minutes` (entero de 1 a 1440), `reserve_floor_pct` (0 a 100). Los límites salen de `FieldLimits`.
+- **Respuesta 200:** la configuración guardada; rige desde el siguiente ciclo.
+- **Errores:** `400 VALIDATION_ERROR`.
+- **Ejemplo:** `{ "mode": "AUTOMATIC", "operator_absence_minutes": 45, "reserve_floor_pct": 30 }`
+
+### 20.3 `GET /api/v1/autopilot/decisions?status=&limit=`
+
+- **Permiso:** `ASSISTANT_USE`.
+- **Parámetros:** `status` (opcional) y `limit` (1 a 100, 100 por defecto).
+- **Respuesta 200:** `{ "items": [Decision] }`, de la más nueva a la más vieja. La pantalla consulta `status=PENDING` cada 2 segundos.
+- **Errores:** `400 VALIDATION_ERROR` (estado o límite no válidos).
+
+### 20.4 `GET /api/v1/autopilot/recommendations`
+
+- **Permiso:** `ASSISTANT_USE`.
+- **Respuesta 200:** atajo de `GET /autopilot/decisions?status=PENDING`.
+
+### 20.5 `POST /api/v1/autopilot/decisions/{id}/accept`
+
+- **Permiso:** `VALVE_COMMAND_MANUAL` (`BOARD_ADMIN` y `OPERATOR`).
+- **Cuerpo:** ninguno.
+- **Respuesta 200:** la `Decision` en `ACCEPTED`. Para `OPEN` y `CLOSE` crea el comando de la llave (`PENDING`, válido desde ahora durante `DEVICE_VALVE_COMMAND_WINDOW_MINUTES`). Cuenta como acción humana.
+- **Errores:** `404 NOT_FOUND` (decisión inexistente, o llave no motorizada o sin actuador activo), `409 CONFLICT` (modo `MANUAL`, `OPEN` bajo el piso de reserva —la decisión queda `SKIPPED`— o ya hay un comando activo de la llave en ese momento), `409 INVALID_STATE_TRANSITION` (la decisión ya no está `PENDING`).
+
+### 20.6 `POST /api/v1/autopilot/decisions/{id}/reject`
+
+- **Permiso:** `ASSISTANT_USE`.
+- **Cuerpo (opcional):** `{ "reason": "hasta 200 caracteres" }`.
+- **Respuesta 200:** la `Decision` en `REJECTED`, con el motivo en `status_detail`. No crea comando. Cuenta como acción humana.
+- **Errores:** `404 NOT_FOUND`, `409 INVALID_STATE_TRANSITION`.
+
+### 20.7 `POST /api/v1/autopilot/run`
+
+- **Permiso:** `AUTOPILOT_CONFIGURE`.
+- **Respuesta 200:** `{ "items": [Decision] }` con las decisiones del ciclo forzado (para la demostración). Vacío si el acueducto no tiene tanque ni llaves motorizadas.
+
+### 20.8 `POST /api/v1/assistant/ask`
+
+- **Permiso:** `ASSISTANT_USE`.
+- **Cuerpo:** `{ "question": "..." }` (3 a 500 caracteres).
+- **Respuesta 200:** `{ "source": "LLM" | "RULES", "model": "...", "answer": "...", "generated_at": "..." }`. Si `caudal-ia` no responde, contesta una plantilla de reglas.
+- **Errores:** `400 VALIDATION_ERROR`, `422 NO_LEVEL_DATA` (el acueducto no tiene tanque).
+
+### 20.9 `GET /api/v1/reports?from=&to=`
+
+- **Permiso:** `REPORT_VIEW`.
+- **Parámetros:** `from` (inclusive) y `to` (exclusivo), fechas y horas ISO 8601; el periodo dura como máximo 92 días.
+- **Respuesta 200:** `{ "from", "to", "aggregates": { "levels", "shifts_by_sector", "valve_commands", "autopilot_decisions", "incidents", "anomalies" } }`: nivel mínimo, máximo y promedio; turnos planeados, cumplidos, parciales y no ejecutados por sector con sus horas; comandos por origen (`SCHEDULE`, `MANUAL`, `AUTOPILOT`) y estado; decisiones por origen, acción y estado; incidentes por categoría y estado; anomalías por tipo. No incluye datos personales.
+- **Errores:** `400 VALIDATION_ERROR` (periodo vacío, invertido o de más de 92 días).
+
+### 20.10 `POST /api/v1/reports/narrative`
+
+- **Permiso:** `REPORT_VIEW`.
+- **Cuerpo:** `{ "from": "...", "to": "..." }`.
+- **Respuesta 200:** `{ "source", "model", "generated_at", "title", "summary", "findings": [..], "recommendations": [..], "markdown": "..." }`, escrito en español por el asistente o, si el servicio falla, por una plantilla. Se imprime desde el navegador.
+- **Errores:** `400 VALIDATION_ERROR`.
+
+### 20.11 `GET /api/v1/valves/live`
+
+- **Permiso:** `NETWORK_VIEW`.
+- **Respuesta 200:** `{ "items": [ { "valve_id", "sector_id", "state": "OPEN" | "CLOSED" | "UNKNOWN", "last_command": { "id", "action", "status", "origin": "SCHEDULE" | "MANUAL" | "AUTOPILOT", "created_at", "updated_at" } | null } ] }`. El estado es el que dejó el último comando confirmado por el actuador (`ACKED`); sin ninguno es `UNKNOWN`. La escena 3D lo consulta cada 2 segundos.
+
+### 20.12 Configuración
+
+| Variable | Valor por defecto | Para qué sirve |
+|---|---|---|
+| `AUTOPILOT_ENABLED` | `true` | Enciende el planificador. El ciclo forzado de `POST /autopilot/run` funciona siempre. |
+| `AUTOPILOT_INTERVAL_SECONDS` | `60` | Segundos entre ciclos; en desarrollo o demostración puede bajarse a 10. |
+| `INSIGHTS_READ_TIMEOUT_MS` | `20000` | Espera máxima de la respuesta del asistente; el URL, el token y los umbrales del circuit breaker son los de `IA_SERVICE_URL`, `IA_SERVICE_TOKEN` y `CIRCUIT_BREAKER_*`. |
+
+## 21. Lista de endpoints
 
 | Recurso | Método | Ruta | Permiso |
 |---|---|---|---|
@@ -1273,6 +1376,15 @@ Permiso: `IMPORT_SIMULATED` (`PROJECT_TEAM`). `aqueduct_id` debe ser el acueduct
 | Dispositivos | PATCH | `/devices/{id}` | `DEVICE_MANAGE` |
 | Dispositivos | DELETE | `/devices/{id}/keys/{keyId}` | `DEVICE_MANAGE` |
 | Válvulas | POST | `/valve-commands/manual` | `VALVE_COMMAND_MANUAL` |
+| Válvulas | GET | `/valves/live` | `NETWORK_VIEW` |
+| Piloto | GET | `/autopilot/settings`, `/autopilot/decisions`, `/autopilot/recommendations` | `ASSISTANT_USE` |
+| Piloto | PUT | `/autopilot/settings` | `AUTOPILOT_CONFIGURE` |
+| Piloto | POST | `/autopilot/run` | `AUTOPILOT_CONFIGURE` |
+| Piloto | POST | `/autopilot/decisions/{id}/accept` | `VALVE_COMMAND_MANUAL` |
+| Piloto | POST | `/autopilot/decisions/{id}/reject` | `ASSISTANT_USE` |
+| Asistente | POST | `/assistant/ask` | `ASSISTANT_USE` |
+| Reportes | GET | `/reports` | `REPORT_VIEW` |
+| Reportes | POST | `/reports/narrative` | `REPORT_VIEW` |
 | Importación | POST | `/imports/readings`, `/imports/shift-executions`, `/imports/incidents` | `IMPORT_RUN` (solo demo) |
 | Auditoría | GET | `/audit-log`, `/security-events` | `AUDIT_READ` |
 | Retención | PUT | `/retention-policies/{data_class}` | `PROJECT_TEAM` |

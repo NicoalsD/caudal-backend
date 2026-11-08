@@ -128,6 +128,9 @@ Los nombres son los de `caudal-backend/.env.example`, que es la fuente de las va
 | `IA_SERVICE_TOKEN_PREVIOUS` | Token anterior durante la rotación | Vacío fuera de una rotación | Sí |
 | `IA_CONNECT_TIMEOUT_MS` | Tiempo de conexión a la IA, en milisegundos | `2000` | No |
 | `IA_READ_TIMEOUT_MS` | Tiempo de lectura de la IA, en milisegundos | `10000` | No |
+| `INSIGHTS_READ_TIMEOUT_MS` | Tiempo de lectura del asistente (recomendaciones, preguntas y reportes), en milisegundos | `20000` | No |
+| `AUTOPILOT_ENABLED` | Enciende el planificador del piloto automático | `true` | No |
+| `AUTOPILOT_INTERVAL_SECONDS` | Segundos entre ciclos del piloto (10 sirve para la demostración) | `60` | No |
 | `CIRCUIT_BREAKER_FAILURE_THRESHOLD` | Fallos seguidos para abrir el circuito | `5` | No |
 | `CIRCUIT_BREAKER_OPEN_SECONDS` | Segundos abierto antes de la prueba | `60` | No |
 | `CIRCUIT_BREAKER_HALF_OPEN_CALLS` | Llamadas de prueba en semiabierto | `2` | No |

@@ -29,7 +29,7 @@ Esta carpeta es la **documentación canónica** de los 4 repositorios. Los demá
 |---|---|
 | [Stack tecnológico](Stack-tecnologico.md) | Tecnologías por capa con su justificación y alternativas descartadas |
 | [Arquitectura](Arquitectura.md) | C4, arquitectura hexagonal, flujos, despliegue, CI/CD y decisiones |
-| [Modelo de datos](Modelo-de-datos.md) | 7 esquemas y 57 tablas, relaciones, migraciones y semilla |
+| [Modelo de datos](Modelo-de-datos.md) | 7 esquemas y 59 tablas, relaciones, migraciones y semilla |
 | [Diccionario de datos](Diccionario-de-datos.md) | Cada columna con tipo, restricciones y clasificación (generado) |
 | [API REST](API.md) | Convenciones, errores, Swagger y todos los endpoints |
 | [Patrones de diseño](Patrones-de-diseno.md) | Catálogo P01 a P23 por repositorio, con dueño y prueba |

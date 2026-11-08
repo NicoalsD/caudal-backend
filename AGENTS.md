@@ -89,7 +89,7 @@ Swagger: `http://localhost:8080/swagger-ui.html` · OpenAPI: `http://localhost:8
 
 ## 5. Arquitectura
 
-Hexagonal: `api → application → domain ← infrastructure`, paquete base `co.caudal`. El dominio es Java puro (sin Spring, JPA ni Jackson) y ArchUnit lo verifica. Detalle y árbol de carpetas: [`docs/Arquitectura.md`](docs/Arquitectura.md) y [`.agents/architecture.md`](.agents/architecture.md). Modelo de datos (7 esquemas, 57 tablas): [`docs/Modelo-de-datos.md`](docs/Modelo-de-datos.md) y [`docs/Diccionario-de-datos.md`](docs/Diccionario-de-datos.md). API: [`docs/API.md`](docs/API.md).
+Hexagonal: `api → application → domain ← infrastructure`, paquete base `co.caudal`. El dominio es Java puro (sin Spring, JPA ni Jackson) y ArchUnit lo verifica. Detalle y árbol de carpetas: [`docs/Arquitectura.md`](docs/Arquitectura.md) y [`.agents/architecture.md`](.agents/architecture.md). Modelo de datos (7 esquemas, 59 tablas): [`docs/Modelo-de-datos.md`](docs/Modelo-de-datos.md) y [`docs/Diccionario-de-datos.md`](docs/Diccionario-de-datos.md). API: [`docs/API.md`](docs/API.md).
 
 ## 6. Checklist para una funcionalidad nueva
 
