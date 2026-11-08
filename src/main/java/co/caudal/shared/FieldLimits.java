@@ -442,5 +442,69 @@ public final class FieldLimits {
    */
   public static final int RETENTION_DAYS_MAX = 3_650;
 
+  /** Modes of the autopilot (docs/Reglas-de-negocio.md, autopilot section). */
+  public static final String AUTOPILOT_MODE_PATTERN = "^(MANUAL|ASSISTED|AUTOMATIC)$";
+
+  /** Shortest time without human action before the autopilot may act, in minutes. */
+  public static final int OPERATOR_ABSENCE_MINUTES_MIN = 1;
+
+  /** Longest time without human action before the autopilot may act, in minutes (one day). */
+  public static final int OPERATOR_ABSENCE_MINUTES_MAX = 1_440;
+
+  /** Lowest reserve floor, in percent of the tank gauge. */
+  public static final int RESERVE_FLOOR_PCT_MIN = 0;
+
+  /** Highest reserve floor, in percent of the tank gauge. */
+  public static final int RESERVE_FLOOR_PCT_MAX = 100;
+
+  /** Longest reason of an autopilot decision, as caudal-ia limits it. */
+  public static final int AUTOPILOT_REASON_MAX = 280;
+
+  /** Longest name of the model that produced a decision. */
+  public static final int AUTOPILOT_MODEL_MAX = 60;
+
+  /** Longest detail of why a decision was skipped or rejected. */
+  public static final int AUTOPILOT_DETAIL_MAX = 200;
+
+  /** Sources of a decision. */
+  public static final String AUTOPILOT_SOURCE_PATTERN = "^(LLM|RULES)$";
+
+  /** Actions of a decision. */
+  public static final String AUTOPILOT_ACTION_PATTERN = "^(OPEN|CLOSE|WAIT|INSPECT)$";
+
+  /** Statuses of a decision. */
+  public static final String AUTOPILOT_STATUS_PATTERN =
+      "^(PENDING|ACCEPTED|REJECTED|EXECUTED|EXPIRED|SKIPPED)$";
+
+  /** Longest question to the assistant, in characters. */
+  public static final int ASSISTANT_QUESTION_MAX = 500;
+
+  /** Shortest question to the assistant, in characters. */
+  public static final int ASSISTANT_QUESTION_MIN = 3;
+
+  /** Most decisions one listing returns. */
+  public static final int AUTOPILOT_LIST_MAX = 100;
+
+  /** Longest period a report may cover, in days. */
+  public static final int REPORT_PERIOD_DAYS_MAX = 92;
+
+  /** Most recommendations one answer of the assistant may carry. */
+  public static final int INSIGHTS_RECOMMENDATIONS_MAX = 5;
+
+  /** Most valves in a snapshot sent to the assistant. */
+  public static final int INSIGHTS_VALVES_MAX = 200;
+
+  /** Most shifts in a snapshot sent to the assistant. */
+  public static final int INSIGHTS_SCHEDULE_MAX = 200;
+
+  /** Most anomalies in a snapshot sent to the assistant. */
+  public static final int INSIGHTS_ANOMALIES_MAX = 100;
+
+  /** Most forecast points in a snapshot sent to the assistant. */
+  public static final int INSIGHTS_FORECAST_MAX = 400;
+
+  /** Most bytes of the aggregates sent to write a report. */
+  public static final int REPORT_AGGREGATES_MAX_BYTES = 32_768;
+
   private FieldLimits() {}
 }
