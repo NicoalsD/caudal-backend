@@ -1204,6 +1204,8 @@ Permiso: `IMPORT_SIMULATED` (`PROJECT_TEAM`). `aqueduct_id` debe ser el acueduct
 
 ## 20. Piloto automático, asistente y reportes (v2)
 
+![Secuencia del piloto automático](images/secuencia-piloto-automatico.png)
+
 El piloto automático es el actor de sistema `AUTOPILOT` (sin cuenta). Cada `AUTOPILOT_INTERVAL_SECONDS` segundos (60 por defecto) toma una foto del estado del acueducto (tanque, pronóstico, llaves, turnos, anomalías), pide recomendaciones a `caudal-ia` (`POST /v1/insights/recommendations`, con el mismo cliente, token y circuit breaker del pronóstico, pero con un circuito propio) y, si el servicio no responde, usa reglas deterministas (`source: "RULES"`, `model: "rules-v1"`). El backend vuelve a validar todo lo que recibe: descarta acciones desconocidas y llaves que no vienen en la foto, exige una llave motorizada para `OPEN` y `CLOSE`, recorta el motivo a 280 caracteres, limita la confianza a 0..1 y deja como máximo 5 recomendaciones. Cada una queda como una **decisión** en `ops.autopilot_decisions`.
 
 **Qué hace el piloto con cada decisión según el modo** (`org.autopilot_settings.mode`):
