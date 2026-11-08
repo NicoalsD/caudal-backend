@@ -100,9 +100,10 @@ public class ValveCommandPersistenceAdapter implements ValveCommandPort {
   public Optional<ValveCommandView> insert(NewValveCommand command) {
     return jdbc.sql(
             "INSERT INTO devices.valve_commands (aqueduct_id, valve_id, device_id, command,"
-                + " schedule_item_id, manual_reason, created_by, not_before, expires_at)"
-                + " VALUES (:aqueduct, :valve, :device, :command, :item, :reason, :creator,"
-                + " :notBefore, :expiresAt)"
+                + " schedule_item_id, manual_reason, autopilot_decision_id, created_by, not_before,"
+                + " expires_at)"
+                + " VALUES (:aqueduct, :valve, :device, :command, :item, :reason, :decision,"
+                + " :creator, :notBefore, :expiresAt)"
                 + " ON CONFLICT (valve_id, not_before)"
                 + " WHERE status IN ('PENDING', 'DELIVERED') DO NOTHING"
                 + " RETURNING "
@@ -113,6 +114,7 @@ public class ValveCommandPersistenceAdapter implements ValveCommandPort {
         .param("command", command.command())
         .param("item", command.scheduleItemId(), Types.OTHER)
         .param("reason", command.manualReason(), Types.VARCHAR)
+        .param("decision", command.autopilotDecisionId(), Types.OTHER)
         .param("creator", command.createdBy(), Types.OTHER)
         .param("notBefore", SqlTime.timestamp(command.notBefore()))
         .param("expiresAt", SqlTime.timestamp(command.expiresAt()))

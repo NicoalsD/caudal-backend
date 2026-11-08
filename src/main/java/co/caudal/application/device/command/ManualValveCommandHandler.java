@@ -2,14 +2,17 @@ package co.caudal.application.device.command;
 
 import co.caudal.application.command.CommandHandler;
 import co.caudal.application.device.DeviceView;
+import co.caudal.application.event.DomainEventPublisher;
 import co.caudal.application.network.ValveView;
 import co.caudal.application.port.out.DevicePort;
 import co.caudal.application.port.out.NetworkPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
 import co.caudal.application.port.out.ValveCommandPort;
+import co.caudal.domain.event.OperatorActionRecorded;
 import co.caudal.domain.rules.ChangeReason;
 import co.caudal.shared.error.DomainException;
 import co.caudal.shared.error.ErrorCode;
+import java.time.Clock;
 import java.util.Map;
 import java.util.Objects;
 
@@ -17,7 +20,8 @@ import java.util.Objects;
  * Stores a manual valve command as {@code PENDING} (docs/API.md, section 16.6). The valve must
  * belong to the aqueduct of the session, be motorized and have an active actuator; otherwise it is
  * not found. Two active commands of the valve with the same {@code not_before} are a conflict
- * (docs/Protocolo-de-dispositivos.md, section 5.5).
+ * (docs/Protocolo-de-dispositivos.md, section 5.5). A manual command pauses the autopilot: it
+ * publishes {@link OperatorActionRecorded}.
  *
  * @pattern P13 Command
  */
@@ -30,6 +34,8 @@ public final class ManualValveCommandHandler
   private final NetworkPort network;
   private final ValveCommandPort commands;
   private final UnitOfWorkPort unitOfWork;
+  private final DomainEventPublisher events;
+  private final Clock clock;
 
   /**
    * Creates the handler.
@@ -38,16 +44,22 @@ public final class ManualValveCommandHandler
    * @param network the valves of the aqueduct
    * @param commands the valve commands
    * @param unitOfWork transaction boundary
+   * @param events tells the autopilot that a person acted
+   * @param clock source of time
    */
   public ManualValveCommandHandler(
       DevicePort devices,
       NetworkPort network,
       ValveCommandPort commands,
-      UnitOfWorkPort unitOfWork) {
+      UnitOfWorkPort unitOfWork,
+      DomainEventPublisher events,
+      Clock clock) {
     this.devices = devices;
     this.network = network;
     this.commands = commands;
     this.unitOfWork = unitOfWork;
+    this.events = events;
+    this.clock = clock;
   }
 
   @Override
@@ -70,20 +82,26 @@ public final class ManualValveCommandHandler
               devices
                   .activeActuatorOf(valve.id())
                   .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
-          return commands
-              .insert(
-                  new NewValveCommand(
-                      command.caller().aqueductId(),
-                      actuator.id(),
-                      valve.id(),
-                      command.command(),
-                      null,
-                      reason.value(),
-                      command.caller().userId(),
-                      command.notBefore(),
-                      command.expiresAt()))
-              .orElseThrow(
-                  () -> new DomainException(ErrorCode.CONFLICT, Map.of(FIELD, "not_before")));
+          ValveCommandView created =
+              commands
+                  .insert(
+                      new NewValveCommand(
+                          command.caller().aqueductId(),
+                          actuator.id(),
+                          valve.id(),
+                          command.command(),
+                          null,
+                          reason.value(),
+                          null,
+                          command.caller().userId(),
+                          command.notBefore(),
+                          command.expiresAt()))
+                  .orElseThrow(
+                      () -> new DomainException(ErrorCode.CONFLICT, Map.of(FIELD, "not_before")));
+          events.publish(
+              new OperatorActionRecorded(
+                  command.caller().aqueductId(), command.caller().userId(), clock.instant()));
+          return created;
         });
   }
 
