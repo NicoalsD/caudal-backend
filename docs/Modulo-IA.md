@@ -418,7 +418,7 @@ Sin `caudal-ia` todavía, el backend funciona con la estimación simple y el cir
 
 > Cambio de alcance v2 (2026-11-07): sección nueva. El asistente es la ayuda central para decidir qué llave tocar y para redactar reportes.
 
-El asistente es un LLM compatible con OpenAI. Por defecto es Gemini Flash en su capa gratuita; de respaldo, Groq u OpenRouter. Cambiar de proveedor es solo configuración (`LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY`). La clave va como secreto en Render y nunca en el repositorio.
+El asistente es un LLM compatible con OpenAI. Por defecto es Nemotron de NVIDIA (`nvidia/nemotron-3.5-super-vl:free`), gratis en OpenRouter; como alternativas, Gemini Flash o Groq. Cambiar de proveedor es solo configuración (`LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY`). La clave va como secreto en Render y nunca en el repositorio.
 
 ### 15.1 Reparto de responsabilidades
 
@@ -481,13 +481,13 @@ Cifras aproximadas. **Verificar en el panel de cada proveedor antes de implement
 
 | Proveedor | Papel | Límite por minuto (RPM) | Límite por día (RPD) | Nota |
 |---|---|---|---|---|
-| Gemini Flash | Por defecto | ~10 | ~1.500 | No pide tarjeta. |
-| Groq | Respaldo | ~30 | ~1.000 | Capa gratuita. |
-| OpenRouter (modelos `:free`) | Respaldo de demostración | ~20 | ~50 | El límite diario es muy bajo para uso continuo. |
+| OpenRouter, `nvidia/nemotron-3.5-super-vl:free` | Por defecto | ~20 | ~50 (~1.000 si la cuenta compró al menos 10 USD de créditos) | Acepta `response_format` JSON. Elegido por el equipo el 2026-11-08. |
+| Gemini Flash | Alternativa | ~10 | ~1.500 | No pide tarjeta. |
+| Groq | Alternativa | ~30 | ~1.000 | Capa gratuita. |
 
 Consecuencias de diseño:
 
-- Con ~50 llamadas al día (OpenRouter), el piloto no puede consultar al LLM cada pocos segundos. Las llamadas de recomendación se disparan por cambio relevante de la foto o por un intervalo mínimo (por definir), no por el ciclo del `@Scheduled`.
+- Con ~50 llamadas al día (OpenRouter gratis), el piloto no puede consultar al LLM cada pocos segundos: en local se usa `AUTOPILOT_INTERVAL_SECONDS=600` o más, y la cuota queda para las preguntas y los reportes. Al agotarse, el asistente responde con reglas (`source = RULES`). Las llamadas de recomendación se disparan por cambio relevante de la foto o por un intervalo mínimo (por definir), no por el ciclo del `@Scheduled`.
 - Cada reporte y cada pregunta gasta cuota. El backend limita el uso (propuesta: el mismo estilo de límite que el recálculo del pronóstico).
 - Cuota agotada no es un error para el usuario: el asistente responde con el respaldo determinista y `fallback_reason = LLM_QUOTA_EXCEEDED` (propuesta).
 - Un LLM gratuito puede ser más lento o menos estable que Chronos. Por eso los timeouts y el circuit breaker del backend aplican también a `/v1/insights/*` (valores por definir).

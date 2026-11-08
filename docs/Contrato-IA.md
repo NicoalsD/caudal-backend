@@ -7,7 +7,7 @@ Principios:
 - `caudal-ia` no tiene estado y no accede a la base de datos. Recibe una serie y devuelve cuantiles (pronóstico). Con los endpoints `/v1/insights/*` recibe una foto del estado y devuelve recomendaciones, reportes o respuestas en texto. Nunca abre ni cierra llaves.
 - El backend decide cuándo pedir un pronóstico o una recomendación, guarda el resultado y, si la IA falla, responde con la estimación simple o con las reglas (respaldo). El piloto automático lo ejecuta el backend según su modo.
 
-> **Cambio de alcance v2 (2026-11-07):** antes solo existía el pronóstico. Se agregan los endpoints `/v1/insights/*` (sección 9) para el asistente de decisiones, con un LLM compatible con OpenAI (por defecto Gemini Flash en su capa gratuita).
+> **Cambio de alcance v2 (2026-11-07):** antes solo existía el pronóstico. Se agregan los endpoints `/v1/insights/*` (sección 9) para el asistente de decisiones, con un LLM compatible con OpenAI (por defecto Nemotron de NVIDIA, gratis en OpenRouter).
 - Ningún lado confía en el otro: cada uno valida lo que recibe.
 
 ## 1. Endpoints
@@ -322,7 +322,7 @@ Los valores de negocio (horizonte, reserva, días de historia enviados a la IA) 
 | `SERIES_TIMEZONE` | No | `America/Bogota` | Zona en la que empieza cada día de la serie. Debe coincidir con la del backend (ver la advertencia de abajo). |
 | `FORECAST_MIN_POINTS` | No | `7` | Días con lectura mínimos después del remuestreo |
 | `RESAMPLE_AGGREGATION` | No | `last` | `last` (por defecto) o `mean` |
-| `LLM_BASE_URL` | No (asistente) | `https://<proveedor>/v1` | URL base de la API compatible con OpenAI del LLM. Por defecto, Gemini Flash; respaldo Groq u OpenRouter. Solo cambia la configuración. |
+| `LLM_BASE_URL` | No (asistente) | `https://<proveedor>/v1` | URL base de la API compatible con OpenAI del LLM. Por defecto, OpenRouter con Nemotron de NVIDIA (gratis); alternativas Gemini Flash o Groq. Solo cambia la configuración. |
 | `LLM_MODEL` | No (asistente) | `<modelo del proveedor>` | Modelo que responde las recomendaciones, reportes y preguntas |
 | `LLM_API_KEY` | Sí, si hay asistente | `<secreto, nunca en git>` | Clave del proveedor. Va en Render como secreto. |
 | `FORECAST_CACHE_SIZE` | No | `64` | Número máximo de entradas de la caché en memoria de pronósticos. `0` la apaga. La clave es un SHA-256 de la entrada del modelo (serie diaria ya remuestreada, horizonte y cuantiles). La serie no se guarda. |
@@ -387,7 +387,7 @@ Reglas de las pruebas:
 
 ## 9. Endpoints del asistente (`/v1/insights/*`)
 
-Cambio de alcance v2 (2026-11-07). Estos endpoints usan un LLM compatible con OpenAI. Por defecto es Gemini Flash en su capa gratuita; de respaldo, Groq u OpenRouter. Ver [Modulo-IA.md](Modulo-IA.md), sección "Asistente de decisiones".
+Cambio de alcance v2 (2026-11-07). Estos endpoints usan un LLM compatible con OpenAI. Por defecto es Nemotron de NVIDIA (`nvidia/nemotron-3.5-super-vl:free`), gratis en OpenRouter; como alternativas, Gemini Flash o Groq. Ver [Modulo-IA.md](Modulo-IA.md), sección "Asistente de decisiones".
 
 Reglas comunes:
 

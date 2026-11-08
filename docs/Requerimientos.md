@@ -326,7 +326,7 @@ Todas las metas son objetivos hasta medirlas en la fase 12.
 
 ### RNF-29 Respaldo determinista del asistente
 
-- El asistente de IA (recomendaciones, reporte y preguntas) usa un LLM compatible con OpenAI (por defecto Gemini Flash en su capa gratuita; de respaldo Groq u OpenRouter), configurado con `LLM_BASE_URL`, `LLM_MODEL` y `LLM_API_KEY`.
+- El asistente de IA (recomendaciones, reporte y preguntas) usa un LLM compatible con OpenAI (por defecto Nemotron de NVIDIA, gratis en OpenRouter; alternativas Gemini Flash o Groq), configurado con `LLM_BASE_URL`, `LLM_MODEL` y `LLM_API_KEY`.
 - Si el LLM falla, responde tarde o agota su cuota, se aplican reglas simples y textos de plantilla. El asistente siempre responde.
 - Cada respuesta indica su origen (`source`: LLM o RULES). Las salidas del LLM se validan contra un esquema (Pydantic); si no cumplen, se usa el respaldo.
 - El backend llama a `caudal-ia` con el mismo cliente con circuit breaker del pronóstico.
