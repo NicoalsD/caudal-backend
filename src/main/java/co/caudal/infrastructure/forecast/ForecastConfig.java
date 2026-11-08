@@ -8,6 +8,7 @@ import co.caudal.application.port.out.ForecasterPort;
 import co.caudal.domain.forecast.NaivePersistenceStrategy;
 import java.net.http.HttpClient;
 import java.time.Clock;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,7 +31,7 @@ class ForecastConfig {
 
   @Bean
   CircuitBreaker forecastCircuitBreaker(CircuitBreakerSettings settings, Clock clock) {
-    return new CircuitBreaker(settings, clock);
+    return new CircuitBreaker(settings, clock, "Forecast");
   }
 
   @Bean
@@ -40,7 +41,9 @@ class ForecastConfig {
 
   @Bean
   ForecasterPort remoteForecaster(
-      ForecastServicePort service, CircuitBreaker breaker, BaselineForecaster baseline) {
+      ForecastServicePort service,
+      @Qualifier("forecastCircuitBreaker") CircuitBreaker breaker,
+      BaselineForecaster baseline) {
     return new RemoteForecasterProxy(service, breaker, baseline);
   }
 
