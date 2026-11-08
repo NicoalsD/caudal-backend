@@ -7,7 +7,9 @@ Convenciones:
 - Las cifras de seguridad (RNF-01 a RNF-10) son canónicas: vienen de los hechos del proyecto y no se cambian sin una decisión registrada.
 - Las metas de rendimiento y usabilidad son **objetivos**, marcados "objetivo, verificar". Se confirman con mediciones en la fase 12.
 - "Por definir" significa que el dato no existe todavía y debe decidirse antes de implementar esa parte.
-- Repositorios: `B` = `caudal-backend`, `F` = `caudal-frontend`, `IA` = `caudal-ia`, `S` = `caudal-simulador`.
+- Repositorios: `B` = `caudal-backend`, `F` = `caudal-frontend`, `IA` = `caudal-ia`, `S` = `caudal-simulador`, `M` = `caudal-maqueta`.
+
+Cambio de alcance v2 (2026-11-07): ya no se diseña para las limitaciones de campo (sin internet, sin acceso al terreno). Se agregan el piloto automático, el asistente de IA, la escena 3D, las regiones y la maqueta (RF-42 a RF-52, RNF-29 a RNF-32). RF-36 acepta el origen del piloto y RNF-14 baja a deseable.
 
 ## 1. Requisitos funcionales
 
@@ -48,12 +50,23 @@ Convenciones:
 | RF-33 | El equipo compara la IA con la estimación simple con MAE, WQL, cobertura y skill por horizonte. | M10 | HU-33 | B, IA, F |
 | RF-34 | El equipo registra dispositivos y sus claves públicas Ed25519; la base de datos nunca guarda claves privadas. | M11 | HU-34 | B, S |
 | RF-35 | Un dispositivo envía telemetría firmada, con ventana de tiempo y nonce único. | M11 | HU-35 | B, S |
-| RF-36 | Las válvulas reciben comandos solo de turnos publicados (o manuales con motivo), con vigencia. | M11 | HU-36 | B, S |
+| RF-36 | Las válvulas reciben comandos solo de turnos publicados, de órdenes manuales con motivo (`BOARD_ADMIN` u `OPERATOR`, permiso `VALVE_COMMAND_MANUAL`) o de una decisión del piloto automático (`autopilot_decision_id`), con vigencia. | M11 | HU-36 | B, S, M |
 | RF-37 | Quien tiene el permiso consulta la bitácora de auditoría y los eventos de seguridad, sin secretos. | M12 | HU-37 | B, F |
 | RF-38 | El equipo importa historial simulado solo en el acueducto demo. | M13 | HU-38 | B, S |
 | RF-39 | Todo dato simulado se marca "Datos simulados" en pantallas, PDF, mensajes y en la API (`simulated`). | M13 | HU-39 | B, F, S |
 | RF-40 | Toda operación se autoriza por permiso (leído de la BD), por membresía vigente y por acueducto. | M1, M9 | HU-04, HU-32 | B |
 | RF-41 | Toda entrada se valida con los límites de `FieldLimits` y la normalización de texto. | M3 | HU-09, HU-11 | B, F |
+| RF-42 | La Junta elige por acueducto el modo del piloto automático (`MANUAL`, `ASISTIDO` o `AUTOMATICO`) y sus parámetros (`operator_absence_minutes`, `reserve_floor_pct`) con el permiso `AUTOPILOT_CONFIGURE`. | M14 | HU-40 | B, F |
+| RF-43 | El asistente muestra recomendaciones `{action, valve_id, reason, confidence}` con su origen (LLM o reglas); en modo `ASISTIDO` el usuario las acepta o rechaza, y cada decisión se guarda en `ops.autopilot_decisions`. | M14 | HU-41 | B, IA, F |
+| RF-44 | En modo `AUTOMATICO`, si el operario no actúa en `operator_absence_minutes`, el piloto ejecuta la recomendación. Solo hay dos guardas: el piso de reserva y la prioridad humana (una acción manual pausa el piloto). Cada decisión queda auditada. | M14 | HU-42 | B, IA |
+| RF-45 | Un usuario con permiso pregunta al asistente en lenguaje natural y recibe una respuesta sobre el estado actual, con su origen (LLM o reglas). | M14 | HU-43 | B, IA, F |
+| RF-46 | El sistema arma los agregados de un periodo y genera un reporte narrativo (resumen, hallazgos y recomendaciones); se ve en la app y se imprime desde el navegador, sin PDF de servidor. | M14 | HU-44 | B, IA, F |
+| RF-47 | La interfaz muestra una escena 3D a todo el ancho con tanque, tuberías, flujo y llaves, actualizada por polling cada ~2 s; es la pantalla inicial del fontanero. | M15 | HU-45 | F, B |
+| RF-48 | Desde la escena 3D un usuario con `VALVE_COMMAND_MANUAL` abre o cierra una llave con confirmación y motivo, y ve el estado del comando (`PENDING`, `DELIVERED`, `ACKED`). | M15 | HU-46 | F, B |
+| RF-49 | Cada rol entra a su pantalla inicial: el fontanero a la escena 3D y los demás a un dashboard según [Estudio-dashboards-por-rol.md](Estudio-dashboards-por-rol.md). | M15 | HU-47 | F |
+| RF-50 | La maqueta física (1 tanque, sensores y 2 salidas) envía telemetría firmada, consulta y ejecuta comandos, confirma con ack y aplica `fail_safe_position` si pierde contacto. | M16 | HU-48 | M, B |
+| RF-51 | El simulador incluye una maqueta virtual que usa el mismo protocolo firmado (telemetría, `GET /devices/commands` y ack). | M16 | HU-49 | S, B |
+| RF-52 | La Junta configura regiones de racionamiento como sectores raíz (reusa `parent_sector_id`) y asigna llaves, con un editor de árbol simple; `GET /network` entrega la topología. | M17 | HU-50 | B, F |
 
 ## 2. Requisitos no funcionales
 
@@ -143,7 +156,7 @@ Convenciones:
 - Cabeceras: `X-Device-Id`, `X-Timestamp` (unix en segundos), `X-Nonce` (128 bits en hexadecimal), `X-Signature` (Ed25519 en base64url).
 - La firma cubre `método\nruta\ntimestamp\nnonce\nsha256(cuerpo)`.
 - Ventana de tiempo de ±300 segundos. Cada nonce es único durante 10 minutos.
-- Los comandos de válvula salen solo de turnos aprobados (o manuales con motivo de `BOARD_ADMIN`), con `not_before` y `expires_at`.
+- Los comandos de válvula salen solo de turnos aprobados, de órdenes manuales con motivo (`BOARD_ADMIN` u `OPERATOR`) o de una decisión del piloto automático (`autopilot_decision_id`), con `not_before` y `expires_at`.
 
 ### RNF-09 Secretos y datos en logs
 
@@ -156,7 +169,7 @@ Convenciones:
 
 - Token de servicio de al menos 32 bytes aleatorios en `Authorization: Bearer`. Comparación en tiempo constante. Rotación: se acepta el token actual y el anterior.
 - Series de hasta 2.000 puntos, valores finitos, timestamps crecientes. `prediction_length` de hasta 30 (límite técnico).
-- El servicio no almacena datos y no accede a la base de datos.
+- El servicio no almacena datos y no accede a la base de datos. Los endpoints del asistente (`/v1/insights/*`) usan el mismo token de servicio (ver RNF-29 y RNF-30).
 - Timeouts desde el backend: conexión de 2 segundos, lectura de 10 segundos. Circuit breaker (ver RNF-16).
 
 ### RNF-11 Seguridad del frontend
@@ -167,6 +180,8 @@ Convenciones:
 - Cerrar sesión con lecturas pendientes muestra un aviso antes de hacerlo.
 
 ### RNF-12 Usabilidad en campo
+
+Cambio de alcance v2 (2026-11-07): sigue siendo un criterio de diseño, pero ya no es el único. La interfaz también debe verse bien en escritorio a todo el ancho (RNF-31).
 
 - Diseño mobile first. El fontanero registra una lectura con pocos toques (objetivo: cuatro toques o menos, verificar).
 - Textos en español sencillo, sin siglas técnicas en pantalla.
@@ -186,6 +201,8 @@ Convenciones:
 
 ### RNF-14 Funcionamiento sin conexión
 
+Prioridad: deseable (secundaria). Cambio de alcance v2 (2026-11-07): ya no se diseña para la falta de internet. La cola sin conexión del fontanero se conserva, pero deja de ser una prioridad o un motivo de diseño, y la escena 3D en vivo necesita conexión.
+
 - Lecturas en IndexedDB (Dexie) con UUID generado en el cliente.
 - Reenvío idempotente: el servidor responde lo mismo para el mismo UUID.
 - Sincronización por lotes de hasta 100 lecturas.
@@ -204,12 +221,14 @@ Convenciones:
 | Generar propuesta | 5 s | Sin IA en el camino crítico. |
 | Pronóstico de la IA | 10 s | Límite de lectura de RNF-10. |
 | Cartel PDF | 10 s | |
+| Escena 3D en vivo | Actualización cada ~2 s | Polling. El rendimiento de dibujo no es prioridad en esta fase. |
+| Recomendación o pregunta al asistente | 15 s (por definir) | Con respaldo determinista si el LLM no responde. |
 
 Todas las metas son objetivos hasta medirlas en la fase 12.
 
 ### RNF-16 Disponibilidad y degradación
 
-- Si la IA falla, responde tarde o su circuito está abierto, el sistema usa la estimación simple. Ninguna operación se bloquea por la IA.
+- Si la IA falla, responde tarde o su circuito está abierto, el sistema usa la estimación simple. Ninguna operación se bloquea por la IA. Lo mismo vale para el asistente: ver RNF-29.
 - Circuit breaker con estados `Cerrado`, `Abierto` y `Semiabierto`.
 - Hosting gratuito: el backend en Render puede dormirse. La app muestra un indicador de arranque y la primera petición tiene un tiempo de espera mayor (objetivo, verificar). Monitoreo externo de salud (por definir).
 - Copias y recuperación: PITR de Neon. La retención depende del plan (verificar).
@@ -305,6 +324,33 @@ Todas las metas son objetivos hasta medirlas en la fase 12.
 - Lo simulado se declara con la marca "Datos simulados" y con el campo `simulated` en la API (RF-39).
 - El pronóstico siempre muestra su rango y el modelo usado (o que es la estimación simple).
 
+### RNF-29 Respaldo determinista del asistente
+
+- El asistente de IA (recomendaciones, reporte y preguntas) usa un LLM compatible con OpenAI (por defecto Gemini Flash en su capa gratuita; de respaldo Groq u OpenRouter), configurado con `LLM_BASE_URL`, `LLM_MODEL` y `LLM_API_KEY`.
+- Si el LLM falla, responde tarde o agota su cuota, se aplican reglas simples y textos de plantilla. El asistente siempre responde.
+- Cada respuesta indica su origen (`source`: LLM o REGLAS). Las salidas del LLM se validan contra un esquema (Pydantic); si no cumplen, se usa el respaldo.
+- El backend llama a `caudal-ia` con el mismo cliente con circuit breaker del pronóstico.
+
+### RNF-30 Secretos y datos enviados al LLM
+
+- `LLM_API_KEY` se guarda como secreto del servicio (Render) y nunca va en el repositorio ni en los logs (ver RNF-09).
+- Al LLM solo se envía la foto del estado necesaria (niveles, pronóstico, turnos, llaves). No se envían contraseñas, tokens, teléfonos ni nombres de personas (RNF-20).
+- Los límites de cuota y las cifras del proveedor se verifican en su panel antes de implementar (por definir).
+
+### RNF-31 Interfaz a todo el ancho y escena 3D
+
+- El contenido usa todo el ancho de la pantalla en cualquier tamaño; solo el texto largo conserva una medida de lectura.
+- La escena 3D (three.js) se usa en toda la app. Las llaves se pulsan con el puntero y también tienen botones equivalentes para el teclado y los lectores de pantalla (RNF-13).
+- La vista en vivo hace polling cada ~2 s; no se usa SSE en la v2.
+- El rendimiento de dibujo no es una prioridad en esta fase.
+
+### RNF-32 Seguridad del actuador y guardas del piloto
+
+- El piloto automático solo tiene dos guardas: el piso de reserva (`reserve_floor_pct`) y la prioridad humana (cualquier acción manual lo pausa).
+- Todo comando del piloto queda ligado a una decisión en `ops.autopilot_decisions` y a `audit.audit_log`.
+- Ante pérdida de contacto, la válvula aplica `fail_safe_position`. La maqueta tiene un flotador por hardware que corta la bomba con el tanque lleno.
+- Un comando sin turno, sin orden manual y sin decisión del piloto se rechaza (restricción de la base de datos).
+
 ## 3. Trazabilidad
 
 Cada RF sale de una historia (HU) y de un módulo. La tabla enlaza el requisito con los repositorios donde se implementa.
@@ -346,13 +392,24 @@ Cada RF sale de una historia (HU) y de un módulo. La tabla enlaza el requisito 
 | RF-33 | HU-33 | M10 Evaluación | B | IA, F | RNF-18, RNF-25 |
 | RF-34 | HU-34 | M11 Dispositivos | B | S | RNF-08, RNF-19 |
 | RF-35 | HU-35 | M11 Dispositivos | B | S | RNF-04, RNF-08 |
-| RF-36 | HU-36 | M11 Dispositivos | B | S | RNF-08, RNF-19 |
+| RF-36 | HU-36 | M11 Dispositivos | B | S, M | RNF-08, RNF-19, RNF-32 |
 | RF-37 | HU-37 | M12 Auditoría | B | F | RNF-09, RNF-19, RNF-24 |
 | RF-38 | HU-38 | M13 Datos simulados | B | S | RNF-04, RNF-07 |
 | RF-39 | HU-39 | M13 Datos simulados | B | F, S | RNF-21, RNF-28 |
 | RF-40 | HU-04, HU-32 | M1, M9 | B | | RNF-07 |
 | RF-41 | HU-09, HU-11 | M3 Lecturas offline | B | F | RNF-04, RNF-22 |
+| RF-42 | HU-40 | M14 Piloto y asistente | B | F | RNF-07, RNF-19, RNF-22 |
+| RF-43 | HU-41 | M14 Piloto y asistente | B | IA, F | RNF-08, RNF-19, RNF-29 |
+| RF-44 | HU-42 | M14 Piloto y asistente | B | IA | RNF-08, RNF-19, RNF-29, RNF-32 |
+| RF-45 | HU-43 | M14 Piloto y asistente | IA | B, F | RNF-04, RNF-29, RNF-30 |
+| RF-46 | HU-44 | M14 Piloto y asistente | B | IA, F | RNF-20, RNF-28, RNF-29 |
+| RF-47 | HU-45 | M15 Escena 3D y llaves | F | B | RNF-13, RNF-31 |
+| RF-48 | HU-46 | M15 Escena 3D y llaves | F | B | RNF-08, RNF-19, RNF-32 |
+| RF-49 | HU-47 | M15 Escena 3D y llaves | F | B | RNF-13, RNF-31 |
+| RF-50 | HU-48 | M16 Maqueta física | M | B | RNF-08, RNF-32 |
+| RF-51 | HU-49 | M16 Maqueta física | S | B | RNF-08, RNF-22 |
+| RF-52 | HU-50 | M17 Regiones | B | F | RNF-04, RNF-07, RNF-22 |
 
-Resumen: las 39 historias cubren los 41 RF. RF-40 y RF-41 son transversales y se reflejan en varias historias.
+Resumen: las 50 historias cubren los 52 RF. RF-40 y RF-41 son transversales y se reflejan en varias historias. RF-42 a RF-52 salen del alcance v2 (HU-40 a HU-50).
 
 Relacionados: [Historias-de-usuario.md](Historias-de-usuario.md) · [Actores-y-permisos.md](Actores-y-permisos.md) · [Riesgos.md](Riesgos.md) · [Caudal.md](Caudal.md)
