@@ -1,6 +1,8 @@
 # Historias de usuario
 
-Este documento define 39 historias de usuario (HU-01 a HU-39), agrupadas por módulo (M1 a M13). Cada historia tiene actor, enunciado, prioridad MoSCoW, criterios de aceptación en Gherkin, requisitos relacionados y patrones de diseño involucrados.
+Este documento define 50 historias de usuario (HU-01 a HU-50), agrupadas por módulo (M1 a M17). Cada historia tiene actor, enunciado, prioridad MoSCoW, criterios de aceptación en Gherkin, requisitos relacionados y patrones de diseño involucrados.
+
+Cambio de alcance v2 (2026-11-07): ya no se diseña para las limitaciones de campo (sin internet, sin acceso al terreno). Se agregan los módulos M14 a M17 (piloto automático y asistente de IA, escena 3D y control de llaves, maqueta física, regiones), con las historias HU-40 a HU-50. Las historias M3 de cola sin conexión se conservan, pero ya no son un motivo de diseño.
 
 Convenciones:
 
@@ -1056,10 +1058,10 @@ Escenario: lote demasiado grande
 - **Requisitos:** RF-35; RNF-04, RNF-08.
 - **Patrones:** P06 (`Adapter`, `DeviceTelemetryAdapter`); P12 (`Chain of Responsibility`, cadena de verificación de firma, ventana, nonce y payload; clase propuesta, por definir).
 
-### HU-36: Enviar un comando de válvula desde un turno aprobado
+### HU-36: Enviar un comando de válvula desde un turno aprobado, de forma manual o del piloto
 
-- **Actor:** sistema (el comando sale del turno publicado). `BOARD_ADMIN` para comandos manuales.
-- **Historia:** Como miembro de la Junta, quiero que las válvulas solo se muevan según un turno aprobado (o por una orden manual con motivo), para que nadie abra una válvula por error.
+- **Actor:** sistema (el comando sale del turno publicado o de una decisión del piloto automático). `BOARD_ADMIN` y `OPERATOR` para comandos manuales.
+- **Historia:** Como miembro de la Junta, quiero que las válvulas solo se muevan por un turno aprobado, por una orden manual con motivo o por una decisión del piloto automático registrada, para que nadie abra una válvula por error y todo movimiento tenga un origen.
 - **Prioridad:** should
 
 ```gherkin
@@ -1075,17 +1077,28 @@ Escenario: comando vencido
   Entonces el comando queda EXPIRED y no se ejecuta
 
 Escenario: comando manual sin motivo
-  Dado un administrador
+  Dado un administrador o un fontanero
   Cuando envía POST /api/v1/valve-commands/manual sin motivo
   Entonces recibe 422 con código REASON_REQUIRED
 
 Escenario: comando manual por un fontanero
-  Dado un usuario con rol OPERATOR
+  Dado un usuario con rol OPERATOR y el permiso VALVE_COMMAND_MANUAL
+  Cuando envía POST /api/v1/valve-commands/manual con la válvula, la acción y un motivo válido
+  Entonces el comando queda PENDING con el origen manual y el usuario que lo envió
+
+Escenario: comando manual por un rol sin permiso
+  Dado un usuario con rol BOARD_MEMBER, PROJECT_TEAM o SUPPORT_ENTITY
   Cuando envía POST /api/v1/valve-commands/manual
   Entonces recibe 403 con código FORBIDDEN
+
+Escenario: comando del piloto automático
+  Dado una decisión del piloto en ops.autopilot_decisions
+  Cuando el piloto genera el comando
+  Entonces el comando guarda autopilot_decision_id como su origen
+  Y un comando sin turno, sin orden manual y sin decisión del piloto se rechaza
 ```
 
-- **Requisitos:** RF-36; RNF-08, RNF-19.
+- **Requisitos:** RF-36, RF-44; RNF-08, RNF-19, RNF-32.
 - **Patrones:** P13 (`CommandBus`, `OpenValveCommand` y `CloseValveCommand` en el simulador); P18 (`State`, `ValveState`); P06 (`Adapter`, `DeviceTelemetryAdapter`).
 
 ---
@@ -1178,6 +1191,351 @@ Escenario: el texto de WhatsApp
 
 ---
 
+## M14: Piloto automático y asistente de IA
+
+El piloto automático es el actor de sistema `AUTOPILOT` (ver [Actores-y-permisos.md](Actores-y-permisos.md)). Tiene tres modos por acueducto: `MANUAL`, `ASISTIDO` y `AUTOMATICO`. Solo hay dos guardas: el piso de reserva (`reserve_floor_pct`) y la prioridad humana (cualquier acción manual pausa el piloto). Lo central es la ayuda del asistente de IA para decidir y para los reportes; si el LLM falla, responde un respaldo determinista de reglas y plantillas. Las rutas del piloto (modo, decisiones) están por definir; las del asistente son `POST /assistant/ask`, `GET /reports` y `POST /reports/narrative`.
+
+### HU-40: Configurar el modo del piloto automático
+
+- **Actor:** `BOARD_ADMIN`.
+- **Historia:** Como presidente de la Junta, quiero elegir el modo del piloto (manual, asistido o automático) y sus parámetros, para decidir cuánto puede hacer el sistema sin que yo intervenga.
+- **Prioridad:** must
+
+```gherkin
+Escenario: cambiar el modo
+  Dado un acueducto con el piloto en MANUAL
+  Cuando el administrador cambia el modo a ASISTIDO con el permiso AUTOPILOT_CONFIGURE
+  Entonces org.autopilot_settings guarda el nuevo modo
+  Y se registra el cambio en audit.audit_log con el usuario
+
+Escenario: parámetros del piloto
+  Dado un administrador que edita operator_absence_minutes y reserve_floor_pct
+  Cuando guarda valores dentro de los límites de FieldLimits
+  Entonces los nuevos valores rigen desde la siguiente ejecución del piloto
+  Y un valor fuera de límites recibe 400 con código VALIDATION_ERROR
+
+Escenario: un rol sin permiso
+  Dado un usuario con rol BOARD_MEMBER u OPERATOR
+  Cuando intenta cambiar el modo
+  Entonces recibe 403 con código FORBIDDEN
+```
+
+- **Requisitos:** RF-42, RF-40; RNF-07, RNF-19, RNF-22.
+- **Patrones:** P18 (`State`, `AutopilotMode`: manual, asistido y automático); P13 (`CommandBus`); P09 (`AuditingCommandHandler`).
+
+### HU-41: Aceptar o rechazar una recomendación del asistente
+
+- **Actor:** `OPERATOR`, `BOARD_ADMIN` (con el piloto en modo `ASISTIDO`); `BOARD_MEMBER` solo las ve.
+- **Historia:** Como fontanero, quiero ver qué recomienda el asistente y su motivo, y aceptarla o rechazarla con un clic, para decidir con ayuda sin perder el control.
+- **Prioridad:** must
+
+```gherkin
+Escenario: ver la recomendación
+  Dado una recomendación {action: CLOSE, valve_id, reason, confidence} generada con el nivel bajo
+  Cuando el usuario abre la pantalla con el permiso ASSISTANT_USE
+  Entonces ve la acción, el motivo y la confianza
+  Y ve si la recomendación vino del LLM o de las reglas (campo source)
+
+Escenario: aceptar en modo ASISTIDO
+  Dado una recomendación pendiente y el piloto en ASISTIDO
+  Cuando un usuario con VALVE_COMMAND_MANUAL pulsa Aceptar
+  Entonces la decisión queda ACEPTADA en ops.autopilot_decisions con decided_by
+  Y se genera un comando con autopilot_decision_id que pasa a EJECUTADA al confirmarse (ACKED)
+
+Escenario: rechazar
+  Cuando el usuario pulsa Rechazar
+  Entonces la decisión queda RECHAZADA y no se genera comando
+
+Escenario: modo MANUAL
+  Dado el piloto en MANUAL
+  Entonces la recomendación solo se muestra, sin botones de aceptar
+```
+
+- **Requisitos:** RF-43; RNF-08, RNF-19, RNF-29.
+- **Patrones:** P13 (`CommandBus`); P18 (`State`, resultado de la decisión: aceptada, rechazada o ejecutada); P06 (`Adapter`, cliente de `caudal-ia` `/v1/insights/recommendations`).
+
+### HU-42: El piloto actúa solo cuando el operario no está, sin bajar de la reserva
+
+- **Actor:** sistema (`AUTOPILOT`); efecto visible para `OPERATOR` y la Junta.
+- **Historia:** Como miembro de la Junta, quiero que el sistema abra o cierre llaves cuando el fontanero no está, sin dejar el tanque bajo la reserva, para que el servicio no dependa de que alguien esté mirando.
+- **Prioridad:** must
+
+```gherkin
+Escenario: ausencia del operario en modo AUTOMATICO
+  Dado el piloto en AUTOMATICO y una recomendación CLOSE de la válvula V-02
+  Y ningún usuario ha actuado en operator_absence_minutes
+  Cuando corre el ciclo del piloto
+  Entonces se crea una decisión en ops.autopilot_decisions con outcome EJECUTADA
+  Y un comando CLOSE con autopilot_decision_id, firmado y entregado a la maqueta
+
+Escenario: piso de reserva
+  Dado un nivel igual o menor a reserve_floor_pct
+  Cuando la recomendación sería abrir una salida
+  Entonces el piloto no ejecuta la apertura y registra la decisión como RECHAZADA con el motivo RESERVE_FLOOR
+
+Escenario: prioridad humana
+  Dado el piloto en AUTOMATICO
+  Cuando un usuario envía un comando manual
+  Entonces el piloto queda en pausa y no ejecuta nada hasta que se reanude (el criterio de reanudación está por definir)
+
+Escenario: LLM caído
+  Dado que el LLM no responde o agotó su cuota
+  Cuando corre el ciclo
+  Entonces las reglas de respaldo generan la recomendación con source REGLAS
+```
+
+- **Requisitos:** RF-44, RF-36; RNF-08, RNF-19, RNF-29, RNF-32.
+- **Patrones:** P11 (`Proxy`, cliente del asistente con circuit breaker y respaldo); P19 (`Strategy`, recomendador LLM o reglas); P17 (`Observer`, evento de decisión).
+
+### HU-43: Preguntar al asistente
+
+- **Actor:** `BOARD_ADMIN`, `BOARD_MEMBER`, `OPERATOR`, `PROJECT_TEAM`.
+- **Historia:** Como miembro de la Junta, quiero preguntarle al asistente en lenguaje natural, por ejemplo "¿alcanza el agua para mañana?", para entender la situación sin leer gráficas.
+- **Prioridad:** should
+
+```gherkin
+Escenario: pregunta respondida
+  Dado un usuario con el permiso ASSISTANT_USE
+  Cuando envía POST /api/v1/assistant/ask con una pregunta de hasta el límite de FieldLimits
+  Entonces recibe la respuesta basada en el estado actual (nivel, pronóstico, turnos, llaves)
+  Y la respuesta indica si vino del LLM o de las reglas
+
+Escenario: respaldo determinista
+  Dado que el LLM no está disponible
+  Cuando se hace la pregunta
+  Entonces responde 200 con un texto de plantilla y source REGLAS
+
+Escenario: pregunta inválida
+  Cuando la pregunta está vacía o supera el límite
+  Entonces recibe 400 con código VALIDATION_ERROR
+```
+
+- **Requisitos:** RF-45; RNF-04, RNF-29, RNF-30.
+- **Patrones:** P06 (`Adapter`, cliente de `/v1/insights/ask`); P11 (`Proxy`, con respaldo).
+
+### HU-44: Reporte narrativo del periodo
+
+- **Actor:** `BOARD_ADMIN`, `BOARD_MEMBER`, `PROJECT_TEAM`.
+- **Historia:** Como miembro de la Junta, quiero un reporte del periodo con resumen, hallazgos y recomendaciones en español, para presentarlo en la reunión.
+- **Prioridad:** must
+
+```gherkin
+Escenario: reporte del periodo
+  Dado un periodo con lecturas, turnos y decisiones del piloto
+  Cuando el usuario con el permiso REPORT_VIEW abre GET /api/v1/reports con from y to
+  Entonces ve los agregados (nivel, horas de servicio, decisiones del piloto)
+  Y al pedir POST /api/v1/reports/narrative recibe el texto narrativo con resumen, hallazgos y recomendaciones
+
+Escenario: imprimir
+  Dado un reporte en pantalla
+  Cuando el usuario pulsa Imprimir
+  Entonces se usa la impresión del navegador (no se genera PDF en el servidor)
+
+Escenario: LLM caído
+  Dado que el LLM no responde
+  Cuando se pide la narrativa
+  Entonces el texto sale de una plantilla con los mismos agregados y source REGLAS
+
+Escenario: periodo inválido
+  Cuando from es posterior a to
+  Entonces recibe 400 con código VALIDATION_ERROR
+```
+
+- **Requisitos:** RF-46; RNF-20, RNF-28, RNF-29.
+- **Patrones:** P22 (`Interpreter`, plantillas del respaldo); P06 (`Adapter`, cliente de `/v1/insights/report`).
+
+---
+
+## M15: Escena 3D y control de llaves
+
+La interfaz usa three.js a todo el ancho de la pantalla. El fontanero entra a la escena 3D; los demás roles entran a un dashboard (ver [Estudio-dashboards-por-rol.md](Estudio-dashboards-por-rol.md)). No hay SSE: la vista se actualiza por polling cada ~2 s.
+
+### HU-45: Ver la escena 3D en vivo
+
+- **Actor:** `OPERATOR` (pantalla de inicio); los demás roles con `NETWORK_VIEW` y `STATUS_VIEW` la abren desde su dashboard.
+- **Historia:** Como fontanero, quiero ver el tanque, las tuberías y las llaves en 3D con el nivel y el flujo del agua en vivo, para entender el sistema de un vistazo.
+- **Prioridad:** must
+
+```gherkin
+Escenario: escena inicial del fontanero
+  Dado un usuario OPERATOR autenticado
+  Cuando entra a la aplicación
+  Entonces ve la escena 3D a todo el ancho con el tanque, las tuberías y las llaves
+  Y la topología sale de GET /api/v1/network
+
+Escenario: actualización en vivo
+  Dado la escena abierta
+  Cuando pasan ~2 segundos
+  Entonces la app consulta de nuevo el estado, los dispositivos y los comandos
+  Y el nivel del agua, las etiquetas de caudal y el estado de cada llave se actualizan
+
+Escenario: flujo según el caudal
+  Dado una salida con caudal medido
+  Entonces las partículas de flujo de esa tubería se mueven más rápido cuanto mayor es el caudal
+  Y una llave cerrada no muestra flujo
+
+Escenario: dato viejo
+  Dado que el último dato supera el máximo de la regla
+  Entonces la escena muestra el aviso de dato viejo, sin inventar un nivel
+```
+
+- **Requisitos:** RF-47, RF-14; RNF-13, RNF-31.
+- **Patrones:** P10 (`Facade`, `CaudalApi` en el frontend); P17 (`Observer`, estado en vivo).
+
+### HU-46: Abrir o cerrar una llave desde la escena
+
+- **Actor:** `OPERATOR`, `BOARD_ADMIN`.
+- **Historia:** Como fontanero, quiero pulsar una llave en la escena y abrirla o cerrarla con confirmación y motivo, para operar sin salir de la pantalla.
+- **Prioridad:** must
+
+```gherkin
+Escenario: cerrar una llave
+  Dado un usuario con el permiso VALVE_COMMAND_MANUAL y una llave abierta
+  Cuando pulsa la llave, elige Cerrar, escribe un motivo de 10 a 500 caracteres y confirma
+  Entonces la app envía POST /api/v1/valve-commands/manual
+  Y el estado del comando se muestra PENDING, luego DELIVERED y luego ACKED
+
+Escenario: sin permiso
+  Dado un usuario sin VALVE_COMMAND_MANUAL
+  Entonces ve las llaves pero no los botones de Abrir ni Cerrar
+
+Escenario: comando sin confirmar
+  Dado un comando que vence sin ACK
+  Entonces queda EXPIRED y la escena mantiene el estado anterior de la llave
+
+Escenario: prioridad humana
+  Dado el piloto en AUTOMATICO
+  Cuando el usuario envía el comando
+  Entonces el piloto queda en pausa y la pantalla lo indica
+```
+
+- **Requisitos:** RF-48, RF-36; RNF-08, RNF-13, RNF-19, RNF-32.
+- **Patrones:** P13 (`OpenValveCommand` y `CloseValveCommand`); P18 (`State`, `ValveState`); P15 (`Mediator`, coordina la selección de la llave y el diálogo, clase propuesta, por definir).
+
+### HU-47: Entrar a un dashboard según el rol
+
+- **Actor:** `BOARD_ADMIN`, `BOARD_MEMBER`, `PROJECT_TEAM`, `SUPPORT_ENTITY`; el público ve su semáforo.
+- **Historia:** Como miembro de la Junta, quiero que al entrar vea lo que necesito para decidir, para no buscar entre pantallas.
+- **Prioridad:** must
+
+```gherkin
+Escenario: dashboard de la Junta
+  Dado un usuario BOARD_ADMIN o BOARD_MEMBER
+  Cuando inicia sesión
+  Entonces ve los KPI (nivel, días de reserva, cobertura por región), el pronóstico p10 a p90, el registro de decisiones del piloto y las propuestas pendientes
+
+Escenario: dashboard del equipo
+  Dado un usuario PROJECT_TEAM
+  Entonces ve el error del pronóstico, la salud de los dispositivos y las anomalías
+
+Escenario: dashboard de la entidad
+  Dado un usuario SUPPORT_ENTITY
+  Entonces ve solo los resúmenes autorizados y vigentes
+
+Escenario: panel del asistente
+  Dado un usuario con ASSISTANT_USE
+  Entonces ve en su pantalla el panel del asistente con las recomendaciones y la caja de preguntas
+```
+
+- **Requisitos:** RF-49; RNF-13, RNF-31.
+- **Patrones:** P10 (`Facade`, `CaudalApi`); P19 (`Strategy`, pantalla de inicio según el rol, clase propuesta, por definir).
+
+---
+
+## M16: Maqueta física
+
+Repositorio nuevo `caudal-maqueta` (PlatformIO + ESP32, Wi-Fi, mismo protocolo HTTP firmado con Ed25519). Detalle del hardware en [Simulador-y-hardware.md](Simulador-y-hardware.md).
+
+### HU-48: La maqueta envía telemetría y ejecuta comandos
+
+- **Actor:** dispositivo (maqueta física).
+- **Historia:** Como equipo del proyecto, quiero una maqueta con un tanque, sensores y dos tuberías de salida que hable con el backend, para probar el lazo completo con agua real.
+- **Prioridad:** should
+
+```gherkin
+Escenario: telemetría de la maqueta
+  Dado la maqueta registrada con su clave pública
+  Cuando mide el nivel y el caudal de cada salida
+  Entonces envía POST /api/v1/devices/telemetry firmada cada ~1 s
+
+Escenario: ejecutar un comando
+  Dado un comando OPEN para la salida 1
+  Cuando la maqueta lo recibe en GET /api/v1/devices/commands
+  Entonces abre la electroválvula y responde con POST /api/v1/devices/commands/{id}/ack
+
+Escenario: pérdida de contacto
+  Dado que la maqueta no alcanza al backend
+  Cuando pasa el tiempo límite del protocolo
+  Entonces cada válvula toma su fail_safe_position
+
+Escenario: respaldo por hardware
+  Dado el tanque lleno
+  Entonces el flotador de nivel alto corta la bomba sin intervención del software
+```
+
+- **Requisitos:** RF-50, RF-35, RF-36; RNF-08, RNF-32.
+- **Patrones:** P06 (`Adapter`, `DeviceTelemetryAdapter`); P18 (`State`, `ValveState`).
+
+### HU-49: Usar una maqueta virtual en el simulador
+
+- **Actor:** `PROJECT_TEAM`.
+- **Historia:** Como equipo del proyecto, quiero una maqueta virtual en `caudal-simulador` que haga lo mismo que la física, para construir y probar el 3D y el piloto sin el hardware.
+- **Prioridad:** should
+
+```gherkin
+Escenario: lazo cerrado
+  Dado el escenario maqueta.yaml y la maqueta virtual registrada
+  Cuando el simulador corre en modo live
+  Entonces envía telemetría firmada cada ~1 s y consulta GET /api/v1/devices/commands cada ~1 s
+  Y ejecuta la orden en su modelo de masa y responde con el ack
+
+Escenario: comando vencido
+  Dado un comando con expires_at pasado
+  Entonces la maqueta virtual no lo ejecuta
+
+Escenario: firma
+  Dado la maqueta virtual
+  Entonces usa el mismo protocolo Ed25519 que el dispositivo real
+```
+
+- **Requisitos:** RF-51, RF-35, RF-36; RNF-08, RNF-22.
+- **Patrones:** P06 (`Adapter`); P13 (`OpenValveCommand` y `CloseValveCommand`); P18 (`State`, `ValveState`).
+
+---
+
+## M17: Regiones
+
+### HU-50: Configurar las regiones de racionamiento
+
+- **Actor:** `BOARD_ADMIN`.
+- **Historia:** Como presidente de la Junta, quiero definir las regiones del acueducto y qué llaves pertenecen a cada una, para racionar por región.
+- **Prioridad:** should
+
+```gherkin
+Escenario: crear una región
+  Dado un usuario con el permiso NETWORK_MANAGE
+  Cuando crea un sector raíz (sin parent_sector_id) que representa la región
+  Entonces aparece como región en GET /api/v1/network
+
+Escenario: sectores dentro de la región
+  Dado una región creada
+  Cuando crea un sector con parent_sector_id apuntando a ella y le asigna llaves
+  Entonces la escena 3D y los turnos usan esa jerarquía
+
+Escenario: ciclo en el árbol
+  Cuando se intenta poner un sector como padre de su propio ancestro
+  Entonces recibe 409 con código CONFLICT
+
+Escenario: sin permiso
+  Dado un usuario sin NETWORK_MANAGE
+  Entonces recibe 403 con código FORBIDDEN
+```
+
+- **Requisitos:** RF-52; RNF-04, RNF-07, RNF-22.
+- **Patrones:** P08 (`Composite`, `SectorNode` y `ValveNode`).
+
+---
+
 ## Resumen por módulo
 
 | Módulo | Historias | Cantidad | Prioridad (must / should) |
@@ -1195,9 +1553,13 @@ Escenario: el texto de WhatsApp
 | M11 Dispositivos | HU-34 a HU-36 | 3 | 0 / 3 |
 | M12 Auditoría | HU-37 | 1 | 0 / 1 |
 | M13 Datos simulados | HU-38 a HU-39 | 2 | 1 / 1 |
+| M14 Piloto y asistente de IA | HU-40 a HU-44 | 5 | 4 / 1 |
+| M15 Escena 3D y llaves | HU-45 a HU-47 | 3 | 3 / 0 |
+| M16 Maqueta física | HU-48 a HU-49 | 2 | 0 / 2 |
+| M17 Regiones | HU-50 | 1 | 0 / 1 |
 
-Total: 39 historias. Prioridades: 22 `must`, 16 `should` y 1 `could` (HU-26, cartel).
+Total: 50 historias. Prioridades: 29 `must`, 20 `should` y 1 `could` (HU-26, cartel).
 
-Alcance por fase (ver `Caudal.md` y los hechos, sección 19): el MVP cubre las fases 1 a 8 y el `backfill` de historial. Las historias de M9 (actas y entidades), M10, M11 y M12 corresponden a fases posteriores (9 a 11), salvo HU-38 (importación de historial simulado), que sí forma parte del MVP.
+Alcance por fase (ver `Caudal.md` y los hechos, sección 19): el MVP cubre las fases 1 a 8 y el `backfill` de historial. Las historias de M9 (actas y entidades), M10, M11 y M12 corresponden a fases posteriores (9 a 11), salvo HU-38 (importación de historial simulado), que sí forma parte del MVP. Los módulos M14 a M17 son del alcance v2 (2026-11-07): primero el piloto, el asistente y las regiones en el backend, luego la escena 3D y el simulador, y al final la maqueta física.
 
 Relacionados: [Caudal.md](Caudal.md) · [Actores-y-permisos.md](Actores-y-permisos.md) · [Requerimientos.md](Requerimientos.md) · [Riesgos.md](Riesgos.md)
