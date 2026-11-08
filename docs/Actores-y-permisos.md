@@ -14,10 +14,12 @@ Este documento define quién usa CAUDAL, qué necesita cada actor, en qué condi
 | Familia (vecino del acueducto) | Público, sin login | Saber cuándo llega el agua a su sector y reportar un daño. | Ver el horario sin registrarse, copiar el mensaje de WhatsApp, reportar una fuga o agua sucia y poder seguir el reporte. | Celular personal o cartel impreso en un lugar de paso (lugar por definir). Pueden ser adultos mayores. | Página pública; botón de WhatsApp; cartel PDF; formulario de reporte de daño. |
 | Equipo del proyecto | `PROJECT_TEAM` | Mantener el sistema, medir si la IA ayuda y probar con datos simulados. | Ver salud técnica y evaluación, importar historial simulado en el acueducto demo, registrar dispositivos, consultar auditoría. | Computador con Docker, GitHub y herramientas de desarrollo. | Panel web; API (Swagger); repositorios. |
 | Entidad de apoyo | `SUPPORT_ENTITY` | Conocer la gestión del acueducto para apoyar (ejemplo: alcaldía o entidad de salud, por definir). | Ver resúmenes y actas que la Junta autorice, solo mientras la autorización esté vigente. | Computador de oficina. Visita el sistema pocas veces. | Panel web con acceso de solo lectura a resúmenes autorizados. |
-| Dispositivo (sensor o válvula) | Sistema, no persona | Enviar telemetría y recibir comandos firmados. | Firmar cada petición con su clave privada; recibir solo comandos aprobados. | Hardware en campo (propuesto, no se construye en esta versión). Se simula con `caudal-simulador`. | API `/api/v1/devices/*` con firmas Ed25519. |
+| Dispositivo (sensor o válvula) | Sistema, no persona | Enviar telemetría y recibir comandos firmados. | Firmar cada petición con su clave privada; recibir solo comandos aprobados. | La maqueta física (`caudal-maqueta`: 1 tanque, sensores y 2 salidas) y la maqueta virtual de `caudal-simulador`. | API `/api/v1/devices/*` con firmas Ed25519. |
+| Piloto automático | `AUTOPILOT` (actor de sistema, sin cuenta) | Decidir qué llaves abrir o cerrar cuando el operario no está, y recomendar cuando sí está. | Leer el estado y el pronóstico, consultar al asistente y generar comandos de llave solo en modo `AUTOMATICO`, sin bajar del piso de reserva. | Proceso programado en el backend (`application/autopilot/`). | Interno: llama a `caudal-ia` y crea comandos con `autopilot_decision_id`. |
 
 Notas:
 
+- El piloto automático (`AUTOPILOT`) no tiene cuenta ni rol: sus acciones se registran en `ops.autopilot_decisions` y en `audit.audit_log` con el actor `AUTOPILOT`. Su modo lo configura `BOARD_ADMIN` con `AUTOPILOT_CONFIGURE`. Cualquier acción manual de llave pausa al piloto.
 - Las familias no tienen cuenta. Su acceso es público, limitado por tasas (rate limits) y con honeypot en el formulario.
 - El equipo del proyecto no toma decisiones operativas. Su acceso a datos reales es el mismo que el de cualquier rol, pero no puede publicar ni aprobar.
 - Un integrante de la Junta puede tener rol de fontanero en otro acueducto. La pertenencia es por acueducto (membresía).
@@ -28,7 +30,7 @@ Notas:
 |---|---|---|---|
 | `BOARD_ADMIN` | Presidente o administrador de la Junta | Gestiona usuarios, reglas, decisiones, actas y autorizaciones. Tiene todos los permisos de la Junta. | Opcional (recomendado). |
 | `BOARD_MEMBER` | Miembro de la Junta | Crea borradores de reglas, genera y decide propuestas, publica y genera actas. Solo `BOARD_ADMIN` activa las reglas. | No. |
-| `OPERATOR` | Fontanero | Registra lecturas, corrige las suyas, cierra el día. | No. |
+| `OPERATOR` | Fontanero | Registra lecturas, corrige las suyas, cierra el día, opera las llaves (`VALVE_COMMAND_MANUAL`) y usa el asistente. Su pantalla inicial es la escena 3D. | No. |
 | `PROJECT_TEAM` | Equipo del proyecto | Ve evaluación, salud técnica y auditoría; importa historial simulado; registra dispositivos. | Opcional. |
 | `SUPPORT_ENTITY` | Entidad de apoyo | Ve solo resúmenes autorizados y vigentes. | No. |
 
@@ -52,8 +54,8 @@ Sí = el rol tiene el permiso. No = no lo tiene. "Propio" = solo sobre sus propi
 | Permiso | Origen | Acción y endpoints | `BOARD_ADMIN` | `BOARD_MEMBER` | `OPERATOR` | `PROJECT_TEAM` | `SUPPORT_ENTITY` | Público |
 |---|---|---|---|---|---|---|---|---|
 | `USER_MANAGE` | canon | Usuarios y membresías: `GET/POST /users`, `PATCH /users/{id}`, `POST /users/{id}/reset-grants`, `GET/POST/DELETE /memberships` | Sí | No | No | No | No | No |
-| `NETWORK_MANAGE` | propuesto | Tanques, sectores y válvulas: `POST /tanks`, `POST /sectors`, `PATCH /sectors/{id}`, `POST /sectors/{id}/valves`, `PATCH /valves/{id}` | Sí | No | No | No | No | No |
-| `NETWORK_VIEW` | propuesto | Ver tanques, sectores y válvulas: `GET /tanks`, `GET /sectors`, `GET /sectors/{id}/valves` | Sí | Sí | Sí | Sí | No | No |
+| `NETWORK_MANAGE` | propuesto | Tanques, sectores, regiones y válvulas: `POST /tanks`, `POST /sectors`, `PATCH /sectors/{id}`, `POST /sectors/{id}/valves`, `PATCH /valves/{id}`. Una región es un sector raíz (v2). | Sí | No | No | No | No | No |
+| `NETWORK_VIEW` | propuesto | Ver tanques, sectores y válvulas: `GET /tanks`, `GET /sectors`, `GET /sectors/{id}/valves`, y la topología de la escena 3D: `GET /network` | Sí | Sí | Sí | Sí | No | No |
 | `RULESET_VIEW` | propuesto | Ver reglas vigentes e históricas: `GET /rule-sets/current`, `GET /rule-sets`, `GET /rule-sets/{id}` | Sí | Sí | Sí | Sí | No | No |
 | `RULESET_DRAFT` | canon | Crear y editar borradores: `POST /rule-sets`, `PATCH /rule-sets/{id}` (solo borrador) | Sí | Sí (crear y editar borradores) | No | No | No | No |
 | `RULESET_ACTIVATE` | canon | Activar una versión con motivo: `POST /rule-sets/{id}/activate` | Sí | No | No | No | No | No |
@@ -79,23 +81,27 @@ Sí = el rol tiene el permiso. No = no lo tiene. "Propio" = solo sobre sus propi
 | `EVALUATION_VIEW` | canon | Evaluación IA vs simple y salud técnica: `GET /forecast-evaluation` | Sí | No | No | Sí | No | No |
 | `IMPORT_SIMULATED` | canon | Importar historial simulado: `POST /imports/readings`, `POST /imports/shift-executions`, `POST /imports/incidents`. Solo en acueducto demo (regla de objeto). | No | No | No | Sí | No | No |
 | `DEVICE_MANAGE` | canon | Registrar dispositivos y claves: `POST /devices`, `POST /devices/{id}/keys` | Sí | No | No | Sí | No | No |
-| `VALVE_COMMAND_MANUAL` | propuesto | Comando manual de válvula con motivo: `POST /valve-commands/manual` | Sí | No | No | No | No | No |
+| `VALVE_COMMAND_MANUAL` | propuesto | Comando manual de válvula con motivo: `POST /valve-commands/manual`. También sirve para aceptar una recomendación del asistente en modo `ASISTIDO`. Cambio v2: también para `OPERATOR`. | Sí | No | Sí | No | No | No |
+| `AUTOPILOT_CONFIGURE` | propuesto (v2) | Configurar el modo del piloto (`MANUAL`, `ASISTIDO`, `AUTOMATICO`) y sus parámetros (`operator_absence_minutes`, `reserve_floor_pct`). Ruta por definir. | Sí | No | No | No | No | No |
+| `ASSISTANT_USE` | propuesto (v2) | Ver recomendaciones y decisiones del piloto y preguntar al asistente: `POST /assistant/ask`. Lectura de recomendaciones: ruta por definir. | Sí | Sí | Sí | Sí | No | No |
+| `REPORT_VIEW` | propuesto (v2) | Ver reportes del periodo y su narrativa: `GET /reports?from&to`, `POST /reports/narrative` | Sí | Sí | No | Sí | No | No |
 | `AUDIT_VIEW` | canon | Bitácora y eventos de seguridad: `GET /audit-log`, `GET /security-events` | Sí | No | No | Sí | No | No |
 
 Notas de la matriz:
 
 - **Diferencia con los hechos canónicos.** En la sección 9 de los hechos, la fila "Ver horario publicado / reportar daño" marca `SUPPORT_ENTITY` como "No". Esta matriz lo mantiene para el panel autenticado. La vía pública (sin login) está abierta a cualquiera, incluida una entidad. Por definir si la entidad debe tener además una vista de horario dentro del panel.
 - **Comandos de válvula desde turnos aprobados.** La generación de comandos al publicar un horario se ejecuta como acción del sistema, no como permiso de un rol. Por definir cómo se registra en `devices.valve_command_events` y `audit.audit_log` (actor `SYSTEM`).
+- **Comandos del piloto automático (v2).** El actor `AUTOPILOT` no tiene permiso de rol: en modo `AUTOMATICO` crea comandos con `autopilot_decision_id` (origen aceptado junto al turno y la orden manual). En modo `ASISTIDO`, aceptar una recomendación exige `VALVE_COMMAND_MANUAL`; rechazarla solo exige `ASSISTANT_USE`. Los permisos de lectura de reportes y del asistente son nuevos porque `STATUS_VIEW` no cubre la narrativa ni las preguntas.
 - **Permisos de cuenta propia.** `POST /auth/change-password`, `POST /auth/logout`, `POST /auth/logout-all`, `POST /auth/mfa/*`, `POST /privacy-notice/accept`, `GET /auth/current-user`, `GET /meta/constraints`, `GET /catalogs/{catalog}` y `GET /privacy-notice/current` requieren autenticación y no tienen código de permiso.
 
 ### 3.3 Permisos por rol (semilla de `iam.role_permissions`)
 
 | Rol | Permisos |
 |---|---|
-| `BOARD_ADMIN` | Todos, excepto `IMPORT_SIMULATED`. |
-| `BOARD_MEMBER` | `NETWORK_VIEW`, `RULESET_VIEW`, `RULESET_DRAFT`, `READING_VIEW`, `READING_CORRECT`, `STATUS_VIEW`, `FORECAST_RUN`, `ANOMALY_REVIEW`, `PROPOSAL_GENERATE`, `PROPOSAL_VIEW`, `PROPOSAL_DECIDE`, `SCHEDULE_PUBLISH`, `SCHEDULE_VIEW`, `INCIDENT_CREATE`, `INCIDENT_VIEW`, `INCIDENT_MANAGE`, `MINUTES_GENERATE`, `MINUTES_VIEW`, `SUMMARY_VIEW`. |
-| `OPERATOR` | `NETWORK_VIEW`, `RULESET_VIEW`, `READING_CREATE`, `READING_VIEW`, `READING_CORRECT` (propio), `DAY_CLOSE`, `STATUS_VIEW`, `SCHEDULE_VIEW`, `INCIDENT_CREATE`, `INCIDENT_VIEW`. |
-| `PROJECT_TEAM` | `NETWORK_VIEW`, `RULESET_VIEW`, `READING_VIEW`, `STATUS_VIEW`, `SCHEDULE_VIEW`, `INCIDENT_CREATE`, `INCIDENT_VIEW`, `EVALUATION_VIEW`, `IMPORT_SIMULATED`, `DEVICE_MANAGE`, `AUDIT_VIEW`. |
+| `BOARD_ADMIN` | Todos, excepto `IMPORT_SIMULATED` (incluye `AUTOPILOT_CONFIGURE`, `VALVE_COMMAND_MANUAL`, `ASSISTANT_USE` y `REPORT_VIEW`). |
+| `BOARD_MEMBER` | `NETWORK_VIEW`, `RULESET_VIEW`, `RULESET_DRAFT`, `READING_VIEW`, `READING_CORRECT`, `STATUS_VIEW`, `FORECAST_RUN`, `ANOMALY_REVIEW`, `PROPOSAL_GENERATE`, `PROPOSAL_VIEW`, `PROPOSAL_DECIDE`, `SCHEDULE_PUBLISH`, `SCHEDULE_VIEW`, `INCIDENT_CREATE`, `INCIDENT_VIEW`, `INCIDENT_MANAGE`, `MINUTES_GENERATE`, `MINUTES_VIEW`, `SUMMARY_VIEW`, `ASSISTANT_USE`, `REPORT_VIEW`. |
+| `OPERATOR` | `NETWORK_VIEW`, `RULESET_VIEW`, `READING_CREATE`, `READING_VIEW`, `READING_CORRECT` (propio), `DAY_CLOSE`, `STATUS_VIEW`, `SCHEDULE_VIEW`, `INCIDENT_CREATE`, `INCIDENT_VIEW`, `VALVE_COMMAND_MANUAL`, `ASSISTANT_USE`. |
+| `PROJECT_TEAM` | `NETWORK_VIEW`, `RULESET_VIEW`, `READING_VIEW`, `STATUS_VIEW`, `SCHEDULE_VIEW`, `INCIDENT_CREATE`, `INCIDENT_VIEW`, `EVALUATION_VIEW`, `IMPORT_SIMULATED`, `DEVICE_MANAGE`, `AUDIT_VIEW`, `ASSISTANT_USE`, `REPORT_VIEW`. |
 | `SUPPORT_ENTITY` | `SUMMARY_VIEW`. |
 
 El administrador de la Junta tiene todos los permisos de la Junta, pero no `IMPORT_SIMULATED`: la importación es una herramienta del equipo del proyecto.
