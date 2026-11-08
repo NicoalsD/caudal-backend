@@ -17,6 +17,7 @@ Los patrones de diseño (P01 a P23) están en la sección 16 de los hechos canó
 | Anomalía | `anomalies`, `kind` | Sospecha del sistema: `POSSIBLE_LEAK`, `SENSOR_FAULT`, `STALE_DATA`, `SUSPECTED_DUPLICATE`, `ABNORMAL_DROP`. Empieza en `OPEN`, y la Junta la confirma o la descarta. Su estatus epistémico es `INFERRED`. |
 | Append-only | `append-only` | Tabla en la que solo se inserta y se consulta. Nunca se actualiza ni se borra. Así funcionan las lecturas, las correcciones y el historial de estados. |
 | Argon2id | `Argon2PasswordEncoder` | Función de hash de contraseñas diseñada para resistir fuerza bruta. Parámetros en RNF-01. |
+| Asistente | `caudal-ia` (`/v1/insights/*`), `source` | LLM compatible con OpenAI que genera recomendaciones, reportes y respuestas sobre la foto del estado. Por defecto, Gemini Flash en su capa gratuita. Si falla, responde con reglas y plantillas (`source = RULES`). No decide por sí mismo: el backend decide según el modo del piloto. Ver `Modulo-IA.md`, sección 15. |
 | Auditoría | `audit_log`, `audit.audit_log` | Registro de quién hizo qué, cuándo y con qué motivo. Tiene cadena de hashes anclada en `audit.audit_anchors`. |
 | Banda de nivel | `rule_level_bands`, `HIGH`, `LOW`, `CRITICAL` | Rango de nivel del tanque con sus horas de servicio por día (`daily_service_hours`) y si solo atiende lo prioritario (`priority_only`). Las bandas de una regla no se solapan y cubren todo su rango. |
 | Bridge (P07) | `Notice`, `PublicationChannel` | Separa el aviso del canal por donde sale: página pública, WhatsApp o cartel. |
@@ -38,10 +39,11 @@ Los patrones de diseño (P01 a P23) están en la sección 16 de los hechos canó
 | Daño (reporte de) | `incidents`, `DAMAGE_CATEGORY` | Reporte de fuga, tubo roto, falta de agua, agua sucia o falla de válvula. Puede venir del público, del fontanero, de una anomalía o de una importación. |
 | Dato viejo | `stale`, `STALE` | Lectura cuya antigüedad supera el máximo de la regla. La pantalla lo avisa y no lo presenta como actual. |
 | Decorator (P09) | `AuthHttpClient`, `RetryHttpClient`, `LoggingHttpClient`, `AuditingCommandHandler` | Agrega comportamiento a un objeto sin cambiar su clase. Ejemplos: autenticación, reintentos y auditoría. |
-| Dispositivo | `devices`, `device_keys` | Sensor, válvula o puerta de enlace con clave Ed25519. En esta versión solo existe en el simulador. |
+| Dispositivo | `devices`, `device_keys` | Sensor, válvula o puerta de enlace con clave Ed25519. Ya existe la maqueta física (ver Maqueta), además del simulador (ver Maqueta virtual). |
 | Dotación | - | Consumo de agua por persona y por día. Para Guaitarilla se usa la dotación de referencia del RAS 0330 de 2017, para más de 2.000 metros sobre el nivel del mar. Supuesto por verificar. |
 | Duplicado | `DUPLICATE` | Lectura con el mismo valor y el mismo tanque dentro de la ventana de duplicados. Queda marcada, no borrada. |
 | Ed25519 | `Ed25519` | Algoritmo de firma de clave pública. Cada dispositivo firma sus peticiones con su clave privada, y el servidor verifica con la pública. |
+| Escena 3D | `AqueductScene` | Vista principal del fontanero: tanque, tuberías, flujo de agua y llaves que se pueden pulsar, en three.js y a pantalla completa. Los demás roles entran a un dashboard. |
 | Estado del tanque | `tanks/{id}/status`, `TankLevelState` | Último nivel, antigüedad, tendencia y banda del tanque. Las bandas son Alto, Bajo y Crítico. |
 | Estimación simple | `persistence`, `fallback_reason` | Pronóstico de persistencia: "seguirá igual que hoy", con un rango basado en los cambios diarios históricos. Es el respaldo cuando la IA no responde (`is_fallback = true`) y la línea base para evaluar la IA. Corre en sombra junto a la IA con `is_fallback = false` y `fallback_reason = SHADOW_BASELINE`. |
 | Estimado | `ESTIMATED` | Estatus epistémico de lo calculado: pronósticos y horas disponibles. |
@@ -65,14 +67,19 @@ Los patrones de diseño (P01 a P23) están en la sección 16 de los hechos canó
 | Lectura | `readings`, `gauge_value` | Registro de un nivel del tanque tomado por el fontanero (o por un sensor). Guarda la regla pintada, el estado del agua y las notas. |
 | Límite de tasa | `rate limit`, `Bucket4j` | Número máximo de peticiones por unidad de tiempo, por IP, usuario, dispositivo o acueducto. Ver RNF-03. |
 | MAE | `mae` | Error absoluto medio: promedio de la diferencia entre el valor pronosticado y el real. Se calcula sobre el p50. |
+| Maqueta | `caudal-maqueta` | Modelo físico a escala del acueducto: 1 tanque de unos 20 L con su reservorio, sensores de nivel y de caudal, y 2 electroválvulas de salida. Firmware con PlatformIO, Arduino y Wi-Fi; firma Ed25519 como el resto de dispositivos. |
+| Maqueta virtual | `caudal-simulador` (dispositivo simulado) | Dispositivo simulado con la misma maqueta en software. Usa el protocolo HTTP firmado: envía telemetría, consulta `GET /devices/commands` y responde con el ack. Permite probar el lazo cerrado sin hardware. |
 | Mediator (P15) | `ProposalEditorMediator` | Coordina varios componentes de un formulario y valida reglas entre ellos. Ejemplo: el total de horas contra las horas de la banda. |
 | Membresía | `memberships`, `iam.memberships` | Vínculo entre un usuario y un acueducto, con un rol y una vigencia (`valid_from`, `valid_to`). Sin membresía vigente no hay permisos. |
 | Memento (P16) | `ProposalMemento`, `SimulationSnapshot` | Guarda el estado de un objeto para poder restaurarlo. En CAUDAL guarda la propuesta original antes de los cambios de la Junta. |
 | MFA (TOTP) | `mfa_factors`, `mfa_recovery_codes` | Segundo factor de autenticación con códigos de 6 dígitos que cambian cada 30 segundos. Opcional para la Junta administradora y el equipo. |
+| Modo del piloto | `org.autopilot_settings`, `mode` (`MANUAL`, `ASSISTED`, `AUTOMATIC`) | Nivel de automatización de un acueducto. MANUAL solo muestra recomendaciones; ASSISTED exige un clic del operario; AUTOMATIC ejecuta la recomendación si el operario no actúa en `operator_absence_minutes`. Lo configura BOARD_ADMIN con el permiso `AUTOPILOT_CONFIGURE`. |
 | Nonce | `X-Nonce`, `device_nonces` | Número usado una sola vez. Impide reenviar una petición firmada. CAUDAL lo exige en 128 bits en hexadecimal y lo recuerda 10 minutos. |
 | Observado | `OBSERVED` | Estatus epistémico de lo que se vio directamente: lecturas y reportes de la comunidad. |
 | Observer (P17) | `DomainEventPublisher`, `SyncQueueStore`, `ConnectivityMonitor` | Notifica cambios a quien se suscribe. Ejemplos: los eventos `HorarioPublicado` y `ReglasActivadas`. |
-| Offline (sin conexión) | `OfflineDatabase`, `SubmitReadingCommand` | Modo en el que la app guarda acciones en el celular y las envía después. Ver RNF-14. |
+| Offline (sin conexión) | `OfflineDatabase`, `SubmitReadingCommand` | Modo en el que la app guarda acciones en el celular y las envía después. Ver RNF-14. Desde la v2 es de baja prioridad (ver RG-01 en `Riesgos.md`). |
+| Piloto automático | `application/autopilot/`, `AUTOPILOT` | Componente del backend que decide qué llaves abrir o cerrar, según la recomendación del asistente y el modo del acueducto. Tiene dos guardas: el piso de reserva y la prioridad humana. Su origen en los comandos es `AUTOPILOT`. |
+| Piso de reserva | `reserve_floor_pct` | Nivel mínimo que el piloto nunca deja bajar con una maniobra automática. Es la guarda más fuerte del piloto; se configura en ajustes del piloto. |
 | Prioritario | `priority_only`, `PRIORITY_SECTOR` | Sector que recibe agua aunque el tanque esté en banda crítica (por ejemplo, la escuela). Su orden se fija en la regla. |
 | Pronóstico | `forecast_runs`, `forecast_points`, `GET /tanks/{id}/forecasts/latest` | Estimación del nivel del tanque para 1 a 3 días, con p10, p50 y p90. Puede venir de la IA o de la estimación simple. |
 | Propuesta | `schedule_proposals` | Conjunto de turnos calculado por el sistema, pendiente de la decisión de la Junta. Nace en `PENDING_REVIEW` (`DRAFT` es interno). Sus estados son `DRAFT`, `PENDING_REVIEW`, `APPROVED`, `APPROVED_WITH_CHANGES`, `REJECTED`, `PUBLISHED` y `CLOSED`. Los sectores sin turno quedan en `unserved_sectors` con su motivo. |
@@ -80,7 +87,9 @@ Los patrones de diseño (P01 a P23) están en la sección 16 de los hechos canó
 | Proxy (P11) | `PublicScheduleProxy`, `RemoteForecasterProxy` | Controla el acceso a otro objeto. `PublicScheduleProxy` quita datos personales; `RemoteForecasterProxy` decide entre la IA y el respaldo. |
 | Publicación | `publications`, `POST /schedule-proposals/{id}/publish` | Acto por el que un horario aprobado pasa a verse en la página pública. Solo se publica lo aprobado. |
 | RBAC | `roles`, `permissions`, `role_permissions` | Control de acceso basado en roles. Los permisos se asignan a los roles en la base de datos, y el código verifica códigos de permiso. |
+| Recomendación | `recommendations`, `action`, `confidence` | Propuesta del asistente para una llave: `action` (`OPEN`, `CLOSE`, `WAIT` o `INSPECT`), `valve_id` cuando aplica, `reason` y `confidence`. Cada recomendación que el piloto usa queda en `ops.autopilot_decisions`. |
 | Refresh token | `refresh_tokens`, `token_hash`, `revoked_reason` | Credencial opaca de larga duración (7 días, o 30 para `OPERATOR`) que sirve para obtener un nuevo access token. Rota en cada uso y se guarda su hash SHA-256. |
+| Región | `parent_sector_id` | Sector raíz del árbol de racionamiento. Agrupa sectores y llaves. Se reusa la estructura de sectores anidados y se edita en un formulario de árbol simple. |
 | Regla | `rule_sets`, `rule_sector_settings` | Conjunto de parámetros que define la Junta: rango del tanque, bandas, reserva, horario, sectores prioritarios, orden de válvulas y límites de turnos. Tiene versiones; solo una está `ACTIVE`. |
 | Regla pintada | `gauge_value`, `gauge_min`, `gauge_max` | Escala de números pintada en el tanque. El fontanero anota el número que ve. En la semilla, la regla va de 0 a 5. También se llama limnimétrica. |
 | Reserva | `reserve_level`, `reserve_policy`, `RESERVE_GUARD` | Nivel mínimo que el tanque debe conservar. Si el p10 del pronóstico del día cae por debajo, se aplica `reserve_policy`: `NONE`, `REDUCE_TO_CRITICAL_BAND` (por defecto) o `PRIORITY_ONLY`. |
