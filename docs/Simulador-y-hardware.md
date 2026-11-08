@@ -1,6 +1,8 @@
-# Simulador y hardware real
+# Simulador, maqueta y hardware real
 
-Este documento propone el hardware de campo que CAUDAL usaría en el acueducto real y explica cómo `caudal-simulador` representa cada pieza. **El hardware no se construye en el MVP.** Todo lo que aquí aparece es una propuesta documentada, con valores de referencia que deben verificarse con fichas técnicas y proveedores locales antes de cualquier compra.
+Este documento propone el hardware de campo que CAUDAL usaría en el acueducto real, explica cómo `caudal-simulador` representa cada pieza y describe la **maqueta física** (`caudal-maqueta`) que sí se construye (sección 8) junto con la maqueta virtual del simulador (sección 9). El hardware de campo (secciones 1 a 7) sigue siendo una propuesta documentada, con valores de referencia que deben verificarse con fichas técnicas y proveedores locales antes de cualquier compra.
+
+> Cambio de alcance v2 (2026-11-07): antes el hardware no se construía. Ahora se construye una maqueta de laboratorio: 1 tanque, sensores y 2 tuberías de salida, con ESP32 por Wi-Fi y el mismo protocolo firmado. Las limitaciones de campo ya no son un motivo de diseño.
 
 ![Hardware propuesto](images/hardware-propuesto.png)
 
@@ -8,15 +10,15 @@ Este documento propone el hardware de campo que CAUDAL usaría en el acueducto r
 
 ## 1. Alcance y fases de adopción
 
-El sistema se adopta en tres fases. Cada fase agrega una capacidad sin depender de la siguiente.
+El hardware de campo se adopta en tres fases. Cada fase agrega una capacidad sin depender de la siguiente. La maqueta (sección 8) valida la fase C en laboratorio antes de cualquier instalación real.
 
 | Fase | Nombre | Qué incluye | Qué no incluye | Condición para pasar a la siguiente |
 |---|---|---|---|---|
 | **A** | App manual | Fontanero registra lecturas en el celular (cola offline). Válvulas se operan a mano. El sistema calcula, la Junta aprueba y publica. | Sensores y válvulas electrónicas. | Operación estable durante un ciclo de racionamiento completo (duración por definir). |
 | **B** | Telemetría de nivel | Sensor sumergido, nodo ESP32-S3, radio LoRa y gateway. Telemetría de `LEVEL`, `BATTERY_V` y `RSSI` que genera lecturas automáticas. | Actuación de válvulas. El fontanero sigue confirmando. | Datos de telemetría con continuidad aceptable y lecturas automáticas consistentes con las del fontanero (criterio por definir). |
-| **C** | Actuación de válvulas | Válvulas de bola motorizadas con finales de carrera, comandos firmados desde turnos aprobados, acuse de recibo y bypass manual. Piloto en un sector. | Automatización sin aprobación. | Piloto sin incidentes de seguridad y con aprobación formal de la Junta (acta). |
+| **C** | Actuación de válvulas | Válvulas de bola motorizadas con finales de carrera, comandos firmados (de turnos aprobados, manuales con motivo o del piloto automático), acuse de recibo y bypass manual. Piloto en un sector. | Nada fuera de las guardas del piloto. | Piloto sin incidentes de seguridad y con aprobación formal de la Junta (acta). |
 
-> **Regla de la fase C:** el sistema nunca mueve una válvula sin un turno aprobado por la Junta o un comando manual con motivo firmado por `BOARD_ADMIN`. No existe modo automático.
+> **Regla de la fase C (v2):** el sistema mueve una válvula solo con un comando firmado que tenga un origen registrado: un turno aprobado por la Junta, un comando manual con motivo (`BOARD_ADMIN` u `OPERATOR`, permiso `VALVE_COMMAND_MANUAL`) o una decisión del piloto automático (`autopilot_decision_id`). El piloto automático existe en tres modos por acueducto (`MANUAL`, `ASISTIDO`, `AUTOMATICO`) que configura `BOARD_ADMIN` con `AUTOPILOT_CONFIGURE`. En `AUTOMATICO` nunca baja del piso de reserva (`reserve_floor_pct`) y cualquier acción manual lo pausa.
 
 ## 2. Arquitectura del nodo de campo
 
@@ -63,9 +65,9 @@ Un nodo de campo cubre un tanque o una válvula. Todos los componentes son propu
 
 | Opción | Ventajas | Desventajas | Uso propuesto |
 |---|---|---|---|
-| **LoRa 915 MHz** punto a punto hacia un gateway con internet | Bajo consumo. Alcance de kilómetros según el terreno. Sin plan mensual por dispositivo. | Requiere un gateway con internet y línea de vista razonable. Banda y potencia máxima: **verificar el plan regional vigente en Colombia**. | Opción principal. |
+| **LoRa 915 MHz** punto a punto hacia un gateway con internet | Bajo consumo. Alcance de kilómetros según el terreno. Sin plan mensual por dispositivo. | Requiere un gateway con internet y línea de vista razonable. Banda y potencia máxima: **verificar el plan regional vigente en Colombia**. | Propuesta para el campo real (no se construye en esta versión). |
 | **LTE Cat-1** (SIM7600 o A7670) | Sin gateway propio. Cobertura directa donde haya señal. | Costo mensual por SIM. Mayor consumo, que la energía solar debe cubrir. | Alternativa si la vereda tiene cobertura celular estable. |
-| **Wi-Fi** | Alto ancho de banda y sin costo de radio. | No hay red de acceso confiable en las veredas (verificar en cada punto). | Descartado para el campo. Válido solo en pruebas de laboratorio. |
+| **Wi-Fi** | Alto ancho de banda y sin costo de radio. | No hay red de acceso confiable en las veredas (verificar en cada punto). | **Aceptado para la maqueta** (sección 8). Para el campo real queda descartado por ahora. |
 
 - El gateway hace de puente entre LoRa y la API. Su ubicación depende de la línea de vista desde los nodos (por definir).
 - Sin señal de ningún tipo, el nodo guarda los puntos y los envía cuando vuelve la conexión. Esto replica el comportamiento de la cola offline del fontanero.
@@ -206,15 +208,16 @@ La elección de `fail_safe_position` por válvula es una decisión de la Junta y
 
 ### 5.4 Reglas de operación
 
-- **Nunca automatizar sin aprobación de la Junta.** Ninguna anomalía, pronóstico o lectura dispara una maniobra por sí sola.
-- El sistema solo propone; la Junta aprueba; el dispositivo ejecuta el comando dentro de su ventana.
+- **Toda maniobra automática pasa por el piloto y sus guardas.** La Junta configura el modo por acueducto. Ninguna anomalía, pronóstico o lectura mueve una válvula por sí sola: solo lo hace una decisión del piloto en `AUTOMATICO`, registrada en `ops.autopilot_decisions`.
+- Las dos guardas del piloto son el piso de reserva (`reserve_floor_pct`) y la prioridad humana (cualquier acción manual pausa el piloto).
+- El dispositivo nunca decide solo: ejecuta el comando firmado dentro de su ventana y, si pierde contacto, aplica `fail_safe_position`.
 - El bypass manual siempre está disponible y no depende del sistema.
 - Cada maniobra queda registrada con su resultado.
-- Las pruebas de la fase C se hacen primero en un banco de pruebas sin agua, y después en un sector piloto.
+- Las pruebas de la fase C se hacen primero en la maqueta (banco sin agua y luego lazo cerrado, sección 8.6) y después, si se decide, en un sector piloto.
 
 ## 6. Firmware futuro
 
-El firmware se escribe en **C++ con PlatformIO** para el ESP32-S3. Usa los mismos patrones del simulador, para que el comportamiento sea el mismo en el simulador y en el hardware.
+El firmware se escribe en **C++ con PlatformIO** para el ESP32-S3 (campo). El firmware de la maqueta (sección 8.5) comparte la misma estructura sobre un ESP32 por Wi-Fi. Usa los mismos patrones del simulador, para que el comportamiento sea el mismo en el simulador y en el hardware.
 
 | Patrón | Clase en firmware (propuesta) | Uso |
 |---|---|---|
@@ -257,5 +260,108 @@ Notas:
 
 - La tabla no pretende reproducir la electrónica. Reproduce el comportamiento observable que el sistema consume: lecturas, posiciones, fallas y tiempos.
 - Los parámetros de cada componente (ruido, tiempo de recorrido, tasa de caídas) salen de la ficha técnica real y se guardan en el YAML del escenario.
+
+## 8. Maqueta física (`caudal-maqueta`)
+
+La maqueta es un acueducto a escala de laboratorio: **1 tanque, sus sensores y 2 tuberías de salida**. Cierra el lazo completo con el backend: telemetría firmada, comando de llave, ejecución y ack. Repositorio nuevo `caudal-maqueta` (PlatformIO + ESP32, Wi-Fi, mismo protocolo HTTP firmado con Ed25519 de [Protocolo-de-dispositivos.md](Protocolo-de-dispositivos.md)). Responsable: nicomora70.
+
+### 8.1 Lista de materiales (BOM)
+
+Referencias a verificar con fichas técnicas y proveedores antes de comprar. Sin precios.
+
+| Cantidad | Componente | Función | Nota de verificación |
+|---|---|---|---|
+| 1 | Tanque transparente de ~20 L (acrílico o plástico) | Tanque de almacenamiento de la maqueta. | Verificar altura útil y que admita las entradas y salidas. |
+| 1 | Reservorio inferior | Recibe las dos salidas y alimenta la bomba. | Debe contener todo el volumen del lazo sin desbordar. |
+| 1 | Bomba de 12 V | Sube el agua del reservorio a la entrada del tanque. | Verificar caudal, altura de elevación y corriente. |
+| 1 | Interruptor de flotador de corte de bomba | Corta la bomba por hardware con el tanque lleno. | Va en serie con la bomba, independiente del firmware. |
+| 1 | ESP32 (DevKit o S3) | Controla, mide, firma y habla con el backend. | Verificar pines disponibles y que soporte Wi-Fi 2,4 GHz. |
+| 1 | Sensor ultrasónico JSN-SR04T | Mide el nivel del tanque. | **Zona ciega de ~20 cm:** verificar contra la altura del tanque. Si no alcanza, usar un sensor de presión. |
+| 2 | Electroválvulas de 12 V normalmente cerradas (NC), de **acción directa (presión cero)** | Una por tubería de salida. | Las pilotadas no abren con la poca cabeza de una maqueta por gravedad. Alternativa: válvulas de bola motorizadas. |
+| 2 | Caudalímetro YF-S201 | Uno por salida. | Verificar el rango de caudal y el factor de calibración (pulsos por litro). Opcional uno más en la entrada. |
+| 2 | Relé o MOSFET con diodo flyback | Maniobra cada electroválvula (y la bomba, si se decide). | Diodo flyback en toda carga inductiva. Verificar corriente. |
+| 1 | Fuente de 12 V | Alimenta válvulas y bomba. | Verificar corriente total. |
+| 1 | Convertidor DC-DC de 12 V a 5 V | Alimenta el ESP32 y el sensor. | Verificar corriente. |
+| 2 | Interruptores de flotador de nivel alto y bajo | Respaldo del sensor de nivel. | Entradas digitales del ESP32. |
+| Según diseño | Mangueras, racores, fusible y cableado | Conexión hidráulica y eléctrica. | Fusible en la línea de 12 V. |
+
+### 8.2 Diagrama de conexiones (referencia)
+
+![Conexiones de la maqueta](images/maqueta-conexiones.png)
+
+Los pines son una referencia. **Verificar contra la placa elegida** antes de cablear (pines solo de entrada, de arranque y ADC2 con Wi-Fi).
+
+```text
+Fuente 12 V ---+--[fusible]--+--> Relé/MOSFET V1 --> Electroválvula 1 (+ diodo flyback)
+               |             +--> Relé/MOSFET V2 --> Electroválvula 2 (+ diodo flyback)
+               |             +--> [flotador de corte] --> Bomba 12 V
+               +--> DC-DC 5 V --> ESP32 (5V/VIN) y JSN-SR04T
+
+ESP32 (pines de referencia, verificar)
+  GPIO 25 -> mando relé/MOSFET V1
+  GPIO 26 -> mando relé/MOSFET V2
+  GPIO 27 -> JSN-SR04T TRIG
+  GPIO 34 <- JSN-SR04T ECHO (divisor de tensión 5 V a 3,3 V)
+  GPIO 32 <- YF-S201 salida 1 (pulsos, interrupción)
+  GPIO 33 <- YF-S201 salida 2 (pulsos, interrupción)
+  GPIO 18 <- flotador nivel alto (con pull-up)
+  GPIO 19 <- flotador nivel bajo (con pull-up)
+  GND común entre fuente, DC-DC, ESP32 y módulos
+```
+
+### 8.3 Lazo cerrado
+
+```text
+Tanque --> salida 1 (electroválvula 1, YF-S201) --+
+       \-> salida 2 (electroválvula 2, YF-S201) --+--> Reservorio --> Bomba 12 V --> Entrada del tanque
+```
+
+El agua sale del tanque por las dos tuberías (por gravedad, con `Q` que baja con el nivel), cae al reservorio, la bomba la sube y entra de nuevo al tanque. El volumen total es constante y no hay consumo de agua nueva.
+
+### 8.4 Interlocks por hardware
+
+Estos cortes no dependen del firmware ni del backend:
+
+- **Flotador de corte de la bomba:** con el tanque lleno corta la bomba, aunque el ESP32 falle.
+- **Flotador de nivel bajo:** respaldo para no dejar la bomba en seco (por definir si corta la bomba o solo avisa).
+- **Electroválvulas NC:** sin energía quedan cerradas.
+- **Diodo flyback** en cada carga inductiva y **fusible** en la línea de 12 V.
+- Los flotadores alto y bajo también se leen por GPIO como respaldo del ultrasónico.
+
+### 8.5 Firmware
+
+- **PlatformIO** con Arduino sobre ESP32.
+- **Wi-Fi** y HTTPS al backend. Las credenciales de red y la clave del dispositivo no van en el repositorio.
+- **Firma Ed25519** con **Monocypher**, con el protocolo de [Protocolo-de-dispositivos.md](Protocolo-de-dispositivos.md).
+- **Telemetría** (nivel, caudal por salida, posición de cada llave) y **polling de comandos** (`GET /devices/commands`) cada ~1 s. Cada ejecución se confirma con el ack.
+- La posición reportada sale del estado real de la llave, no de la orden enviada.
+- **`fail_safe_position`:** si pierde contacto con el backend, aplica la posición segura de cada válvula (`KEEP`, `OPEN` o `CLOSED`). No decide nada más por su cuenta.
+- Los comandos vencidos (`expires_at`) se descartan.
+
+### 8.6 Pruebas de banco
+
+Primero sin agua y luego con agua:
+
+1. **Llaves:** abrir y cerrar cada electroválvula con un comando firmado y ver el ack y la posición reportada.
+2. **Nivel:** comparar la lectura del JSN-SR04T con una regla en el tanque y revisar la zona ciega.
+3. **Caudal:** medir un volumen conocido y calibrar los pulsos por litro de cada YF-S201.
+4. **Flotador de corte:** llenar el tanque y comprobar que la bomba se corta sin intervención del firmware.
+5. **Pérdida de contacto:** apagar el Wi-Fi y comprobar que se aplica `fail_safe_position`.
+6. **Corrida completa:** lazo cerrado con el piloto en `AUTOMATICO` (nivel bajo y operario ausente: comando del piloto, ack, decisión auditada).
+
+### 8.7 Relación con el modelo físico
+
+La maqueta es la contraparte real del modelo de [Estudio-llenado-de-tanques.md](Estudio-llenado-de-tanques.md): `dV/dt = Q_in − Σ Q_sector − Q_rebose − Q_fugas`, con salida por orificio `Q = Cd·A·√(2gh)`. El caudal de cada salida baja con el nivel, y con ello la escena 3D y la maqueta virtual deben coincidir. En la maqueta `Q_in` lo da la bomba y `Q_rebose` y `Q_fugas` deben ser cero. Los valores de `Cd`, de área de orificio y de la curva de la bomba están por definir y se miden en las pruebas de banco.
+
+## 9. Maqueta virtual (`caudal-simulador`)
+
+El simulador incluye una **maqueta virtual**: un dispositivo firmado con 1 tanque, 2 salidas, sensor de nivel y sensor de caudal por salida. Habla con el backend por el **mismo protocolo HTTP Ed25519** que la maqueta física:
+
+- Envía telemetría cada ~1 s.
+- Consulta `GET /devices/commands` cada ~1 s.
+- Ejecuta la orden en su modelo de masa, con `Q ∝ √h`.
+- Responde con `POST .../ack`.
+
+Así la escena 3D y el piloto automático se construyen y se prueban sin el hardware. El escenario se define en `maqueta.yaml` y se corre con `caudal-sim live --scenario maqueta`. Antes el simulador modelaba las válvulas por dentro y no llamaba a los comandos ni al ack; ahora cierra el lazo con el backend.
 
 Relacionados: [Datos-simulados.md](Datos-simulados.md), [Modulo-IA.md](Modulo-IA.md), [Stack-tecnologico.md](Stack-tecnologico.md), [Roles-y-planeacion.md](Roles-y-planeacion.md)
