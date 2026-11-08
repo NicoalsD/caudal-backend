@@ -310,42 +310,42 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| B198 | `feat: crea ops.autopilot_decisions en la migración V54` | `Drako2305` | HU-41, HU-42 | - | [ ] |
-| B199 | `feat: agrega autopilot_decision_id a los comandos de llave` | `Drako2305` | HU-42 | - | [ ] |
-| B200 | `feat: exige un solo origen por comando en V54` | `Drako2305` | HU-36, HU-42 | - | [ ] |
-| B201 | `test: ajusta la prueba de integración de comandos a tres orígenes` | `Drako2305` | HU-36 | - | [ ] |
-| B202 | `feat: crea ops.autopilot_settings con modo y piso de reserva` | `Drako2305` | HU-40 | - | [ ] |
-| B203 | `feat: agrega permisos del piloto y del asistente en V55` | `Drako2305` | HU-40, HU-43 | - | [ ] |
-| B204 | `feat: da VALVE_COMMAND_MANUAL al rol OPERATOR en V55` | `Drako2305` | HU-46 | - | [ ] |
-| B205 | `feat: modela los modos MANUAL, ASSISTED y AUTOMATIC` | `Drako2305` | HU-40 | P18 | [ ] |
-| B206 | `feat: agrega la entidad AutopilotSettings con validación` | `Drako2305` | HU-40 | - | [ ] |
-| B207 | `feat: implementa la guarda del piso de reserva` | `Drako2305` | HU-42 | P19 | [ ] |
-| B208 | `feat: pausa el piloto ante cualquier acción manual` | `Drako2305` | HU-42 | P17 | [ ] |
-| B209 | `feat: decide la acción del piloto según el modo con Strategy` | `Drako2305` | HU-42 | P19 | [ ] |
-| B210 | `feat: registra cada decisión del piloto con su origen y resultado` | `Drako2305` | HU-41, HU-42 | - | [ ] |
-| B211 | `feat: agrega el cliente de insights con circuit breaker` | `Drako2305` | HU-41, HU-43 | P18 | [ ] |
-| B212 | `feat: reusa infrastructure/forecast para llamar a /v1/insights` | `Drako2305` | HU-41 | P06 | [ ] |
-| B213 | `feat: cae a reglas deterministas si el cliente de insights falla` | `Drako2305` | HU-41, HU-43 | P18 | [ ] |
-| B214 | `feat: agrega el planificador del piloto con operator_absence_minutes` | `Drako2305` | HU-42 | - | [ ] |
-| B215 | `feat: ejecuta llaves del piloto en AUTOMATIC por el CommandBus` | `Drako2305` | HU-42 | P13 | [ ] |
-| B216 | `feat: configura el modo en PUT /api/v1/autopilot/settings` | `Drako2305` | HU-40 | - | [ ] |
-| B217 | `feat: consulta el modo en GET /api/v1/autopilot/settings` | `Drako2305` | HU-40 | - | [ ] |
-| B218 | `feat: lista recomendaciones en GET /api/v1/autopilot/recommendations` | `Drako2305` | HU-41 | - | [ ] |
-| B219 | `feat: acepta una recomendación y emite el comando de llave` | `Drako2305` | HU-41 | P13 | [ ] |
-| B220 | `feat: rechaza una recomendación con motivo` | `Drako2305` | HU-41 | - | [ ] |
-| B221 | `feat: consulta decisiones en GET /api/v1/autopilot/decisions` | `Drako2305` | HU-41, HU-42 | - | [ ] |
-| B222 | `feat: responde preguntas en POST /api/v1/assistant/ask` | `Drako2305` | HU-43 | P10 | [ ] |
-| B223 | `feat: arma datos del periodo en GET /api/v1/reports` | `Drako2305` | HU-44 | - | [ ] |
-| B224 | `feat: pide el texto en POST /api/v1/reports/narrative` | `Drako2305` | HU-44 | P06 | [ ] |
-| B225 | `feat: permite crear y editar regiones como sectores raíz` | `Drako2305` | HU-50 | P08 | [ ] |
-| B226 | `feat: valida el árbol de regiones sin ciclos ni huérfanos` | `Drako2305` | HU-50 | P08 | [ ] |
-| B227 | `test: cubre piso de reserva y prioridad humana del piloto` | `Drako2305` | HU-42 | - | [ ] |
-| B228 | `test: verifica permisos nuevos y aislamiento RLS de decisiones` | `Drako2305` | HU-40, HU-41 | - | [ ] |
-| B229 | `test: cubre el circuit breaker y el respaldo del asistente` | `Drako2305` | HU-43 | P18 | [ ] |
-| B230 | `docs: documenta los endpoints v2 en Swagger y API.md` | `NicoalsD` | HU-40, HU-44 | - | [ ] |
-| B231 | `docs: agrega el diagrama de secuencia del piloto automático` | `NicoalsD` | HU-42 | - | [ ] |
+| B198 | `feat: crea ops.autopilot_decisions en la migración V54` | `Drako2305` | HU-41, HU-42 | - | [x] |
+| B199 | `feat: agrega autopilot_decision_id a los comandos de llave` | `Drako2305` | HU-42 | - | [x] |
+| B200 | `feat: exige un solo origen por comando en V54` | `Drako2305` | HU-36, HU-42 | - | [x] |
+| B201 | `test: ajusta la prueba de integración de comandos a tres orígenes` | `Drako2305` | HU-36 | - | [x] |
+| B202 | `feat: crea ops.autopilot_settings con modo y piso de reserva` | `Drako2305` | HU-40 | - | [x] |
+| B203 | `feat: agrega permisos del piloto y del asistente en V55` | `Drako2305` | HU-40, HU-43 | - | [x] |
+| B204 | `feat: da VALVE_COMMAND_MANUAL al rol OPERATOR en V55` | `Drako2305` | HU-46 | - | [x] |
+| B205 | `feat: modela los modos MANUAL, ASSISTED y AUTOMATIC` | `Drako2305` | HU-40 | P18 | [x] |
+| B206 | `feat: agrega la entidad AutopilotSettings con validación` | `Drako2305` | HU-40 | - | [x] |
+| B207 | `feat: implementa la guarda del piso de reserva` | `Drako2305` | HU-42 | P19 | [x] |
+| B208 | `feat: pausa el piloto ante cualquier acción manual` | `Drako2305` | HU-42 | P17 | [x] |
+| B209 | `feat: decide la acción del piloto según el modo con Strategy` | `Drako2305` | HU-42 | P19 | [x] |
+| B210 | `feat: registra cada decisión del piloto con su origen y resultado` | `Drako2305` | HU-41, HU-42 | - | [x] |
+| B211 | `feat: agrega el cliente de insights con circuit breaker` | `Drako2305` | HU-41, HU-43 | P18 | [x] |
+| B212 | `feat: reusa infrastructure/forecast para llamar a /v1/insights` | `Drako2305` | HU-41 | P06 | [x] |
+| B213 | `feat: cae a reglas deterministas si el cliente de insights falla` | `Drako2305` | HU-41, HU-43 | P18 | [x] |
+| B214 | `feat: agrega el planificador del piloto con operator_absence_minutes` | `Drako2305` | HU-42 | - | [x] |
+| B215 | `feat: ejecuta llaves del piloto en AUTOMATIC por el CommandBus` | `Drako2305` | HU-42 | P13 | [x] |
+| B216 | `feat: configura el modo en PUT /api/v1/autopilot/settings` | `Drako2305` | HU-40 | - | [x] |
+| B217 | `feat: consulta el modo en GET /api/v1/autopilot/settings` | `Drako2305` | HU-40 | - | [x] |
+| B218 | `feat: lista recomendaciones en GET /api/v1/autopilot/recommendations` | `Drako2305` | HU-41 | - | [x] |
+| B219 | `feat: acepta una recomendación y emite el comando de llave` | `Drako2305` | HU-41 | P13 | [x] |
+| B220 | `feat: rechaza una recomendación con motivo` | `Drako2305` | HU-41 | - | [x] |
+| B221 | `feat: consulta decisiones en GET /api/v1/autopilot/decisions` | `Drako2305` | HU-41, HU-42 | - | [x] |
+| B222 | `feat: responde preguntas en POST /api/v1/assistant/ask` | `Drako2305` | HU-43 | P10 | [x] |
+| B223 | `feat: arma datos del periodo en GET /api/v1/reports` | `Drako2305` | HU-44 | - | [x] |
+| B224 | `feat: pide el texto en POST /api/v1/reports/narrative` | `Drako2305` | HU-44 | P06 | [x] |
+| B225 | `feat: permite crear y editar regiones como sectores raíz` | `Drako2305` | HU-50 | P08 | [x] |
+| B226 | `feat: valida el árbol de regiones sin ciclos ni huérfanos` | `Drako2305` | HU-50 | P08 | [x] |
+| B227 | `test: cubre piso de reserva y prioridad humana del piloto` | `Drako2305` | HU-42 | - | [x] |
+| B228 | `test: verifica permisos nuevos y aislamiento RLS de decisiones` | `Drako2305` | HU-40, HU-41 | - | [x] |
+| B229 | `test: cubre el circuit breaker y el respaldo del asistente` | `Drako2305` | HU-43 | P18 | [x] |
+| B230 | `docs: documenta los endpoints v2 en Swagger y API.md` | `NicoalsD` | HU-40, HU-44 | - | [x] |
+| B231 | `docs: agrega el diagrama de secuencia del piloto automático` | `NicoalsD` | HU-42 | - | [x] |
 | B232 | `docs: agrega el diagrama de secuencia de aceptar una recomendación` | `NicoalsD` | HU-41 | - | [ ] |
-| B233 | `docs: documenta las migraciones V54 y V55` | `NicoalsD` | HU-40 | - | [ ] |
+| B233 | `docs: documenta las migraciones V54 y V55` | `NicoalsD` | HU-40 | - | [x] |
 
 ## `caudal-frontend`
 
@@ -512,42 +512,42 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| F100 | `refactor: libera el ancho completo del layout` | `NicoalsD` | HU-45 | - | [ ] |
-| F101 | `build: agrega three.js sin restricción de escritorio` | `NicoalsD` | HU-45 | - | [ ] |
-| F102 | `feat: crea el lienzo AqueductScene con cámara y luces` | `NicoalsD` | HU-45 | - | [ ] |
-| F103 | `feat: dibuja el tanque con nivel de agua animado` | `NicoalsD` | HU-45 | - | [ ] |
-| F104 | `feat: dibuja la entrada y el rebose del tanque` | `NicoalsD` | HU-45 | - | [ ] |
-| F105 | `feat: dibuja las tuberías de salida` | `NicoalsD` | HU-45 | - | [ ] |
-| F106 | `feat: anima partículas de flujo según el caudal` | `NicoalsD` | HU-45 | - | [ ] |
-| F107 | `feat: dibuja las llaves como objetos 3D` | `NicoalsD` | HU-46 | - | [ ] |
-| F108 | `feat: detecta clics en las llaves con raycast` | `NicoalsD` | HU-46 | - | [ ] |
-| F109 | `feat: agrega etiquetas CSS2D con nivel y caudal` | `NicoalsD` | HU-45 | - | [ ] |
-| F110 | `feat: agrega useLiveAqueduct con polling cada 2 s` | `NicoalsD` | HU-45 | P17 | [ ] |
-| F111 | `feat: agrega el panel de control de llaves` | `NicoalsD` | HU-46 | - | [ ] |
-| F112 | `feat: muestra el estado del comando de la llave` | `NicoalsD` | HU-46 | P18 | [ ] |
-| F113 | `feat: envía el comando de llave con VALVE_COMMAND_MANUAL` | `NicoalsD` | HU-46 | P13 | [ ] |
-| F114 | `feat: agrega el selector de modo del piloto` | `NicoalsD` | HU-40 | - | [ ] |
-| F115 | `feat: agrega los ajustes del piloto para la Junta` | `NicoalsD` | HU-40 | - | [ ] |
-| F116 | `feat: agrega el panel del asistente con recomendaciones` | `NicoalsD` | HU-41 | - | [ ] |
-| F117 | `feat: acepta y rechaza recomendaciones desde el panel` | `NicoalsD` | HU-41 | - | [ ] |
-| F118 | `feat: agrega el cuadro para preguntar al asistente` | `NicoalsD` | HU-43 | - | [ ] |
-| F119 | `feat: muestra el historial de decisiones del piloto` | `NicoalsD` | HU-42 | - | [ ] |
-| F120 | `feat: pone la escena 3D como inicio del fontanero` | `NicoalsD` | HU-45, HU-47 | - | [ ] |
-| F121 | `feat: agrega el dashboard de la Junta` | `NicoalsD` | HU-47 | - | [ ] |
-| F122 | `feat: agrega el dashboard del equipo` | `NicoalsD` | HU-47 | - | [ ] |
-| F123 | `feat: agrega el dashboard de la entidad` | `NicoalsD` | HU-47 | - | [ ] |
-| F124 | `feat: redirige cada rol a su inicio` | `NicoalsD` | HU-47 | - | [ ] |
-| F125 | `feat: agrega el editor de regiones en árbol` | `NicoalsD` | HU-50 | - | [ ] |
-| F126 | `feat: crea, mueve y renombra regiones desde el árbol` | `NicoalsD` | HU-50 | - | [ ] |
-| F127 | `feat: agrega la página de reportes con vista narrativa` | `NicoalsD` | HU-44 | - | [ ] |
-| F128 | `feat: agrega estilos de impresión a los reportes` | `NicoalsD` | HU-44 | - | [ ] |
-| F129 | `build: actualiza openapi.json con los endpoints v2` | `NicoalsD` | - | - | [ ] |
-| F130 | `test: cubre useLiveAqueduct y el panel de llaves` | `NicoalsD` | HU-45, HU-46 | - | [ ] |
-| F131 | `test: cubre el panel del asistente y el selector de modo` | `NicoalsD` | HU-40, HU-41 | - | [ ] |
-| F132 | `test: cubre el editor de regiones y los dashboards` | `NicoalsD` | HU-47, HU-50 | - | [ ] |
-| F133 | `test: agrega e2e de la escena 3D y el comando de llave` | `NicoalsD` | HU-46 | - | [ ] |
-| F134 | `test: agrega e2e de aceptar una recomendación` | `NicoalsD` | HU-41 | - | [ ] |
-| F135 | `docs: documenta la escena 3D y el flujo del asistente` | `NicoalsD` | HU-45 | - | [ ] |
+| F100 | `refactor: libera el ancho completo del layout` | `NicoalsD` | HU-45 | - | [x] |
+| F101 | `build: agrega three.js sin restricción de escritorio` | `NicoalsD` | HU-45 | - | [x] |
+| F102 | `feat: crea el lienzo AqueductScene con cámara y luces` | `NicoalsD` | HU-45 | - | [x] |
+| F103 | `feat: dibuja el tanque con nivel de agua animado` | `NicoalsD` | HU-45 | - | [x] |
+| F104 | `feat: dibuja la entrada y el rebose del tanque` | `NicoalsD` | HU-45 | - | [x] |
+| F105 | `feat: dibuja las tuberías de salida` | `NicoalsD` | HU-45 | - | [x] |
+| F106 | `feat: anima partículas de flujo según el caudal` | `NicoalsD` | HU-45 | - | [x] |
+| F107 | `feat: dibuja las llaves como objetos 3D` | `NicoalsD` | HU-46 | - | [x] |
+| F108 | `feat: detecta clics en las llaves con raycast` | `NicoalsD` | HU-46 | - | [x] |
+| F109 | `feat: agrega etiquetas CSS2D con nivel y caudal` | `NicoalsD` | HU-45 | - | [x] |
+| F110 | `feat: agrega useLiveAqueduct con polling cada 2 s` | `NicoalsD` | HU-45 | P17 | [x] |
+| F111 | `feat: agrega el panel de control de llaves` | `NicoalsD` | HU-46 | - | [x] |
+| F112 | `feat: muestra el estado del comando de la llave` | `NicoalsD` | HU-46 | P18 | [x] |
+| F113 | `feat: envía el comando de llave con VALVE_COMMAND_MANUAL` | `NicoalsD` | HU-46 | P13 | [x] |
+| F114 | `feat: agrega el selector de modo del piloto` | `NicoalsD` | HU-40 | - | [x] |
+| F115 | `feat: agrega los ajustes del piloto para la Junta` | `NicoalsD` | HU-40 | - | [x] |
+| F116 | `feat: agrega el panel del asistente con recomendaciones` | `NicoalsD` | HU-41 | - | [x] |
+| F117 | `feat: acepta y rechaza recomendaciones desde el panel` | `NicoalsD` | HU-41 | - | [x] |
+| F118 | `feat: agrega el cuadro para preguntar al asistente` | `NicoalsD` | HU-43 | - | [x] |
+| F119 | `feat: muestra el historial de decisiones del piloto` | `NicoalsD` | HU-42 | - | [x] |
+| F120 | `feat: pone la escena 3D como inicio del fontanero` | `NicoalsD` | HU-45, HU-47 | - | [x] |
+| F121 | `feat: agrega el dashboard de la Junta` | `NicoalsD` | HU-47 | - | [x] |
+| F122 | `feat: agrega el dashboard del equipo` | `NicoalsD` | HU-47 | - | [x] |
+| F123 | `feat: agrega el dashboard de la entidad` | `NicoalsD` | HU-47 | - | [x] |
+| F124 | `feat: redirige cada rol a su inicio` | `NicoalsD` | HU-47 | - | [x] |
+| F125 | `feat: agrega el editor de regiones en árbol` | `NicoalsD` | HU-50 | - | [x] |
+| F126 | `feat: crea, mueve y renombra regiones desde el árbol` | `NicoalsD` | HU-50 | - | [x] |
+| F127 | `feat: agrega la página de reportes con vista narrativa` | `NicoalsD` | HU-44 | - | [x] |
+| F128 | `feat: agrega estilos de impresión a los reportes` | `NicoalsD` | HU-44 | - | [x] |
+| F129 | `build: actualiza openapi.json con los endpoints v2` | `NicoalsD` | - | - | [x] |
+| F130 | `test: cubre useLiveAqueduct y el panel de llaves` | `NicoalsD` | HU-45, HU-46 | - | [x] |
+| F131 | `test: cubre el panel del asistente y el selector de modo` | `NicoalsD` | HU-40, HU-41 | - | [x] |
+| F132 | `test: cubre el editor de regiones y los dashboards` | `NicoalsD` | HU-47, HU-50 | - | [x] |
+| F133 | `test: agrega e2e de la escena 3D y el comando de llave` | `NicoalsD` | HU-46 | - | [x] |
+| F134 | `test: agrega e2e de aceptar una recomendación` | `NicoalsD` | HU-41 | - | [x] |
+| F135 | `docs: documenta la escena 3D y el flujo del asistente` | `NicoalsD` | HU-45 | - | [x] |
 
 ## `caudal-ia`
 
@@ -660,24 +660,24 @@ Sin commits planeados en esta fase para este repositorio.
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| I052 | `feat: agrega el puerto LlmPort compatible con OpenAI` | `nicomora70` | HU-41, HU-43 | P06 | [ ] |
-| I053 | `feat: implementa el cliente HTTP del puerto LLM` | `nicomora70` | HU-41, HU-43 | P06 | [ ] |
-| I054 | `feat: lee LLM_BASE_URL, LLM_MODEL y LLM_API_KEY` | `nicomora70` | HU-41 | - | [ ] |
-| I055 | `feat: agrega los prompts de recomendaciones, reporte y pregunta` | `nicomora70` | HU-41, HU-43, HU-44 | - | [ ] |
-| I056 | `feat: define los esquemas Pydantic de insights` | `nicomora70` | HU-41, HU-44 | - | [ ] |
-| I057 | `feat: valida la salida del LLM contra el esquema` | `nicomora70` | HU-41 | - | [ ] |
-| I058 | `feat: expone POST /v1/insights/recommendations` | `nicomora70` | HU-41 | - | [ ] |
-| I059 | `feat: expone POST /v1/insights/report` | `nicomora70` | HU-44 | - | [ ] |
-| I060 | `feat: expone POST /v1/insights/ask` | `nicomora70` | HU-43 | - | [ ] |
-| I061 | `feat: agrega el respaldo determinista de recomendaciones` | `nicomora70` | HU-41 | P19 | [ ] |
-| I062 | `feat: agrega el respaldo con plantillas para reporte y pregunta` | `nicomora70` | HU-43, HU-44 | P19 | [ ] |
-| I063 | `feat: marca el origen LLM o RULES en cada respuesta` | `nicomora70` | HU-41 | - | [ ] |
-| I064 | `feat: limita tiempo y tamaño de las llamadas al LLM` | `nicomora70` | HU-41 | - | [ ] |
-| I065 | `test: agrega un proveedor LLM simulado` | `nicomora70` | HU-41 | - | [ ] |
-| I066 | `test: cubre insights con el proveedor LLM simulado` | `nicomora70` | HU-41, HU-43, HU-44 | - | [ ] |
-| I067 | `test: verifica el respaldo si el LLM falla o responde mal` | `nicomora70` | HU-41 | - | [ ] |
-| I068 | `ci: agrega las variables LLM_* a render.yaml sin secretos` | `nicomora70` | - | - | [ ] |
-| I069 | `docs: documenta el asistente, el contrato y los proveedores LLM` | `nicomora70` | HU-41, HU-43 | - | [ ] |
+| I052 | `feat: agrega el puerto LlmPort compatible con OpenAI` | `nicomora70` | HU-41, HU-43 | P06 | [x] |
+| I053 | `feat: implementa el cliente HTTP del puerto LLM` | `nicomora70` | HU-41, HU-43 | P06 | [x] |
+| I054 | `feat: lee LLM_BASE_URL, LLM_MODEL y LLM_API_KEY` | `nicomora70` | HU-41 | - | [x] |
+| I055 | `feat: agrega los prompts de recomendaciones, reporte y pregunta` | `nicomora70` | HU-41, HU-43, HU-44 | - | [x] |
+| I056 | `feat: define los esquemas Pydantic de insights` | `nicomora70` | HU-41, HU-44 | - | [x] |
+| I057 | `feat: valida la salida del LLM contra el esquema` | `nicomora70` | HU-41 | - | [x] |
+| I058 | `feat: expone POST /v1/insights/recommendations` | `nicomora70` | HU-41 | - | [x] |
+| I059 | `feat: expone POST /v1/insights/report` | `nicomora70` | HU-44 | - | [x] |
+| I060 | `feat: expone POST /v1/insights/ask` | `nicomora70` | HU-43 | - | [x] |
+| I061 | `feat: agrega el respaldo determinista de recomendaciones` | `nicomora70` | HU-41 | P19 | [x] |
+| I062 | `feat: agrega el respaldo con plantillas para reporte y pregunta` | `nicomora70` | HU-43, HU-44 | P19 | [x] |
+| I063 | `feat: marca el origen LLM o RULES en cada respuesta` | `nicomora70` | HU-41 | - | [x] |
+| I064 | `feat: limita tiempo y tamaño de las llamadas al LLM` | `nicomora70` | HU-41 | - | [x] |
+| I065 | `test: agrega un proveedor LLM simulado` | `nicomora70` | HU-41 | - | [x] |
+| I066 | `test: cubre insights con el proveedor LLM simulado` | `nicomora70` | HU-41, HU-43, HU-44 | - | [x] |
+| I067 | `test: verifica el respaldo si el LLM falla o responde mal` | `nicomora70` | HU-41 | - | [x] |
+| I068 | `ci: agrega las variables LLM_* a render.yaml sin secretos` | `nicomora70` | - | - | [x] |
+| I069 | `docs: documenta el asistente, el contrato y los proveedores LLM` | `nicomora70` | HU-41, HU-43 | - | [x] |
 
 ## `caudal-simulador`
 
@@ -800,16 +800,16 @@ Sin commits planeados en esta fase para este repositorio.
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| S061 | `feat: agrega la maqueta virtual con tanque y dos salidas` | `nicomora70` | HU-49 | - | [ ] |
-| S062 | `feat: modela el nivel del tanque con caudal proporcional a la raíz de h` | `nicomora70` | HU-49 | P20 | [ ] |
-| S063 | `feat: firma los mensajes de la maqueta virtual con Ed25519` | `nicomora70` | HU-49 | P06 | [ ] |
-| S064 | `feat: consulta GET /devices/commands desde la maqueta virtual` | `nicomora70` | HU-49 | P13 | [ ] |
-| S065 | `feat: confirma comandos por el ack de la maqueta virtual` | `nicomora70` | HU-49 | P18 | [ ] |
-| S066 | `feat: envía la telemetría de la maqueta virtual` | `nicomora70` | HU-49 | - | [ ] |
-| S067 | `feat: agrega el escenario maqueta.yaml` | `nicomora70` | HU-49 | P04 | [ ] |
-| S068 | `test: verifica el modelo de la maqueta y el ciclo de comandos` | `nicomora70` | HU-49 | - | [ ] |
-| S069 | `test: verifica la firma y el ack de la maqueta virtual` | `nicomora70` | HU-49 | - | [ ] |
-| S070 | `docs: documenta la maqueta virtual en operacion-live` | `nicomora70` | HU-49 | - | [ ] |
+| S061 | `feat: agrega la maqueta virtual con tanque y dos salidas` | `nicomora70` | HU-49 | - | [x] |
+| S062 | `feat: modela el nivel del tanque con caudal proporcional a la raíz de h` | `nicomora70` | HU-49 | P20 | [x] |
+| S063 | `feat: firma los mensajes de la maqueta virtual con Ed25519` | `nicomora70` | HU-49 | P06 | [x] |
+| S064 | `feat: consulta GET /devices/commands desde la maqueta virtual` | `nicomora70` | HU-49 | P13 | [x] |
+| S065 | `feat: confirma comandos por el ack de la maqueta virtual` | `nicomora70` | HU-49 | P18 | [x] |
+| S066 | `feat: envía la telemetría de la maqueta virtual` | `nicomora70` | HU-49 | - | [x] |
+| S067 | `feat: agrega el escenario maqueta.yaml` | `nicomora70` | HU-49 | P04 | [x] |
+| S068 | `test: verifica el modelo de la maqueta y el ciclo de comandos` | `nicomora70` | HU-49 | - | [x] |
+| S069 | `test: verifica la firma y el ack de la maqueta virtual` | `nicomora70` | HU-49 | - | [x] |
+| S070 | `docs: documenta la maqueta virtual en operacion-live` | `nicomora70` | HU-49 | - | [x] |
 
 ## `caudal-maqueta`
 
@@ -817,24 +817,24 @@ Sin commits planeados en esta fase para este repositorio.
 
 | # | Mensaje del commit | Autor | HU | Patrón | Hecho |
 |---|---|---|---|---|---|
-| M001 | `build: crea el esqueleto PlatformIO para ESP32` | `nicomora70` | HU-48 | - | [ ] |
-| M002 | `feat: agrega la configuración de Wi-Fi y endpoint sin secretos` | `nicomora70` | HU-48 | - | [ ] |
-| M003 | `chore: ignora secrets.h y agrega secrets.example.h` | `nicomora70` | HU-48 | - | [ ] |
-| M004 | `feat: lee el JSN-SR04T con filtro de mediana` | `nicomora70` | HU-48 | - | [ ] |
-| M005 | `feat: ignora lecturas dentro de la zona ciega del ultrasónico` | `nicomora70` | HU-48 | - | [ ] |
-| M006 | `feat: mide caudal de los YF-S201 por interrupción` | `nicomora70` | HU-48 | - | [ ] |
-| M007 | `feat: lee los flotadores de nivel alto y bajo` | `nicomora70` | HU-48 | - | [ ] |
-| M008 | `feat: controla las dos electroválvulas por relé o MOSFET` | `nicomora70` | HU-48 | P07 | [ ] |
-| M009 | `feat: integra la firma Ed25519 con Monocypher` | `nicomora70` | HU-48 | P06 | [ ] |
-| M010 | `feat: envía telemetría firmada a /devices/telemetry` | `nicomora70` | HU-48 | - | [ ] |
-| M011 | `feat: consulta comandos en GET /devices/commands` | `nicomora70` | HU-48 | P13 | [ ] |
-| M012 | `feat: confirma comandos con el ack firmado` | `nicomora70` | HU-48 | P18 | [ ] |
-| M013 | `feat: aplica fail_safe_position si se pierde la conexión` | `nicomora70` | HU-48 | P18 | [ ] |
-| M014 | `test: prueba el filtro del ultrasónico con pio test nativo` | `nicomora70` | HU-48 | - | [ ] |
-| M015 | `test: prueba la conversión de pulsos a caudal con pio test` | `nicomora70` | HU-48 | - | [ ] |
-| M016 | `test: prueba la firma Ed25519 con vectores conocidos` | `nicomora70` | HU-48 | - | [ ] |
-| M017 | `docs: documenta el armado y las conexiones de la maqueta` | `nicomora70` | HU-48 | - | [ ] |
-| M018 | `docs: documenta las pruebas de banco de la maqueta` | `nicomora70` | HU-48 | - | [ ] |
-| M019 | `docs: agrega el diagrama de bloques de la maqueta` | `nicomora70` | HU-48 | - | [ ] |
+| M001 | `build: crea el esqueleto PlatformIO para ESP32` | `nicomora70` | HU-48 | - | [x] |
+| M002 | `feat: agrega la configuración de Wi-Fi y endpoint sin secretos` | `nicomora70` | HU-48 | - | [x] |
+| M003 | `chore: ignora secrets.h y agrega secrets.example.h` | `nicomora70` | HU-48 | - | [x] |
+| M004 | `feat: lee el JSN-SR04T con filtro de mediana` | `nicomora70` | HU-48 | - | [x] |
+| M005 | `feat: ignora lecturas dentro de la zona ciega del ultrasónico` | `nicomora70` | HU-48 | - | [x] |
+| M006 | `feat: mide caudal de los YF-S201 por interrupción` | `nicomora70` | HU-48 | - | [x] |
+| M007 | `feat: lee los flotadores de nivel alto y bajo` | `nicomora70` | HU-48 | - | [x] |
+| M008 | `feat: controla las dos electroválvulas por relé o MOSFET` | `nicomora70` | HU-48 | P07 | [x] |
+| M009 | `feat: integra la firma Ed25519 con Monocypher` | `nicomora70` | HU-48 | P06 | [x] |
+| M010 | `feat: envía telemetría firmada a /devices/telemetry` | `nicomora70` | HU-48 | - | [x] |
+| M011 | `feat: consulta comandos en GET /devices/commands` | `nicomora70` | HU-48 | P13 | [x] |
+| M012 | `feat: confirma comandos con el ack firmado` | `nicomora70` | HU-48 | P18 | [x] |
+| M013 | `feat: aplica fail_safe_position si se pierde la conexión` | `nicomora70` | HU-48 | P18 | [x] |
+| M014 | `test: prueba el filtro del ultrasónico con pio test nativo` | `nicomora70` | HU-48 | - | [x] |
+| M015 | `test: prueba la conversión de pulsos a caudal con pio test` | `nicomora70` | HU-48 | - | [x] |
+| M016 | `test: prueba la firma Ed25519 con vectores conocidos` | `nicomora70` | HU-48 | - | [x] |
+| M017 | `docs: documenta el armado y las conexiones de la maqueta` | `nicomora70` | HU-48 | - | [x] |
+| M018 | `docs: documenta las pruebas de banco de la maqueta` | `nicomora70` | HU-48 | - | [x] |
+| M019 | `docs: agrega el diagrama de bloques de la maqueta` | `nicomora70` | HU-48 | - | [x] |
 
 Relacionados: [Roles-y-planeacion.md](Roles-y-planeacion.md), [workflow.md](../.agents/workflow.md), [Historias-de-usuario.md](Historias-de-usuario.md)
