@@ -91,9 +91,11 @@ public interface NetworkPort {
    * @param name the name
    * @param householdsCount households it serves
    * @param active whether it is in use
+   * @param parentSectorId the parent sector, or null for a region (a root sector)
    * @return the sector
    */
-  SectorView updateSector(UUID sectorId, String name, int householdsCount, boolean active);
+  SectorView updateSector(
+      UUID sectorId, String name, int householdsCount, boolean active, UUID parentSectorId);
 
   /**
    * Finds a valve of a sector of the aqueduct of the session.

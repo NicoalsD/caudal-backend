@@ -42,7 +42,8 @@ public final class NetworkMapper {
         sector.name(),
         sector.parentSectorId(),
         sector.householdsCount(),
-        sector.active());
+        sector.active(),
+        sector.parentSectorId() == null);
   }
 
   /**

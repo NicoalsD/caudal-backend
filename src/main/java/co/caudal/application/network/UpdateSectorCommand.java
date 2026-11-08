@@ -12,9 +12,17 @@ import java.util.UUID;
  * @param name new name, or null
  * @param householdsCount new number of households, or null
  * @param active new state, or null
+ * @param parentSectorId new parent sector, or null to leave it as it is
+ * @param region true to make the sector a region (a root sector without parent), or null
  */
 public record UpdateSectorCommand(
-    Caller caller, UUID sectorId, String name, Integer householdsCount, Boolean active)
+    Caller caller,
+    UUID sectorId,
+    String name,
+    Integer householdsCount,
+    Boolean active,
+    UUID parentSectorId,
+    Boolean region)
     implements AuditableCommand<SectorView> {
 
   @Override
