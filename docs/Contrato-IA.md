@@ -4,8 +4,10 @@ Este documento define el contrato HTTP entre `caudal-backend` (cliente) y `cauda
 
 Principios:
 
-- `caudal-ia` no tiene estado y no accede a la base de datos. Recibe una serie, devuelve cuantiles.
-- El backend decide cuándo pedir un pronóstico, guarda el resultado y, si la IA falla, responde con la estimación simple (respaldo).
+- `caudal-ia` no tiene estado y no accede a la base de datos. Recibe una serie y devuelve cuantiles (pronóstico). Con los endpoints `/v1/insights/*` recibe una foto del estado y devuelve recomendaciones, reportes o respuestas en texto. Nunca abre ni cierra llaves.
+- El backend decide cuándo pedir un pronóstico o una recomendación, guarda el resultado y, si la IA falla, responde con la estimación simple o con las reglas (respaldo). El piloto automático lo ejecuta el backend según su modo.
+
+> **Cambio de alcance v2 (2026-11-07):** antes solo existía el pronóstico. Se agregan los endpoints `/v1/insights/*` (sección 9) para el asistente de decisiones, con un LLM compatible con OpenAI (por defecto Gemini Flash en su capa gratuita).
 - Ningún lado confía en el otro: cada uno valida lo que recibe.
 
 ## 1. Endpoints
@@ -16,6 +18,9 @@ Principios:
 | GET | `/v1/health` | Ninguna | Vivo (liveness). No revela nada del modelo. |
 | GET | `/v1/ready` | Ninguna | Listo para atender (modelo cargado) |
 | GET | `/v1/models` | Token de servicio | Modelos disponibles y su estado |
+| POST | `/v1/insights/recommendations` | Token de servicio | Recomendaciones de llaves a partir de una foto del estado (sección 9) |
+| POST | `/v1/insights/report` | Token de servicio | Reporte narrativo de un periodo (sección 9) |
+| POST | `/v1/insights/ask` | Token de servicio | Respuesta en lenguaje natural sobre una foto del estado (sección 9) |
 
 Documentación interactiva del servicio: Swagger en `/docs` (FastAPI). Se apaga con `API_DOCS_ENABLED=false`.
 
@@ -317,6 +322,9 @@ Los valores de negocio (horizonte, reserva, días de historia enviados a la IA) 
 | `SERIES_TIMEZONE` | No | `America/Bogota` | Zona en la que empieza cada día de la serie. Debe coincidir con la del backend (ver la advertencia de abajo). |
 | `FORECAST_MIN_POINTS` | No | `7` | Días con lectura mínimos después del remuestreo |
 | `RESAMPLE_AGGREGATION` | No | `last` | `last` (por defecto) o `mean` |
+| `LLM_BASE_URL` | No (asistente) | `https://<proveedor>/v1` | URL base de la API compatible con OpenAI del LLM. Por defecto, Gemini Flash; respaldo Groq u OpenRouter. Solo cambia la configuración. |
+| `LLM_MODEL` | No (asistente) | `<modelo del proveedor>` | Modelo que responde las recomendaciones, reportes y preguntas |
+| `LLM_API_KEY` | Sí, si hay asistente | `<secreto, nunca en git>` | Clave del proveedor. Va en Render como secreto. |
 | `FORECAST_CACHE_SIZE` | No | `64` | Número máximo de entradas de la caché en memoria de pronósticos. `0` la apaga. La clave es un SHA-256 de la entrada del modelo (serie diaria ya remuestreada, horizonte y cuantiles). La serie no se guarda. |
 | `FORECAST_CACHE_TTL_SECONDS` | No | `300` | Segundos que una entrada de la caché sigue válida. Solo guarda el pronóstico. |
 | `MAX_SERIES_POINTS` | No | `2000` | Límite de la serie |
@@ -377,4 +385,59 @@ Reglas de las pruebas:
 |---|---|---|
 | `v1` | `2026-10-19` | Primera versión, implementada en `caudal-ia` (PR #6, #7 y #8): pronóstico diario con cuantiles p10, p50 y p90. Los ajustes posteriores descritos en este documento (motivo `VALUE_OUT_OF_RANGE`, `model.notes` opcional, formato de `model.version`, caché y `SERIES_TIMEZONE`) son aditivos y no cambian la versión del contrato. |
 
-Relacionados: [API.md](API.md), [Reglas-de-negocio.md](Reglas-de-negocio.md), [Protocolo-de-dispositivos.md](Protocolo-de-dispositivos.md), [Diccionario-de-datos.md](Diccionario-de-datos.md)
+## 9. Endpoints del asistente (`/v1/insights/*`)
+
+Cambio de alcance v2 (2026-11-07). Estos endpoints usan un LLM compatible con OpenAI. Por defecto es Gemini Flash en su capa gratuita; de respaldo, Groq u OpenRouter. Ver [Modulo-IA.md](Modulo-IA.md), sección "Asistente de decisiones".
+
+Reglas comunes:
+
+- **Autenticación:** `Authorization: Bearer <IA_SERVICE_TOKEN>`, igual que `POST /v1/forecasts`.
+- **Sin estado:** `caudal-ia` no guarda la foto del estado, ni las preguntas, ni las respuestas. El backend guarda cada decisión en `ops.autopilot_decisions`.
+- **Respaldo:** si el LLM falla, da timeout, responde 429 o devuelve un JSON que no valida, `caudal-ia` responde `200` con `source = RULES` usando reglas y plantillas deterministas. Una falla del LLM nunca llega al backend como `5xx`.
+- **Validación:** la salida del LLM se valida con Pydantic antes de responder.
+- **Errores:** los errores de entrada (`422`) y de token (`401`) usan la forma de la sección 3.3.
+
+
+### 9.1 Foto del estado (`Snapshot`) (estado del acueducto que envía el backend)
+```json
+{
+  "aqueduct_id": "uuid", "aqueduct_name": "Vereda demo", "generated_at": "2026-11-07T10:00:00-05:00",
+  "mode": "MANUAL|ASSISTED|AUTOMATIC",
+  "reserve_floor_pct": 25.0, "operator_last_action_at": "ISO|null",
+  "tank": { "id": "uuid", "name": "Tanque principal", "level_m": 1.8, "max_level_m": 2.5,
+            "level_pct": 72.0, "band": "HIGH|MEDIUM|LOW|CRITICAL|null", "observed_at": "ISO", "trend": "RISING|FALLING|STABLE|null" },
+  "forecast": [ { "timestamp": "ISO", "p10": 1.6, "p50": 1.8, "p90": 2.0 } ],
+  "valves": [ { "id": "uuid", "sector_id": "uuid", "sector_name": "Alto", "region_name": "Norte|null",
+                "state": "OPEN|CLOSED|UNKNOWN", "is_motorized": true, "priority": 1 } ],
+  "schedule": [ { "sector_id": "uuid", "starts_at": "ISO", "ends_at": "ISO", "status": "PLANNED|DONE|PARTIAL|SKIPPED" } ],
+  "anomalies": [ { "kind": "STALE_READING|...", "severity": "LOW|MEDIUM|HIGH" } ]
+}
+```
+Límites: 200 valves, 200 schedule, 100 anomalies, 400 forecast. Los campos desconocidos se rechazan (`extra="forbid"`).
+
+### 9.2 `POST /v1/insights/recommendations`
+- Request: `{ "snapshot": Snapshot }`
+- Response 200:
+```json
+{ "source": "LLM|RULES", "model": "gemini-flash-...|rules-v1", "generated_at": "ISO",
+  "summary": "texto corto en español",
+  "recommendations": [ { "action": "OPEN|CLOSE|WAIT|INSPECT", "valve_id": "uuid|null",
+                          "reason": "español, <= 280 caracteres", "confidence": 0.0 } ] }
+```
+- Como máximo 5 recomendaciones.
+- Los valve_id que no vengan en el snapshot se descartan.
+- Ninguna recomendación OPEN puede bajar el tanque del piso de reserva. La regla dura: con level_pct <= reserve_floor_pct solo se permiten CLOSE, WAIT o INSPECT, y esa guarda también se aplica a la salida del LLM.
+
+### 9.3 `POST /v1/insights/report`
+- Request: `{ "aqueduct_name": "...", "from": "ISO", "to": "ISO", "aggregates": { ...objeto libre, como máximo 32 KB } }`
+- Response: `{ "source", "model", "generated_at", "title", "summary", "findings": [str], "recommendations": [str], "markdown": "..." }`
+
+### 9.4 `POST /v1/insights/ask`
+- Request: `{ "question": "<= 500 caracteres", "snapshot": Snapshot }`
+- Response: `{ "source", "model", "generated_at", "answer": "español" }`
+
+### 9.5 Configuración (variables de entorno)
+- LLM: `LLM_BASE_URL` (por defecto `https://generativelanguage.googleapis.com/v1beta/openai/`), `LLM_MODEL` y `LLM_API_KEY` (opcional; sin ella siempre se usa RULES).
+- Tiempos y reintentos: `LLM_TIMEOUT_S` y `LLM_MAX_RETRIES`.
+- El LLM se llama por el endpoint compatible con OpenAI `/chat/completions`, con `response_format` `json_object`.
+- Si falla, da timeout, responde 429 o devuelve un JSON inválido, se usa el respaldo de reglas con `source: "RULES"`.
