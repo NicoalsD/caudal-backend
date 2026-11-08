@@ -61,6 +61,14 @@ caudal:
       failure-threshold: ${CIRCUIT_BREAKER_FAILURE_THRESHOLD:5}
       open-seconds: ${CIRCUIT_BREAKER_OPEN_SECONDS:60}
       half-open-calls: ${CIRCUIT_BREAKER_HALF_OPEN_CALLS:2}
+  # Assistant of caudal-ia (insights): same URL, token and circuit breaker thresholds as the
+  # forecast, with its own read timeout because a language model answers slower.
+  insights:
+    read-timeout-ms: ${INSIGHTS_READ_TIMEOUT_MS:20000}
+  # Autopilot: how often the cycle runs by itself. 60 s by default; 10 s is fine for a demo.
+  autopilot:
+    enabled: ${AUTOPILOT_ENABLED:true}
+    interval-seconds: ${AUTOPILOT_INTERVAL_SECONDS:60}
   # Field devices (docs/Protocolo-de-dispositivos.md, section 1.3).
   devices:
     key-rotation-days: ${DEVICE_KEY_ROTATION_DAYS:7}

@@ -13,6 +13,10 @@ spring:
     password: test
 
 caudal:
+  # The tests force the cycles through POST /api/v1/autopilot/run.
+  autopilot:
+    enabled: false
+    interval-seconds: 60
   ia:
     service-url: ""
     connect-timeout-ms: 500
