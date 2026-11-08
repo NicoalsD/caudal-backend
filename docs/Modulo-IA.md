@@ -1,6 +1,8 @@
-# Módulo de pronóstico (IA)
+# Módulo de IA (pronóstico y asistente)
 
-Este documento describe el módulo de pronóstico desde el sistema: qué pregunta responde, qué modelo lo responde, cómo se comunica con el backend, qué pasa cuando falla y cómo se decide si de verdad ayuda. La implementación del servicio vive en `caudal-ia` y la del cliente en `caudal-backend`.
+Este documento describe el módulo de IA desde el sistema: el pronóstico con Chronos (qué pregunta responde, qué modelo lo responde, cómo se comunica con el backend, qué pasa cuando falla y cómo se decide si de verdad ayuda) y el asistente de decisiones con un LLM (sección 15). La implementación del servicio vive en `caudal-ia` y la del cliente y del piloto automático en `caudal-backend`.
+
+> Cambio de alcance v2 (2026-11-07): el asistente de IA pasa a ser lo central de la ayuda para decidir y para los reportes. Chronos sigue a cargo solo del pronóstico.
 
 ![Arquitectura del módulo de IA](images/arquitectura-ia.png)
 
@@ -10,7 +12,7 @@ Este documento describe el módulo de pronóstico desde el sistema: qué pregunt
 
 Ejemplo de lo que ve la Junta: "Lo más probable es 2,1 dentro de 2 días, pero podría estar entre 1,8 y 2,4 (unidades de la regla del tanque)".
 
-El módulo **no** decide turnos, **no** escribe en la base de datos y **no** publica nada. Solo entrega una estimación con rango. La propuesta de turnos la calcula el backend con las reglas de la Junta (ver `Stack-tecnologico.md` y la lógica de M5 en el backend).
+Chronos **pronostica**: solo entrega una estimación con rango. No decide turnos, no abre ni cierra llaves y no escribe en la base de datos. El asistente (LLM, sección 15) genera recomendaciones, reportes y respuestas. **El backend decide** qué se hace con ellas según el modo del piloto automático (MANUAL, ASSISTED o AUTOMATIC). La propuesta de turnos la sigue calculando el backend con las reglas de la Junta (ver `Stack-tecnologico.md` y la lógica de M5 en el backend).
 
 | Pregunta | Respuesta del módulo | Quién decide |
 |---|---|---|
@@ -62,7 +64,7 @@ El modelo es **Chronos** (`chronos-forecasting`), un modelo de series de tiempo 
 | `caudal-backend` | `CircuitBreakerState` (Cerrado, Abierto, Semiabierto) | P18 State | Drako2305 |
 | `caudal-backend` | `TankStatusFacade` (estado del tanque para la UI) | P10 Facade | Drako2305 |
 
-El servicio **no tiene estado** y **no accede a la base de datos**. Todo lo que el sistema necesita para decidir (historial, reglas, respaldo) vive en el backend.
+El servicio **no tiene estado** y **no accede a la base de datos**. Todo lo que el sistema necesita para decidir (historial, reglas, respaldo) vive en el backend. Lo mismo aplica al asistente: la foto del estado llega en cada petición y `caudal-ia` no la guarda (sección 15 y `Contrato-IA.md`, sección 9).
 
 ## 4. Contrato backend a IA
 
@@ -412,4 +414,82 @@ Sin `caudal-ia` todavía, el backend funciona con la estimación simple y el cir
 
 ![Secuencia del pronóstico](images/secuencia-pronostico.png)
 
-Relacionados: [Simulador-y-hardware.md](Simulador-y-hardware.md), [Datos-simulados.md](Datos-simulados.md), [Stack-tecnologico.md](Stack-tecnologico.md), [Diccionario-de-datos.md](Diccionario-de-datos.md)
+## 15. Asistente de decisiones
+
+> Cambio de alcance v2 (2026-11-07): sección nueva. El asistente es la ayuda central para decidir qué llave tocar y para redactar reportes.
+
+El asistente es un LLM compatible con OpenAI. Por defecto es Gemini Flash en su capa gratuita; de respaldo, Groq u OpenRouter. Cambiar de proveedor es solo configuración (`LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY`). La clave va como secreto en Render y nunca en el repositorio.
+
+### 15.1 Reparto de responsabilidades
+
+| Pieza | Dónde vive | Qué hace |
+|---|---|---|
+| Chronos | `caudal-ia` | Pronostica el nivel (p10, p50 y p90). No decide nada. |
+| Asistente LLM | `caudal-ia` | Genera recomendaciones de llaves, reportes para la Junta y respuestas a preguntas. |
+| Respaldo determinista | `caudal-ia` | Reglas y plantillas. Responde cuando el LLM falla, no responde a tiempo, se queda sin cuota o devuelve algo inválido. |
+| Piloto automático | `caudal-backend` (`application/autopilot/`) | Decide qué hacer con cada recomendación según el modo, ejecuta el comando y audita la decisión. |
+
+### 15.2 Entradas: la foto del estado
+
+Cada petición lleva una foto del estado del acueducto:
+
+- nivel del tanque, su banda y si el dato está viejo;
+- pronóstico p10, p50 y p90 de los próximos días (de Chronos);
+- reserva (`reserve_level`) y su política;
+- turnos vigentes y reglas de la Junta;
+- anomalías abiertas (por ejemplo, falla de sensor);
+- estado de cada llave y del último comando;
+- modo del piloto y minutos de ausencia del operario.
+
+Los campos exactos están en `Contrato-IA.md`, sección 9.1 (propuesta).
+
+### 15.3 Salidas
+
+| Endpoint | Salida | Quién la usa |
+|---|---|---|
+| `POST /v1/insights/recommendations` | Lista de recomendaciones `{action, valve_id?, reason, confidence}`. `action` es `OPEN`, `CLOSE`, `WAIT` o `INSPECT`. | El piloto automático y el panel del asistente en la app. |
+| `POST /v1/insights/report` | Resumen, hallazgos y recomendaciones en español, a partir de los agregados de un periodo. | Reporte de la Junta. Se ve en la app y se imprime desde el navegador. |
+| `POST /v1/insights/ask` | Respuesta corta a una pregunta en lenguaje natural, por ejemplo "¿alcanza el agua para mañana?". | Caja "Pregúntale a Caudal". |
+
+Cada recomendación se valida con Pydantic antes de salir de `caudal-ia`. Lo que no valida se descarta. El backend también la revisa: que `valve_id` exista en la foto y que no baje del piso de reserva. **La última palabra la tiene el backend**, no el modelo.
+
+Solo las recomendaciones crean filas en `ops.autopilot_decisions`, con `source` (`LLM` o `RULES`) y `status` (`PENDING`, `ACCEPTED`, `REJECTED`, `EXECUTED`, `EXPIRED` o `SKIPPED`). Los reportes y las respuestas no crean decisiones.
+
+### 15.4 Qué hace el backend con cada recomendación
+
+| Modo | Comportamiento |
+|---|---|
+| **MANUAL** | Solo se muestra la recomendación. No genera comandos. |
+| **ASSISTED** | El operario acepta o rechaza con un clic. Aceptar genera el comando de llave con `autopilot_decision_id`. |
+| **AUTOMATIC** | Si el operario no actúa en `operator_absence_minutes`, el sistema ejecuta la recomendación. Nunca baja del piso de reserva (`reserve_floor_pct`). |
+
+En todos los modos, **cualquier acción manual pausa el piloto** (prioridad humana). Son las dos únicas guardas: el piso de reserva y la prioridad humana.
+
+### 15.5 Respaldo determinista
+
+Si el LLM falla, `caudal-ia` responde `200` con `source = RULES` y el motivo en `fallback_reason`. Así el asistente siempre responde, igual que hoy la estimación simple responde cuando Chronos no lo hace.
+
+- **Recomendaciones:** reglas simples, por definir en detalle. Ejemplos de la intención: si el p10 de mañana cae bajo la reserva, recomendar cerrar llaves de sectores no prioritarios; si hay una falla de sensor abierta, recomendar `INSPECT`; si no pasa nada de eso, `WAIT`.
+- **Reportes:** plantillas con las mismas cifras de la foto o de los agregados.
+- **Preguntas:** respuesta de plantilla basada en el p50 y la reserva, o un "no lo puedo responder con esos datos".
+
+Los umbrales y las reglas no van quemados en el código: se configuran igual que las reglas de la Junta (`Configuracion-sin-valores-quemados.md`). Por definir.
+
+### 15.6 Límites de las capas gratuitas
+
+Cifras aproximadas. **Verificar en el panel de cada proveedor antes de implementar**; cambian seguido.
+
+| Proveedor | Papel | Límite por minuto (RPM) | Límite por día (RPD) | Nota |
+|---|---|---|---|---|
+| Gemini Flash | Por defecto | ~10 | ~1.500 | No pide tarjeta. |
+| Groq | Respaldo | ~30 | ~1.000 | Capa gratuita. |
+| OpenRouter (modelos `:free`) | Respaldo de demostración | ~20 | ~50 | El límite diario es muy bajo para uso continuo. |
+
+Consecuencias de diseño:
+
+- Con ~50 llamadas al día (OpenRouter), el piloto no puede consultar al LLM cada pocos segundos. Las llamadas de recomendación se disparan por cambio relevante de la foto o por un intervalo mínimo (por definir), no por el ciclo del `@Scheduled`.
+- Cada reporte y cada pregunta gasta cuota. El backend limita el uso (propuesta: el mismo estilo de límite que el recálculo del pronóstico).
+- Cuota agotada no es un error para el usuario: el asistente responde con el respaldo determinista y `fallback_reason = LLM_QUOTA_EXCEEDED` (propuesta).
+- Un LLM gratuito puede ser más lento o menos estable que Chronos. Por eso los timeouts y el circuit breaker del backend aplican también a `/v1/insights/*` (valores por definir).
+
+Relacionados: [Simulador-y-hardware.md](Simulador-y-hardware.md), [Datos-simulados.md](Datos-simulados.md), [Stack-tecnologico.md](Stack-tecnologico.md), [Diccionario-de-datos.md](Diccionario-de-datos.md), [Contrato-IA.md](Contrato-IA.md)
