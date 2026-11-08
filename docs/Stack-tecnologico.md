@@ -3,7 +3,9 @@
 El stack responde a tres tipos de restricciones:
 
 - **De la materia:** el backend debe ser Java (Patrones de Software) y el repositorio `caudal-backend` debe tener la mayor carga de commits del proyecto.
-- **Del producto:** la app del fontanero funciona sin señal (PWA offline), la Junta decide con trazabilidad completa, y los datos personales se minimizan (Ley 1581 de 2012).
+- **Del producto:** la app del fontanero es una PWA con una escena 3D a pantalla completa, la Junta decide con trazabilidad completa, y los datos personales se minimizan (Ley 1581 de 2012).
+
+> Cambio de alcance v2 (2026-11-07): las limitaciones de campo (sin señal, sin acceso) ya no son restricción de diseño. La cola offline se conserva, pero es de baja prioridad (ver `Riesgos.md`, RG-01). Desde la v2, el stack cubre también three.js en toda la app, el asistente con un LLM compatible con OpenAI, la maqueta física y su firmware.
 - **De presupuesto y operación:** costo cercano a cero en la fase de prueba, un solo equipo pequeño y ningún dato real de la región todavía. Por eso el pronóstico corre en CPU y los datos de campo se simulan.
 
 ![Contenedores del sistema](images/c4-contenedores.png)
@@ -68,6 +70,8 @@ Cada tabla de este documento sigue el mismo formato: **Tecnología**, **Uso**, *
 | **Radix UI** | Primitivas accesibles sin estilo (diálogos, menús, selects). | Accesibilidad de teclado y foco resuelta; el aspecto lo define el sistema de tokens propio. | **MUI:** trae un lenguaje visual propio (Material) que contradice el criterio del proyecto (tokens propios, sin degradados genéricos). Además pesa más. |
 | **CSS Modules + tokens en variables CSS** | Estilos. Modo claro primero; modo oscuro por variables. | Sin dependencia de un framework de utilidades; los tokens son la única fuente del color y el espacio. | **Tailwind CSS:** válido; se descarta para que el equipo use una sola forma de definir tokens. |
 | **Recharts** | Gráfica del pronóstico con banda `p10`–`p90`. | Componentes declarativos para líneas y áreas. | **Chart.js:** requiere más código para la banda de incertidumbre. |
+| **three.js** (con CSS2DRenderer y controles de órbita) | Escena 3D del sistema (`src/ui/scene/AqueductScene`): tanque, rebose, tuberías, flujo de agua y llaves que se pulsan con raycast. Se usa en toda la app, a todo el ancho, no solo en la landing. Ya es el motor del tanque 3D (`src/ui/tank/`). | Permite ver el flujo, la profundidad y la apertura de las llaves en una sola escena, y pulsar cada llave. Desde la v2 el rendimiento no es criterio (cambio de alcance). | **SVG o Canvas 2D:** no dan la profundidad ni el control orbital que pide la escena. |
+| **TanStack Query** (polling) | En la vista en vivo, polling cada ~2 s sobre estado, dispositivos y comandos (`useLiveAqueduct`). Sin SSE en la v2. | Un solo mecanismo de actualización, fácil de probar con MSW. | **SSE:** queda fuera de la v2 para no sumar otro canal de tiempo real. |
 | **sonner** | Avisos breves (lectura guardada, cola enviada). | Sencillo y accesible. | **Notificaciones propias:** trabajo sin beneficio. |
 | **lucide-react** | Iconos. | Conjunto consistente y ligero. | **Iconos sueltos en SVG:** inconsistentes en tamaño y trazo. |
 | **openapi-typescript** | Tipos generados desde el OpenAPI del backend. | Un cambio de contrato rompe la compilación del frontend, no producción. | **Tipos escritos a mano:** se desalinean. |
@@ -85,6 +89,7 @@ Cada tabla de este documento sigue el mismo formato: **Tecnología**, **Uso**, *
 | **FastAPI + Pydantic v2 + pydantic-settings** | Contrato `POST /v1/forecasts`, salud (`/v1/health`, `/v1/ready`) y configuración por variables de entorno. | Mismo stack que el simulador; Swagger en `/docs`. | **Flask:** sin validación tipada integrada. |
 | **PyTorch CPU, pandas, numpy** | Ejecución del modelo y preprocesado (re-muestreo diario). | PyTorch CPU evita la descarga de librerías CUDA. | **PyTorch con CUDA:** innecesario en el alcance actual. |
 | **uv, pytest, ruff (`PLR2004`), mypy** | Gestor, pruebas, lint y tipos. | Rápidos y con el mismo estilo de los demás repos Python. | **poetry + black + flake8:** más piezas para lo mismo. |
+| **LLM compatible con OpenAI** (por defecto **Gemini Flash** en su capa gratuita; respaldo **Groq** u **OpenRouter**) | Asistente de decisiones de `caudal-ia`: recomendaciones de llaves, reportes para la Junta y preguntas (`/v1/insights/*`). Se llama por `chat/completions`; el proveedor se cambia con `LLM_BASE_URL`, `LLM_MODEL` y `LLM_API_KEY`. | Costo cero o bajo, sin hardware propio y sin tarjeta en la capa gratuita de Gemini. Cualquier proveedor que hable el formato de OpenAI se cambia por configuración. Las cuotas gratuitas (cifras aproximadas) están en `Modulo-IA.md`, sección 15.6, y se verifican en el panel de cada proveedor. | **Modelo local (abierto, en el propio servidor):** descartado por RAM. El hosting gratuito de `caudal-ia` tiene 512 MB, y el pico de Chronos ya llega a 334 MiB (ver `Modulo-IA.md`, sección 12.1). Un LLM local no cabe en ese plan. |
 
 **Por qué Chronos y por qué en CPU:**
 
@@ -109,9 +114,26 @@ Cada tabla de este documento sigue el mismo formato: **Tecnología**, **Uso**, *
 | **Tablero Vite + React + TypeScript** | Vista de la simulación en vivo. | Mismo stack de frontend. | **Panel en Streamlit:** otra tecnología a mantener. |
 | **pytest + Hypothesis, ruff, mypy, uv** | Pruebas de propiedades (balance de masa, reproducibilidad), lint y tipos. | Hypothesis genera casos que los ejemplos fijos no cubren. | **Solo pruebas con ejemplos:** no prueban invariantes. |
 
-## Hardware real propuesto (no se construye)
+## Hardware: maqueta física y propuesta real
 
 Los valores de esta sección son de referencia. Antes de cualquier compra se verifican con fichas técnicas y proveedores locales. Detalle en [Simulador-y-hardware.md](Simulador-y-hardware.md).
+
+### Maqueta física (`caudal-maqueta`, sí se construye)
+
+Cambio de alcance v2 (2026-11-07): la maqueta es el dispositivo real del proyecto. Tiene 1 tanque, sus sensores y 2 tuberías de salida. El repositorio es de nicomora70 y usa el mismo protocolo HTTP firmado con Ed25519 que el resto de dispositivos.
+
+| Tecnología | Uso | Por qué | Alternativa descartada y motivo |
+|---|---|---|---|
+| **ESP32 (DevKit o S3) con Wi-Fi** | Controlador de la maqueta: lectura de sensores, control de válvulas, telemetría y firma de peticiones por HTTPS al backend. | Wi-Fi integrado y soporte de PlatformIO. La maqueta está en un lugar con red, así que Wi-Fi basta. | **LoRa y LTE (de la propuesta real):** resuelven la falta de red en campo, que ya no es restricción (cambio de alcance v2). **Arduino Uno o Nano:** sin conectividad. |
+| **PlatformIO + Arduino + Monocypher** | Firmware: Wi-Fi y HTTPS al backend, firma Ed25519 con el protocolo de `Protocolo-de-dispositivos.md`, telemetría y consulta de comandos cada 1 s. Si pierde contacto, aplica `fail_safe_position`. | PlatformIO fija versiones y bibliotecas en el repositorio. Arduino acelera el desarrollo del equipo. Monocypher es una biblioteca pequeña en C con Ed25519, fácil de auditar. | **ESP-IDF nativo:** más control, pero más código para el mismo resultado. **libsodium:** más grande para una sola función de firma. |
+| **Ultrasónico JSN-SR04T** | Nivel del tanque de la maqueta. | Barato y directo para una maqueta. Tiene una zona ciega de unos 20 cm: verificar contra la altura del tanque. Si no alcanza, se usa un sensor de presión. | **Sensor hidrostático sumergible:** la alternativa de la propuesta real; sobre la maqueta no hace falta. |
+| **Caudalímetro YF-S201** | Caudal en cada salida (y opcional en la entrada). | Sirve para ver el flujo en la escena 3D y en la telemetría. | **Sin caudalímetro:** la escena 3D no tendría el caudal real. |
+| **Electroválvulas de 12 V NC de acción directa** (2) | Abrir y cerrar cada salida. Funcionan con presión cero. | Las pilotadas no abren con la poca cabeza de una maqueta por gravedad. Si no alcanza, la alternativa son válvulas de bola motorizadas. | **Válvula solenoide pilotada:** no abre con la poca presión de la maqueta. |
+| **Relés o MOSFET con diodo flyback** | Dirección de las electroválvulas y de la bomba. | Protegen el ESP32 de los picos de la carga inductiva. | **Control directo desde el GPIO:** el ESP32 no soporta la carga. |
+| **Bomba de 12 V con interruptor de flotador por hardware** | Sube el agua de vuelta al tanque (circuito cerrado). El flotador corta la bomba con el tanque lleno, sin depender del firmware. | El corte por hardware sigue funcionando aunque el firmware falle. Flotadores de nivel alto y bajo como respaldo. | **Corte solo por software:** depende del firmware. |
+
+### Propuesta real (no se construye)
+
 
 | Tecnología | Uso | Por qué | Alternativa descartada y motivo |
 |---|---|---|---|
