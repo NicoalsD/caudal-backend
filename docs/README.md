@@ -10,6 +10,8 @@
 
 Esta carpeta es la **documentación canónica** de los 4 repositorios. Los demás repositorios enlazan aquí.
 
+> **Alcance v2 (2026-11-07):** interfaz 3D con three.js en toda la app, piloto automático con tres modos (MANUAL, ASSISTED y AUTOMATIC), asistente de decisiones con un LLM compatible con OpenAI, botones para controlar las llaves, regiones de racionamiento configurables y una maqueta física. Ya no se diseña para las limitaciones de campo.
+
 ## Producto
 
 | Documento | Contenido |
@@ -31,8 +33,8 @@ Esta carpeta es la **documentación canónica** de los 4 repositorios. Los demá
 | [Diccionario de datos](Diccionario-de-datos.md) | Cada columna con tipo, restricciones y clasificación (generado) |
 | [API REST](API.md) | Convenciones, errores, Swagger y todos los endpoints |
 | [Patrones de diseño](Patrones-de-diseno.md) | Catálogo P01 a P23 por repositorio, con dueño y prueba |
-| [Módulo de IA](Modulo-IA.md) | Pronóstico con Chronos, respaldo simple, circuit breaker y evaluación |
-| [Contrato backend-IA](Contrato-IA.md) | Endpoints, esquemas, errores y pruebas de contrato |
+| [Módulo de IA](Modulo-IA.md) | Pronóstico con Chronos, asistente de decisiones con LLM, respaldo, circuit breaker y evaluación |
+| [Contrato backend-IA](Contrato-IA.md) | Endpoints de pronóstico y del asistente (`/v1/insights/*`), esquemas, errores y pruebas de contrato |
 | [Datos simulados](Datos-simulados.md) | Gemelo digital de la región, modos y cómo se marcan los datos |
 | [Simulador y hardware](Simulador-y-hardware.md) | Propuesta de hardware real y su representación en el simulador |
 | [Protocolo de dispositivos](Protocolo-de-dispositivos.md) | Firmas Ed25519, telemetría y comandos de válvula |
@@ -44,6 +46,13 @@ Esta carpeta es la **documentación canónica** de los 4 repositorios. Los demá
 | [Seguridad](Seguridad.md) | Modelo de amenazas y controles de todo el sistema |
 | [Seguridad de la base de datos](Seguridad-de-la-base-de-datos.md) | Roles, RLS, append-only, cadena de hashes, retención |
 | [Configuración sin valores quemados](Configuracion-sin-valores-quemados.md) | Una sola fuente por valor: BD, `FieldLimits`, entorno, i18n |
+
+## Estudios (v2)
+
+| Documento | Contenido |
+|---|---|
+| [Estudio de llenado de tanques](Estudio-llenado-de-tanques.md) | Cadena por gravedad, partes del tanque, operación diaria y modelo físico para la escena 3D y el simulador |
+| [Estudio de dashboards por rol](Estudio-dashboards-por-rol.md) | Qué decide cada rol, su primera pantalla y los endpoints y widgets que la sustentan |
 
 ## Gestión
 
