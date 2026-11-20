@@ -249,7 +249,7 @@ Todos los endpoints de institución (`/institution/*`, `/tanks/*`, `/service-lin
 
 | Campo | Tipo | Oblig. | Límites |
 |---|---|---|---|
-| `institution_slug` | texto | Sí, salvo superadmin | Slug de la institución. Para el superadmin, `null` (opción "CAUDAL (plataforma)"). |
+| `institution_slug` | texto | No (por ahora) | Slug de la institución elegida en el directorio. Si se omite, el usuario debe ser único en toda la plataforma (comportamiento anterior, para clientes que aún no envían el campo). Con el campo, la cuenta se busca por (institución, usuario) y la membresía debe estar vigente en esa institución. Para el superadmin, `null` (opción "CAUDAL (plataforma)"; llega en otra ronda). Límites: `FieldLimits.AQUEDUCT_SLUG_*`. |
 | `username` | texto | Sí | 3 a 32, `^[a-z0-9][a-z0-9._-]{1,30}[a-z0-9]$`, se normaliza a minúsculas (`FieldLimits.USERNAME`) |
 | `password` | texto | Sí | 12 a 128, NFKC (`FieldLimits.PASSWORD`) |
 | `mfa_code` | texto | Si la cuenta tiene MFA activo | 6 dígitos (`FieldLimits.TOTP_CODE_PATTERN`) o un código de respaldo |
