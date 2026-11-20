@@ -2,7 +2,7 @@
 
 ## Propósito
 
-Lista de unidades de implementación planeadas para las fases 1 a 13 en los cinco repositorios de CAUDAL (`caudal-maqueta` se agrega en la Fase 13). La planeación sigue las historias de usuario, los hechos canónicos y el esquema de datos.
+Lista de unidades de implementación planeadas para las fases 1 a 14 en los cinco repositorios de CAUDAL (`caudal-maqueta` se agrega en la Fase 13). La planeación sigue las historias de usuario, los hechos canónicos y el esquema de datos.
 
 ## Cómo usarlo
 
@@ -34,6 +34,8 @@ Marca `Hecho` con `[x]` cuando el commit correspondiente se haya fusionado en `d
 | **Total** | **233** | **134** | **69** | **70** | **19** | **525** |
 
 **Fase 13: CAUDAL v2 (2026-11-07).** Cambio de alcance: escena 3D con three.js, piloto automático con tres modos, asistente de IA con un LLM compatible con OpenAI, control de llaves, regiones configurables, maqueta virtual en el simulador y el repositorio nuevo `caudal-maqueta` (B198 a B233, F100 a F135, I052 a I069, S061 a S070, M001 a M019). Las filas quedan sin marcar hasta fusionarse en `develop`.
+
+**Fase 14: B2B (2026-11-20).** Cambio de alcance: CAUDAL pasa a ser un producto B2B por institución. Incluye el renombre `aqueduct` a `institution`, migraciones que retiran reglas, turnos, publicación, correcciones, público y resúmenes, roles y login por institución, plataforma (`platform.*` y act-as), configuración del tanque y de las válvulas, sensor en vivo con `DISTANCE`, `GET /devices/config`, pronóstico en tres salidas, cierre sin turnos y actas. Filas nuevas: B234 a B356 (backend), F136 a F179 (frontend), I070 a I077 (IA), S071 a S081 (simulador) y M020 a M022 (maqueta). Prueba de banco de la subfase 0 (2026-11-20): las 4 órdenes quedaron ACKED en 2 a 5 s. El resumen de implementación de arriba no incluye la fase 14. No hay filas sin marcar de funciones retiradas: las de la fase 13 están marcadas [x] y se conservan como historial; el retiro se hace con las filas de la fase 14.
 
 **Ampliación del frontend (2026-10-14).** Se agregan la página de presentación, el rediseño del inicio de sesión, los inicios por rol y las pantallas de usuarios, entidades, privacidad, auditoría, importación, reporte de daño del fontanero, historial de reglas y salud técnica que el inventario de pantallas pedía y el plan no listaba (F081 a F098), los listados de actas y dispositivos que esas pantallas necesitan en el backend (B195 y B196) y los turnos publicados del día para el cierre del fontanero (B197).
 
@@ -347,6 +349,134 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | B232 | `docs: agrega el diagrama de secuencia de aceptar una recomendación` | `NicoalsD` | HU-41 | - | [x] |
 | B233 | `docs: documenta las migraciones V54 y V55` | `NicoalsD` | HU-40 | - | [x] |
 
+### Fase 14: B2B (2026-11-20)
+
+| # | Mensaje del commit | Autor | HU | Patrón | Hecho |
+|---|---|---|---|---|---|
+| B234 | `docs: reescribe Caudal.md para el modelo B2B` | `NicoalsD` | - | - | [x] |
+| B235 | `docs: reescribe Reglas-de-negocio.md con geometría y pronóstico` | `NicoalsD` | - | - | [x] |
+| B236 | `docs: actualiza Actores-y-permisos.md con roles de institución` | `NicoalsD` | HU-08 | - | [x] |
+| B237 | `docs: reescribe Historias-de-usuario.md con HU-01 a HU-36` | `NicoalsD` | - | - | [x] |
+| B238 | `docs: reescribe Requerimientos.md con RF-01 a RF-39` | `NicoalsD` | - | - | [x] |
+| B239 | `docs: lleva API.md y Modelo-de-datos.md al modelo B2B` | `NicoalsD` | - | - | [x] |
+| B240 | `docs: actualiza Seguridad y RLS por institution_id` | `NicoalsD` | - | - | [x] |
+| B241 | `docs: actualiza Configuracion y Patrones al modelo B2B` | `NicoalsD` | - | P05, P19 | [x] |
+| B242 | `docs: actualiza Contrato-IA y Modulo-IA a pasos en segundos` | `NicoalsD` | HU-17 | - | [x] |
+| B243 | `docs: actualiza Protocolo y Simulador-y-hardware con DISTANCE` | `NicoalsD` | HU-31 | - | [x] |
+| B244 | `docs: actualiza Datos-simulados.md con is_simulated` | `NicoalsD` | HU-36 | - | [x] |
+| B245 | `docs: actualiza Riesgos.md con el directorio público` | `NicoalsD` | HU-01 | - | [x] |
+| B246 | `docs: actualiza Arquitectura, Stack y Glosario al modelo B2B` | `NicoalsD` | - | - | [x] |
+| B247 | `docs: actualiza README, docs/README.md y estudios por rol` | `NicoalsD` | - | - | [x] |
+| B248 | `docs: actualiza Estudio-llenado-de-tanques.md al modelo B2B` | `NicoalsD` | HU-09 | - | [x] |
+| B249 | `docs: actualiza AGENTS.md y CLAUDE.md al modelo B2B` | `NicoalsD` | - | - | [x] |
+| B250 | `docs: actualiza Plan-de-commits.md con la fase 14` | `NicoalsD` | - | - | [x] |
+| B251 | `docs: actualiza Roles-y-planeacion.md con la fase 14` | `NicoalsD` | - | - | [x] |
+| B252 | `feat: renombra org.aqueducts a org.institutions con migración` | `Drako2305` | - | - | [ ] |
+| B253 | `feat: renombra aqueduct_id a institution_id en las tablas` | `Drako2305` | - | - | [ ] |
+| B254 | `feat: recrea las políticas RLS con current_institution_id()` | `Drako2305` | - | - | [ ] |
+| B255 | `feat: cambia el claim JWT de aqueduct_id a institution_id` | `Drako2305` | HU-01 | - | [ ] |
+| B256 | `feat: renombra switch-aqueduct a switch-institution` | `Drako2305` | - | - | [ ] |
+| B257 | `refactor: renombra paquetes y clases de aqueduct a institution` | `Drako2305` | - | - | [ ] |
+| B258 | `feat: retira las tablas de reglas versionadas` | `Drako2305` | - | - | [ ] |
+| B259 | `feat: retira las tablas de turnos y propuestas de la Junta` | `Drako2305` | - | - | [ ] |
+| B260 | `feat: retira ops.publications y ops.reading_corrections` | `Drako2305` | - | - | [ ] |
+| B261 | `feat: retira resúmenes de entidades y reportes públicos de daño` | `Drako2305` | - | - | [ ] |
+| B262 | `feat: reescribe el CHECK de origen de devices.valve_commands` | `Drako2305` | HU-15 | - | [ ] |
+| B263 | `refactor: borra ValveCommandScheduler, PublicScheduleProxy y turnos` | `Drako2305` | - | - | [ ] |
+| B264 | `test: verifica el CHECK de origen de los comandos de válvula` | `Drako2305` | HU-15 | - | [ ] |
+| B265 | `feat: siembra los roles de plataforma, administrador, operador y lector` | `Drako2305` | HU-02 | - | [ ] |
+| B266 | `feat: migra BOARD_* a INSTITUTION_ADMIN y PROJECT_TEAM a VIEWER` | `Drako2305` | HU-08 | - | [ ] |
+| B267 | `feat: quita el rol SUPPORT_ENTITY y sus permisos públicos` | `Drako2305` | HU-08 | - | [ ] |
+| B268 | `feat: agrega INSTITUTION_CONFIGURE y PLATFORM_MANAGE` | `Drako2305` | HU-08 | - | [ ] |
+| B269 | `feat: agrega OBSERVATION_CREATE y retira READING_CREATE y CORRECT` | `Drako2305` | HU-27 | - | [ ] |
+| B270 | `feat: retira los permisos RULESET, PROPOSAL, SCHEDULE y SUMMARY` | `Drako2305` | HU-08 | - | [ ] |
+| B271 | `feat: asigna ANOMALY_REVIEW a administrador y operador` | `Drako2305` | HU-19 | - | [ ] |
+| B272 | `test: verifica la matriz de permisos por rol de institución` | `Drako2305` | HU-02 | - | [ ] |
+| B273 | `feat: agrega institution_slug a POST /auth/login` | `Drako2305` | HU-01 | - | [ ] |
+| B274 | `feat: exige unicidad de usuario por institución` | `Drako2305` | HU-01 | - | [ ] |
+| B275 | `feat: responde INVALID_CREDENTIALS sin revelar otras instituciones` | `Drako2305` | HU-01 | - | [ ] |
+| B276 | `feat: implementa GET /public/institutions con slug y nombre` | `Drako2305` | HU-01 | P11 | [ ] |
+| B277 | `feat: limita por tasa el directorio público de instituciones` | `Drako2305` | HU-01 | P11 | [ ] |
+| B278 | `test: verifica que el login no revela usuarios de otra institución` | `Drako2305` | HU-01 | - | [ ] |
+| B279 | `feat: crea platform.create_institution como SECURITY DEFINER` | `Drako2305` | HU-07 | - | [ ] |
+| B280 | `feat: crea platform.list_institutions como SECURITY DEFINER` | `Drako2305` | HU-07 | - | [ ] |
+| B281 | `feat: agrega InstitutionTemplate con el patrón Prototype` | `Drako2305` | HU-07 | P05 | [ ] |
+| B282 | `feat: implementa POST /platform/institutions desde la plantilla` | `Drako2305` | HU-07 | P05 | [ ] |
+| B283 | `feat: implementa GET y PATCH /platform/institutions` | `Drako2305` | HU-07 | - | [ ] |
+| B284 | `feat: implementa POST /platform/institutions/{id}/admin` | `Drako2305` | HU-07 | - | [ ] |
+| B285 | `feat: emite token act_as=platform de 15 min auditado` | `Drako2305` | HU-07 | - | [ ] |
+| B286 | `feat: emite JWT con scope=platform y sin institution_id` | `Drako2305` | HU-07 | - | [ ] |
+| B287 | `test: verifica el aislamiento de instituciones creadas en plataforma` | `Drako2305` | HU-07 | - | [ ] |
+| B288 | `feat: crea org.institution_settings con una fila por institución` | `Drako2305` | HU-12 | - | [ ] |
+| B289 | `feat: implementa GET y PATCH /institution/settings auditados` | `Drako2305` | HU-12 | - | [ ] |
+| B290 | `feat: migra reserva, umbrales y piloto de reglas a settings` | `Drako2305` | HU-12 | - | [ ] |
+| B291 | `feat: agrega forma y medidas a org.tanks` | `Drako2305` | HU-09 | - | [ ] |
+| B292 | `feat: agrega calibración empty, full y blind_zone a org.tanks` | `Drako2305` | HU-10 | - | [ ] |
+| B293 | `feat: define TankGeometry con cilindro y rectangular` | `Drako2305` | HU-09 | P19 | [ ] |
+| B294 | `feat: calcula nivel, porcentaje y litros con la geometría` | `Drako2305` | HU-09 | P19 | [ ] |
+| B295 | `feat: aplica el GRANT de columnas en PATCH /tanks/{id}` | `Drako2305` | HU-09 | - | [ ] |
+| B296 | `feat: renombra org.sectors a org.service_lines y quita regiones` | `Drako2305` | HU-11 | - | [ ] |
+| B297 | `feat: agrega servo_channel y ángulos a org.valves` | `Drako2305` | HU-11 | - | [ ] |
+| B298 | `feat: agrega hold_torque_after_move a org.valves` | `Drako2305` | HU-11 | - | [ ] |
+| B299 | `feat: implementa CRUD de /service-lines con una válvula por línea` | `Drako2305` | HU-11 | - | [ ] |
+| B300 | `feat: implementa PATCH /valves/{id} con canal, ángulos y torque` | `Drako2305` | HU-11 | - | [ ] |
+| B301 | `feat: modela el ciclo del comando de válvula con State` | `Drako2305` | HU-16 | P18 | [ ] |
+| B302 | `feat: reemplaza el comando activo de una válvula con SUPERSEDED` | `Drako2305` | HU-15 | - | [ ] |
+| B303 | `feat: fija expires_at por defecto en dos minutos` | `Drako2305` | HU-16 | - | [ ] |
+| B304 | `test: verifica geometría cilindro y rectangular con la maqueta` | `Drako2305` | HU-09 | P19 | [ ] |
+| B305 | `test: verifica las transiciones del comando de válvula` | `Drako2305` | HU-16 | P18 | [ ] |
+| B306 | `feat: acepta la métrica DISTANCE en POST /devices/telemetry` | `nicomora70` | HU-31 | P12 | [ ] |
+| B307 | `feat: encadena la validación de DISTANCE con Chain of Responsibility` | `nicomora70` | HU-31 | P12 | [ ] |
+| B308 | `feat: trata value -1 como sin eco y no crea lectura` | `nicomora70` | HU-31 | - | [ ] |
+| B309 | `feat: rechaza puntos más viejos que max_backdate_hours` | `nicomora70` | HU-31 | P12 | [ ] |
+| B310 | `feat: convierte DISTANCE a nivel con la geometría del tanque` | `nicomora70` | HU-13 | P19 | [ ] |
+| B311 | `feat: guarda los puntos crudos en devices.telemetry_points` | `nicomora70` | HU-31 | - | [ ] |
+| B312 | `feat: persiste la lectura efectiva cada persist_interval_seconds` | `nicomora70` | HU-13 | - | [ ] |
+| B313 | `feat: persiste también cuando el nivel cambia más del umbral` | `nicomora70` | HU-13 | - | [ ] |
+| B314 | `feat: expone GET /tanks/{id}/live con sensor_status` | `nicomora70` | HU-13 | P10 | [ ] |
+| B315 | `feat: limita a 60 peticiones firmadas por minuto por dispositivo` | `nicomora70` | HU-31 | - | [ ] |
+| B316 | `feat: detecta SENSOR_FAULT en segundos con alguna válvula abierta` | `nicomora70` | HU-19 | - | [ ] |
+| B317 | `feat: recalcula STALE_DATA con stale_after_seconds` | `nicomora70` | HU-19 | - | [ ] |
+| B318 | `feat: recalcula ABNORMAL_DROP con max_level_change_per_minute` | `nicomora70` | HU-19 | - | [ ] |
+| B319 | `feat: detecta POSSIBLE_LEAK con todas las válvulas cerradas` | `nicomora70` | HU-19 | - | [ ] |
+| B320 | `test: verifica eco perdido, dato viejo y anomalías en segundos` | `nicomora70` | HU-19 | - | [ ] |
+| B321 | `feat: expone GET /devices/config firmado por dispositivo` | `nicomora70` | HU-32 | - | [ ] |
+| B322 | `feat: entrega canal, ángulos y calibración en /devices/config` | `nicomora70` | HU-32 | - | [ ] |
+| B323 | `feat: incluye hold_torque_after_move en /devices/config` | `nicomora70` | HU-32 | - | [ ] |
+| B324 | `feat: calcula el agua que queda con la geometría` | `nicomora70` | HU-17 | P19 | [ ] |
+| B325 | `feat: calcula el tiempo a la reserva y al vaciado por pendiente` | `nicomora70` | HU-17 | - | [ ] |
+| B326 | `feat: no reporta vaciado si el nivel sube o está estable` | `nicomora70` | HU-17 | - | [ ] |
+| B327 | `feat: remuestrea el pronóstico a forecast_step_seconds` | `nicomora70` | HU-17 | - | [ ] |
+| B328 | `feat: expone la banda Chronos en level_mm y level_pct` | `nicomora70` | HU-17 | - | [ ] |
+| B329 | `feat: expone GET /tanks/{id}/outlook con origen por salida` | `nicomora70` | HU-17 | P10 | [ ] |
+| B330 | `feat: marca is_fallback y fallback_reason si Chronos falla` | `nicomora70` | HU-18 | - | [ ] |
+| B331 | `feat: genera OPEN, CLOSE, WAIT e INSPECT con reglas` | `nicomora70` | HU-23 | - | [ ] |
+| B332 | `feat: guarda source RULES en las recomendaciones del piloto` | `nicomora70` | HU-23 | - | [ ] |
+| B333 | `feat: aplica piso de reserva y prioridad humana como guardas` | `nicomora70` | HU-24 | - | [ ] |
+| B334 | `test: verifica las tres salidas del outlook con su origen` | `nicomora70` | HU-17 | - | [ ] |
+| B335 | `feat: agrega la tabla de observaciones con origen y autor` | `Drako2305` | HU-27 | - | [ ] |
+| B336 | `feat: implementa POST /observations con cuatro tipos` | `Drako2305` | HU-27 | - | [ ] |
+| B337 | `feat: limita el texto de observación de 10 a 500 caracteres` | `Drako2305` | HU-27 | - | [ ] |
+| B338 | `feat: resume aperturas por válvula con su origen del día` | `NicoalsD` | HU-28 | - | [ ] |
+| B339 | `feat: implementa GET /days/{date}/summary sin turnos` | `NicoalsD` | HU-28 | - | [ ] |
+| B340 | `feat: cierra el día con novedades en POST /days/{date}/closure` | `NicoalsD` | HU-28 | P13 | [ ] |
+| B341 | `feat: impide cerrar dos veces el mismo día sin turnos` | `NicoalsD` | HU-28 | - | [ ] |
+| B342 | `feat: construye actas con MinutesBuilder y cuatro estatus` | `NicoalsD` | HU-29 | P04 | [ ] |
+| B343 | `feat: marca cada dato como observado, estimado, inferido o confirmado` | `NicoalsD` | HU-29 | P21 | [ ] |
+| B344 | `feat: vuelve inmutable el acta final con su pdf_sha256` | `NicoalsD` | HU-29 | - | [ ] |
+| B345 | `test: verifica el cierre sin turnos y las actas de cuatro estatus` | `NicoalsD` | HU-28, HU-29 | - | [ ] |
+| B346 | `feat: siembra la institución maqueta-caudal no simulada` | `nicomora70` | HU-32 | - | [ ] |
+| B347 | `feat: siembra el tanque con las medidas de la maqueta` | `nicomora70` | HU-32 | - | [ ] |
+| B348 | `feat: siembra Acueducto 1 y 2 con válvulas en canales 1 y 2` | `nicomora70` | HU-32 | - | [ ] |
+| B349 | `feat: siembra usuarios admin, operador y lector locales` | `nicomora70` | HU-02 | - | [ ] |
+| B350 | `feat: siembra los tres dispositivos de la maqueta` | `nicomora70` | HU-30 | - | [ ] |
+| B351 | `test: verifica la semilla de maqueta-caudal y su aislamiento` | `nicomora70` | HU-32 | - | [ ] |
+| B352 | `docs: regenera el diccionario de datos del modelo B2B` | `NicoalsD` | - | - | [ ] |
+| B353 | `docs: redibuja flujo, casos de uso y modelo de datos` | `NicoalsD` | - | - | [ ] |
+| B354 | `docs: dibuja la secuencia del comando de válvula` | `NicoalsD` | HU-15 | P18 | [ ] |
+| B355 | `docs: borra los diagramas estados-propuesta y secuencia-propuesta` | `NicoalsD` | - | - | [ ] |
+| B356 | `docs: redibuja las secuencias de login, telemetría y pronóstico` | `NicoalsD` | HU-01 | - | [ ] |
+
 ## `caudal-frontend`
 
 ### Fase 1: Fundaciones
@@ -549,6 +679,55 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | F134 | `test: agrega e2e de aceptar una recomendación` | `NicoalsD` | HU-41 | - | [x] |
 | F135 | `docs: documenta la escena 3D y el flujo del asistente` | `NicoalsD` | HU-45 | - | [x] |
 
+### Fase 14: B2B (2026-11-20)
+
+| # | Mensaje del commit | Autor | HU | Patrón | Hecho |
+|---|---|---|---|---|---|
+| F136 | `feat: elige la institución antes de las credenciales` | `NicoalsD` | HU-01 | - | [ ] |
+| F137 | `feat: busca instituciones en GET /public/institutions` | `NicoalsD` | HU-01 | P11 | [ ] |
+| F138 | `feat: agrega la ruta /i/:slug/login` | `NicoalsD` | HU-01 | - | [ ] |
+| F139 | `refactor: quita las rutas públicas /a/* del frontend` | `NicoalsD` | HU-01 | - | [ ] |
+| F140 | `feat: lleva a cada rol a su pantalla inicial` | `NicoalsD` | HU-02 | - | [ ] |
+| F141 | `feat: pone la escena 3D en /inicio del operador` | `NicoalsD` | HU-14 | - | [ ] |
+| F142 | `feat: muestra el tanque en vivo y las líneas en /inicio` | `NicoalsD` | HU-13 | - | [ ] |
+| F143 | `feat: consulta /tanks/{id}/live cada 2 s` | `NicoalsD` | HU-13 | - | [ ] |
+| F144 | `feat: muestra distancia en mm, nivel, porcentaje y litros` | `NicoalsD` | HU-13 | - | [ ] |
+| F145 | `feat: escala la escena 3D a las medidas reales del tanque` | `NicoalsD` | HU-14 | - | [ ] |
+| F146 | `feat: agrega botones Abrir y Cerrar por línea` | `NicoalsD` | HU-15 | - | [ ] |
+| F147 | `feat: muestra PENDING, DELIVERED y ACKED del comando` | `NicoalsD` | HU-16 | P18 | [ ] |
+| F148 | `feat: permite operar válvulas a administrador y operador` | `NicoalsD` | HU-15 | - | [ ] |
+| F149 | `feat: agrega el motivo opcional con texto por defecto` | `NicoalsD` | HU-15 | - | [ ] |
+| F150 | `feat: muestra el panel de pronóstico con tres bloques` | `NicoalsD` | HU-17 | - | [ ] |
+| F151 | `feat: rotula Agua que queda y Llega a la reserva en` | `NicoalsD` | HU-17 | - | [ ] |
+| F152 | `feat: rotula Pronóstico (modelo Chronos) y el respaldo` | `NicoalsD` | HU-18 | - | [ ] |
+| F153 | `feat: agrega la vista /eventos con anomalías y observaciones` | `NicoalsD` | HU-20 | - | [ ] |
+| F154 | `feat: rotula el asistente como modelo de lenguaje` | `NicoalsD` | HU-25 | - | [ ] |
+| F155 | `feat: agrega la vista /cierre/:date con novedades` | `NicoalsD` | HU-28 | - | [ ] |
+| F156 | `feat: agrega la vista /actas con cuatro estatus` | `NicoalsD` | HU-29 | - | [ ] |
+| F157 | `feat: agrega el formulario de observación manual` | `NicoalsD` | HU-27 | - | [ ] |
+| F158 | `feat: agrega /admin/tanque con usar lectura como vacío o lleno` | `NicoalsD` | HU-10 | - | [ ] |
+| F159 | `feat: agrega /admin/lineas con canal, ángulos y torque` | `NicoalsD` | HU-11 | - | [ ] |
+| F160 | `feat: agrega /admin/usuarios con roles de la institución` | `NicoalsD` | HU-08 | - | [ ] |
+| F161 | `feat: agrega /admin/piloto con modo y parámetros` | `NicoalsD` | HU-22 | - | [ ] |
+| F162 | `feat: agrega /admin/dispositivos con registro de claves` | `NicoalsD` | HU-30 | - | [ ] |
+| F163 | `feat: agrega /plataforma/instituciones con alta desde plantilla` | `NicoalsD` | HU-07 | - | [ ] |
+| F164 | `feat: permite entrar a una institución con act_as=platform` | `NicoalsD` | HU-07 | - | [ ] |
+| F165 | `feat: muestra Datos simulados en instituciones simuladas` | `NicoalsD` | HU-36 | - | [ ] |
+| F166 | `refactor: borra las pantallas de propuestas y turnos` | `NicoalsD` | - | - | [ ] |
+| F167 | `refactor: borra el editor de reglas y su historial` | `NicoalsD` | - | - | [ ] |
+| F168 | `refactor: borra la publicación de horario y el cartel PDF` | `NicoalsD` | - | - | [ ] |
+| F169 | `refactor: borra el formulario de lectura nueva y la cola offline` | `NicoalsD` | - | - | [ ] |
+| F170 | `refactor: borra la página pública y el enlace de WhatsApp` | `NicoalsD` | - | - | [ ] |
+| F171 | `refactor: borra entidades, regiones y resúmenes autorizados` | `NicoalsD` | - | - | [ ] |
+| F172 | `refactor: borra los dashboards de la Junta y de la entidad` | `NicoalsD` | - | - | [ ] |
+| F173 | `refactor: mueve la importación simulada a la plataforma` | `NicoalsD` | HU-35 | - | [ ] |
+| F174 | `test: cubre el login en dos pasos con Playwright` | `NicoalsD` | HU-01 | - | [ ] |
+| F175 | `test: cubre el inicio con tanque en vivo y válvulas` | `NicoalsD` | HU-13, HU-15 | - | [ ] |
+| F176 | `test: cubre el pronóstico en tres salidas y el asistente` | `NicoalsD` | HU-17, HU-25 | - | [ ] |
+| F177 | `test: verifica que el lector no ve controles de mutación` | `NicoalsD` | HU-02 | - | [ ] |
+| F178 | `build: regenera schema.d.ts desde el OpenAPI B2B` | `NicoalsD` | - | - | [ ] |
+| F179 | `docs: actualiza PRODUCT.md y Version-2.0.0.md` | `NicoalsD` | - | - | [ ] |
+
 ## `caudal-ia`
 
 ### Fase 1: Fundaciones y contrato
@@ -678,6 +857,19 @@ Sin commits planeados en esta fase para este repositorio.
 | I067 | `test: verifica el respaldo si el LLM falla o responde mal` | `nicomora70` | HU-41 | - | [x] |
 | I068 | `ci: agrega las variables LLM_* a render.yaml sin secretos` | `nicomora70` | - | - | [x] |
 | I069 | `docs: documenta el asistente, el contrato y los proveedores LLM` | `nicomora70` | HU-41, HU-43 | - | [x] |
+
+### Fase 14: B2B (2026-11-20)
+
+| # | Mensaje del commit | Autor | HU | Patrón | Hecho |
+|---|---|---|---|---|---|
+| I070 | `feat: acepta forecast_step_seconds en el contrato de pronóstico` | `nicomora70` | HU-17 | - | [ ] |
+| I071 | `feat: remuestrea las series a pasos en segundos` | `nicomora70` | HU-17 | - | [ ] |
+| I072 | `feat: pasa el contexto del outlook al asistente` | `nicomora70` | HU-25 | - | [ ] |
+| I073 | `feat: pasa eventos y estado de válvulas al asistente` | `nicomora70` | HU-25 | - | [ ] |
+| I074 | `feat: agrega las preguntas sugeridas de agua y reserva` | `nicomora70` | HU-25 | - | [ ] |
+| I075 | `feat: retira la generación de recomendaciones del LLM` | `nicomora70` | HU-23 | - | [ ] |
+| I076 | `test: verifica que el asistente usa las cifras del outlook` | `nicomora70` | HU-25 | - | [ ] |
+| I077 | `docs: documenta los pasos en segundos y el contexto del asistente` | `nicomora70` | HU-17 | - | [ ] |
 
 ## `caudal-simulador`
 
@@ -811,6 +1003,22 @@ Sin commits planeados en esta fase para este repositorio.
 | S069 | `test: verifica la firma y el ack de la maqueta virtual` | `nicomora70` | HU-49 | - | [x] |
 | S070 | `docs: documenta la maqueta virtual en operacion-live` | `nicomora70` | HU-49 | - | [x] |
 
+### Fase 14: B2B (2026-11-20)
+
+| # | Mensaje del commit | Autor | HU | Patrón | Hecho |
+|---|---|---|---|---|---|
+| S071 | `feat: envía la métrica DISTANCE en mm en lugar de nivel` | `nicomora70` | HU-31 | - | [ ] |
+| S072 | `feat: envía telemetría cada 2 s en lugar de lotes de 20 s` | `nicomora70` | HU-31 | - | [ ] |
+| S073 | `feat: envía value -1 cuando el HC-SR04 no responde` | `nicomora70` | HU-31 | - | [ ] |
+| S074 | `feat: lee canal, ángulos y calibración de /devices/config` | `nicomora70` | HU-32 | - | [ ] |
+| S075 | `feat: relee /devices/config sin reiniciar el puente` | `nicomora70` | HU-32 | - | [ ] |
+| S076 | `feat: envía R<n> tras DONE si hold_torque_after_move es false` | `nicomora70` | HU-32 | - | [ ] |
+| S077 | `refactor: deja en el YAML solo el puerto y los tiempos` | `nicomora70` | HU-32 | - | [ ] |
+| S078 | `feat: firma cada dispositivo con su propia clave Ed25519` | `nicomora70` | HU-30 | P06 | [ ] |
+| S079 | `test: verifica DISTANCE, -1 y el ciclo de comandos del puente` | `nicomora70` | HU-31, HU-32 | - | [ ] |
+| S080 | `docs: documenta maqueta-usb y la configuración remota` | `nicomora70` | HU-32 | - | [ ] |
+| S081 | `docs: actualiza sim-v2/docs con DISTANCE y /devices/config` | `nicomora70` | HU-31 | - | [ ] |
+
 ## `caudal-maqueta`
 
 ### Fase 13: CAUDAL v2 (3D, piloto, asistente y maqueta)
@@ -836,5 +1044,13 @@ Sin commits planeados en esta fase para este repositorio.
 | M017 | `docs: documenta el armado y las conexiones de la maqueta` | `nicomora70` | HU-48 | - | [x] |
 | M018 | `docs: documenta las pruebas de banco de la maqueta` | `nicomora70` | HU-48 | - | [x] |
 | M019 | `docs: agrega el diagrama de bloques de la maqueta` | `nicomora70` | HU-48 | - | [x] |
+
+### Fase 14: B2B (2026-11-20)
+
+| # | Mensaje del commit | Autor | HU | Patrón | Hecho |
+|---|---|---|---|---|---|
+| M020 | `test: verifica el lazo de válvulas en banco con el UNO` | `nicomora70` | HU-15, HU-32 | - | [x] |
+| M021 | `docs: documenta la calibración fuera de la app` | `nicomora70` | HU-32 | - | [ ] |
+| M022 | `docs: documenta la alimentación externa de los dos servos` | `nicomora70` | HU-32 | - | [ ] |
 
 Relacionados: [Roles-y-planeacion.md](Roles-y-planeacion.md), [workflow.md](../.agents/workflow.md), [Historias-de-usuario.md](Historias-de-usuario.md)
