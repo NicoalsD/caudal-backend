@@ -13,15 +13,15 @@ Este documento define quién usa CAUDAL, en qué institución opera, qué puede 
 | Operador | `OPERATOR` | Abrir y cerrar las válvulas, anotar lo que se observa y cerrar el día. | Ver el tanque en vivo, abrir o cerrar una válvula y ver si el comando se ejecutó, registrar una observación, cerrar el día y preguntar al asistente. | Celular o tableta junto al tanque. Pantalla pequeña y poca paciencia con formularios largos. | Panel web (PWA). |
 | Lector | `VIEWER` | Saber qué pasa con el agua sin poder cambiar nada. | Ver el tanque en vivo, el pronóstico, los eventos y las actas. | Computador o celular, de forma esporádica. | Panel web (PWA). |
 | Dispositivo sensor o actuador | Sistema, no persona | Enviar telemetría y ejecutar comandos firmados. | Firmar cada petición con su clave privada, leer su configuración firmada (`GET /devices/config`) y recibir solo comandos vigentes. | Hardware: sensor HC-SR04 y servos MG90S de la maqueta. | API `/api/v1/devices/*` con firmas Ed25519. |
-| Puente USB | Sistema, no persona (es un dispositivo con dos roles lógicos) | Conectar la placa Arduino UNO por USB con el backend. | Leer la distancia del sensor por serie, enviarla como `DISTANCE` y pasar a la placa los comandos `S<n> <deg>`. | Equipo local que corre `caudal-sim maqueta-usb` (`caudal-simulador`). La clave privada vive en disco local. | API `/api/v1/devices/*` con firmas Ed25519; serie hacia la placa. |
+| Puente USB | Sistema, no persona (es un dispositivo con dos roles lógicos) | Conectar la placa Arduino UNO por USB con el backend. | Leer la distancia del sensor por serie, enviarla como `DISTANCE` y pasar a la placa los comandos `S<n> <deg>`. | Equipo local que corre `caudal-sim maqueta-usb` (`caudal-simulador`). Las claves privadas de sus tres dispositivos viven en disco local. | API `/api/v1/devices/*` con firmas Ed25519; serie hacia la placa. |
 | Piloto automático | `AUTOPILOT` (actor de sistema, sin cuenta) | Recomendar la acción de las válvulas y, si el modo lo permite, ejecutarla cuando el operador no está. | Leer el estado y el pronóstico, consultar al asistente y generar comandos de válvula solo en modo `AUTOMATIC`, sin bajar del piso de reserva. | Proceso programado en el backend (`application/autopilot/`). | Interno: llama a `caudal-ia` y crea comandos con `autopilot_decision_id`. |
 
 Notas:
 
 - El superadmin de CAUDAL reemplaza al "equipo del proyecto" de la versión anterior. Ya no hay actor de la Junta, de entidad de apoyo ni de familias: el sistema no tiene vía pública más allá del directorio de instituciones y el login.
 - El piloto automático (`AUTOPILOT`) no tiene cuenta ni rol. Sus decisiones se registran en `ops.autopilot_decisions` y en `audit.audit_log` con el actor `AUTOPILOT`. Su modo (`MANUAL`, `ASSISTED` o `AUTOMATIC`) lo configura el `INSTITUTION_ADMIN` con `AUTOPILOT_CONFIGURE`. Cualquier acción manual de válvula pausa al piloto.
-- El puente USB no es una persona, pero tiene su propia clave Ed25519 registrada como dispositivo. Su clave privada se guarda en disco local con permisos `600`.
-- Un usuario pertenece a una sola institución. Su nombre de usuario es único dentro de esa institución. Por definir si una misma persona necesita cuentas en varias instituciones (hoy se resuelve con una cuenta por institución).
+- El puente USB no es una persona. La maqueta son tres dispositivos (un `LEVEL_SENSOR` y dos `VALVE_ACTUATOR`), cada uno con su propia clave Ed25519 registrada. El puente guarda las tres claves privadas en disco local con permisos `600`.
+- Un usuario pertenece a una sola institución. Su nombre de usuario es único dentro de esa institución. Si una persona necesita acceso a otra institución, se le crea una cuenta nueva en ella.
 
 ## 2. Roles del sistema (RBAC)
 
@@ -54,11 +54,11 @@ Sí = el rol tiene el permiso. No = no lo tiene. Las reglas por objeto (membres�
 |---|---|---|---|---|---|---|
 | `PLATFORM_MANAGE` | nuevo | Crear, listar y editar instituciones y crear su primer admin: `GET/POST /platform/institutions`, `PATCH /platform/institutions/{id}`, `POST /platform/institutions/{id}/admin`. Abrir una institución con `act_as` (ruta por definir). | Sí | No | No | No |
 | `INSTITUTION_CONFIGURE` | nuevo | Configurar el tanque (forma, medidas y calibración), las líneas y las válvulas, y los parámetros: `PATCH /tanks/{id}` (incluye `empty_distance_mm`, `full_distance_mm`, `blind_zone_mm`), `GET/POST/PATCH /service-lines` (sin borrado; se desactiva con `is_active`), `POST/PATCH /valves`, `PATCH /institution/settings` | Sí (act_as) | Sí | No | No |
-| `USER_MANAGE` | se mantiene | Usuarios de la institución: `GET/POST /users`, `PATCH /users/{id}`, `POST /users/{id}/reset-grants`. Las membresías (`/memberships`) están por definir (ver sección 1) | Sí (act_as) | Sí | No | No |
+| `USER_MANAGE` | se mantiene | Usuarios de la institución: `GET/POST /users`, `PATCH /users/{id}`, `POST /users/{id}/reset-grants`. No hay ruta de membresías: cada usuario tiene una sola membresía activa en `iam.memberships`, que guarda su rol | Sí (act_as) | Sí | No | No |
 | `NETWORK_VIEW` | se mantiene | Ver tanque, líneas, válvulas y la escena 3D: `GET /tanks`, `GET /service-lines`, `GET /valves`, `GET /network` | Sí (act_as) | Sí | Sí | Sí |
 | `STATUS_VIEW` | se mantiene | Ver el tanque en vivo, el pronóstico, eventos, válvulas, observaciones, cierre y parámetros: `GET /tanks/{id}/live`, `GET /tanks/{id}/outlook`, `GET /valves/live`, `GET /institution/settings`, `GET /anomalies`, `GET /observations`, `GET /days/{date}/closure`, `GET /autopilot/recommendations`. Lectura de eventos generales (`GET /events`) por definir | Sí (act_as) | Sí | Sí | Sí |
 | `FORECAST_RUN` | se mantiene | Recalcular el pronóstico: `POST /tanks/{id}/forecasts` (límite 10 por hora por institución) | Sí (act_as) | Sí | No | No |
-| `ANOMALY_REVIEW` | se mantiene | Confirmar o descartar una anomalía: `PATCH /anomalies/{id}` | Sí (act_as) | Sí | No | No |
+| `ANOMALY_REVIEW` | se mantiene | Confirmar o descartar una anomalía: `PATCH /anomalies/{id}` | Sí (act_as) | Sí | Sí | No |
 | `VALVE_COMMAND_MANUAL` | se mantiene (ampliado) | Comando manual de válvula con motivo opcional (texto por defecto): `POST /valve-commands/manual`, `GET /valve-commands/{id}`. También sirve para aceptar una recomendación del piloto en modo `ASSISTED`. | Sí (act_as) | Sí | Sí | No |
 | `OBSERVATION_CREATE` | nuevo | Registrar una observación manual (`WATER_DIRTY`, `WATER_MUDDY`, `VISIBLE_DAMAGE`, `OTHER`): `POST /observations` | Sí (act_as) | Sí | Sí | No |
 | `DAY_CLOSE` | se mantiene (sin turnos) | Cerrar el día una sola vez, con las novedades del operador: `POST /days/{date}/closure`. Lectura del cierre: `STATUS_VIEW` | Sí (act_as) | Sí | Sí | No |
@@ -66,7 +66,7 @@ Sí = el rol tiene el permiso. No = no lo tiene. Las reglas por objeto (membres�
 | `MINUTES_VIEW` | se mantiene | Ver actas y descargarlas en PDF: `GET /minutes`, `GET /minutes/{id}`, `GET /minutes/{id}/pdf` | Sí (act_as) | Sí | Sí | Sí |
 | `REPORT_VIEW` | se mantiene (ampliado) | Ver reportes del periodo y su narrativa: `GET /reports?from&to`, `POST /reports/narrative` | Sí (act_as) | Sí | No | No |
 | `ASSISTANT_USE` | se mantiene (ampliado) | Preguntar al asistente (lenguaje natural, sin decisiones): `POST /assistant/ask`. Rechazar una recomendación del piloto solo exige este permiso. | Sí (act_as) | Sí | Sí | No |
-| `AUTOPILOT_CONFIGURE` | se mantiene | Configurar el modo del piloto (`MANUAL`, `ASSISTED`, `AUTOMATIC`) y su piso de reserva: `PUT /autopilot/mode` (ruta por definir). Los parámetros `operator_absence_minutes` y `reserve_floor_pct` viven en `institution_settings`. | Sí (act_as) | Sí | No | No |
+| `AUTOPILOT_CONFIGURE` | se mantiene | Configurar el modo del piloto (`autopilot_mode`: `MANUAL`, `ASSISTED`, `AUTOMATIC`), el piso de reserva (`reserve_floor_pct`) y la prioridad humana (`operator_absence_minutes`) con `PATCH /institution/settings`. | Sí (act_as) | Sí | No | No |
 | `DEVICE_MANAGE` | se mantiene | Ver y registrar dispositivos y sus claves: `GET /devices`, `POST /devices`, `POST /devices/{id}/keys`. Quién puede dar de alta claves (solo plataforma o también el admin) está por definir. | Sí (act_as) | Sí | No | No |
 | `IMPORT_SIMULATED` | se mantiene (restringido) | Importar historial simulado: `POST /imports/*` (lista por definir). Solo en instituciones con `is_simulated = true` (regla de objeto). | Sí (act_as, solo si `is_simulated`) | No | No | No |
 | `EVALUATION_VIEW` | se mantiene | Evaluación del pronóstico (IA frente a estimación simple) y salud técnica: `GET /forecast-evaluation` | Sí (act_as) | Sí | No | No |
@@ -88,7 +88,7 @@ Notas de la matriz:
 |---|---|
 | `PLATFORM_ADMIN` | `PLATFORM_MANAGE`. Los demás permisos de institución solo se obtienen con `act_as`. |
 | `INSTITUTION_ADMIN` | `INSTITUTION_CONFIGURE`, `USER_MANAGE`, `NETWORK_VIEW`, `STATUS_VIEW`, `FORECAST_RUN`, `ANOMALY_REVIEW`, `VALVE_COMMAND_MANUAL`, `OBSERVATION_CREATE`, `DAY_CLOSE`, `MINUTES_GENERATE`, `MINUTES_VIEW`, `REPORT_VIEW`, `ASSISTANT_USE`, `AUTOPILOT_CONFIGURE`, `DEVICE_MANAGE`, `EVALUATION_VIEW`, `AUDIT_VIEW`. No incluye `IMPORT_SIMULATED`. |
-| `OPERATOR` | `NETWORK_VIEW`, `STATUS_VIEW`, `VALVE_COMMAND_MANUAL`, `OBSERVATION_CREATE`, `DAY_CLOSE`, `MINUTES_VIEW`, `ASSISTANT_USE`. |
+| `OPERATOR` | `NETWORK_VIEW`, `STATUS_VIEW`, `ANOMALY_REVIEW`, `VALVE_COMMAND_MANUAL`, `OBSERVATION_CREATE`, `DAY_CLOSE`, `MINUTES_VIEW`, `ASSISTANT_USE`. |
 | `VIEWER` | `NETWORK_VIEW`, `STATUS_VIEW`, `MINUTES_VIEW`. |
 
 El admin de la institución no tiene `IMPORT_SIMULATED`: la importación de historial es una herramienta de CAUDAL que solo usa el superadmin en instituciones simuladas.
@@ -99,7 +99,7 @@ La autorización tiene tres capas, en este orden. Si una falla, se rechaza (deny
 
 1. **Autenticación.** El access token (JWT HS256, 15 min) debe ser válido: `alg` explícito, `iss`, `aud`, `exp` y `nbf` con tolerancia de 30 s. El claim `tv` (token_version) debe coincidir con `iam.users.token_version`. Si no coincide, responde `401`.
 2. **Permiso por institución.** El token lleva `institution_id` (la institución activa del usuario). El rol del usuario en esa institución determina los permisos (`iam.role_permissions`). Sin membresía vigente en esa institución: `403 FORBIDDEN`. Un token con `scope=platform` no tiene `institution_id` y solo recibe permisos de `PLATFORM_MANAGE`.
-3. **Chequeo por objeto.** Todo recurso pertenece a una institución (`institution_id`). Un recurso de otra institución se responde como si no existiera (`404 RESOURCE_NOT_FOUND`), para no revelar su existencia. Las reglas adicionales son:
+3. **Chequeo por objeto.** Todo recurso pertenece a una institución (`institution_id`). Un recurso de otra institución se responde como si no existiera (`404 NOT_FOUND`), para no revelar su existencia. Las reglas adicionales son:
 
 | Regla | Aplica a | Detalle |
 |---|---|---|
@@ -108,7 +108,7 @@ La autorización tiene tres capas, en este orden. Si una falla, se rechaza (deny
 | Superadmin | `PLATFORM_MANAGE` | El token de plataforma (`scope=platform`) no tiene institución. Solo puede ejecutar las funciones `platform.*` de la base de datos (ver `Seguridad-de-la-base-de-datos.md`, sección 5.4). |
 | Entrar a una institución como plataforma | `act_as=platform` | El superadmin recibe un token temporal de 15 min con `institution_id` y `act_as=platform`. Sus permisos son los de `INSTITUTION_ADMIN` de esa institución. Cada emisión, cada acción y su cierre quedan en `audit.audit_log` con el actor `PLATFORM_ADMIN` y la institución objetivo. No se puede renovar: al expirar hay que volver a entrar (por confirmar). |
 | Solo instituciones simuladas | `IMPORT_SIMULATED` | `org.institutions.is_simulated = true`. En otra institución, `403 SIMULATED_ONLY` (propuesto; antes `DEMO_ONLY`) y evento `IMPORT_REJECTED` en `iam.security_events`. |
-| Solo lectura | `VIEWER` | Cualquier intento de mutación responde `403 PERMISSION_DENIED`. |
+| Solo lectura | `VIEWER` | Cualquier intento de mutación responde `403 FORBIDDEN`. |
 | Válvulas de la institución | `VALVE_COMMAND_MANUAL` | El comando se crea sobre una válvula de la institución del token. Una válvula de otra institución responde `404`. |
 | Piloto | `AUTOPILOT` | No tiene permisos de rol. Solo crea comandos con `autopilot_decision_id`, y solo en modo `AUTOMATIC` (o al aceptar una recomendación en `ASSISTED`, que exige `VALVE_COMMAND_MANUAL` del operador). |
 | Directorio público | `GET /public/institutions` | Responde solo `{slug, name}` de instituciones activas. No se hace join con `iam.users`. |
