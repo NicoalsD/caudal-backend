@@ -6,23 +6,24 @@ Reglas obligatorias para cualquier persona o agente de IA (Claude Code, OpenCode
 
 | Qué | Idioma | Ejemplos |
 |---|---|---|
-| Todo el código: paquetes, clases, métodos, variables, archivos de código, tablas, columnas, esquemas, rutas, campos JSON, enums, códigos de error, comentarios, Javadoc, logs, nombres de tests | **Inglés** | `ReadingValidationHandler`, `ops.readings`, `POST /api/v1/readings`, `GAUGE_OUT_OF_RANGE` |
+| Todo el código: paquetes, clases, métodos, variables, archivos de código, tablas, columnas, esquemas, rutas, campos JSON, enums, códigos de error, comentarios, Javadoc, logs, nombres de tests | **Inglés** | `ReadingValidationHandler`, `ops.readings`, `POST /api/v1/observations`, `GAUGE_OUT_OF_RANGE` |
 | Documentación (`README.md`, `AGENTS.md`, `CLAUDE.md`, `.agents/`, `docs/`), commits, títulos y cuerpos de PR, issues, `message` de los errores, descripciones de Swagger, textos de los diagramas | **Español** | `feat: agrega la cadena de validación de lecturas` |
 
 Están prohibidos los identificadores en español o mezclados (`registrarLectura`, `tablaSectores`). Los valores que ve el usuario (etiquetas de catálogos, nombres de sectores) van en español porque son datos.
 
 ## 1. Qué es CAUDAL y qué hace este repo
 
-CAUDAL es "el cuaderno del acueducto, pero digital" para las veredas de Guaitarilla (Nariño, Colombia), donde el agua se raciona abriendo y cerrando válvulas a mano por sector. El sistema registra lecturas del tanque (también sin señal), las valida con reglas simples, pronostica el nivel con IA (Chronos) con una estimación simple de respaldo, propone turnos explicados, exige la aprobación de la Junta, publica el horario sin datos personales y genera actas. Visión completa: [`docs/Caudal.md`](docs/Caudal.md).
+CAUDAL es un producto B2B. Damos de alta cada **institución** que almacena agua en un tanque y la reparte por válvulas, y le configuramos su tanque, su sensor ultrasónico y sus válvulas. Cada institución tiene sus datos aislados. El sistema mide el nivel en vivo, abre y cierra válvulas con confirmación (ack), muestra cuánta agua queda y en cuánto tiempo llega a la reserva, pronostica el nivel con IA (Chronos) con una estimación simple de respaldo, mantiene un piloto automático, responde preguntas con un asistente y genera cierres del día y actas. Visión completa: [`docs/Caudal.md`](docs/Caudal.md).
 
 Este repositorio es la **API REST en Java 25 + Spring Boot 4.1** con **PostgreSQL 18** y **Swagger**, y además guarda la **documentación canónica de todo el proyecto** en [`docs/`](docs/README.md).
 
 | Repositorio | Tecnología | Contenido |
 |---|---|---|
 | `caudal-backend` (este) | Java 25, Spring Boot 4.1, PostgreSQL 18 | API, dominio, seguridad, BD, documentación canónica |
-| [`caudal-frontend`](https://github.com/NicoalsD/caudal-frontend) | React 19 + Vite + TypeScript (PWA) | App del fontanero sin conexión, panel de la Junta, página pública |
-| [`caudal-ia`](https://github.com/NicoalsD/caudal-ia) | Python 3.12 + FastAPI + Chronos | Pronóstico del nivel (servicio sin estado) |
-| [`caudal-simulador`](https://github.com/NicoalsD/caudal-simulador) | Python 3.12 + FastAPI + tablero | Simulador de los datos de la región y del hardware |
+| [`caudal-frontend`](https://github.com/NicoalsD/caudal-frontend) | React 19 + Vite + TypeScript (PWA) | Panel web por institución: inicio con tanque y válvulas, administración y plataforma |
+| [`caudal-ia`](https://github.com/NicoalsD/caudal-ia) | Python 3.12 + FastAPI + Chronos | Pronóstico del nivel por institución y asistente con LLM (servicio sin estado) |
+| [`caudal-simulador`](https://github.com/NicoalsD/caudal-simulador) | Python 3.12 + FastAPI + tablero | Simulador de datos de instituciones simuladas y puente USB de la maqueta |
+| `caudal-maqueta` | Arduino UNO por USB (firmware ESP32 como alternativa) | Maqueta física de la institución de prueba `maqueta-caudal` |
 
 Es un proyecto de la materia **Patrones de Software**. El profesor exige backend en Java y que este repositorio tenga 150 commits o más.
 
@@ -30,9 +31,9 @@ Es un proyecto de la materia **Patrones de Software**. El profesor exige backend
 
 | Integrante | Cuenta | Rol en este repo |
 |---|---|---|
-| Drako Salazar | `Drako2305` | Dueño del backend: dominio, base de datos, seguridad, reglas, red, turnos y patrones |
-| Nicolas Diaz | `NicoalsD` | DevOps (CI, Docker, despliegue), publicación, cierre y actas, y documentación global |
-| Nicolas Mora | `nicomora70` | Lecturas e importación de datos simulados, cliente de la IA y pronóstico, evaluación y dispositivos |
+| Drako Salazar | `Drako2305` | Dueño del backend: dominio, base de datos, seguridad, instituciones, configuración, válvulas y patrones |
+| Nicolas Diaz | `NicoalsD` | DevOps (CI, Docker, despliegue), cierre del día y actas, y documentación global |
+| Nicolas Mora | `nicomora70` | Telemetría del sensor, importación de datos simulados, cliente de la IA y pronóstico, evaluación y dispositivos |
 
 Solo esas tres cuentas. El cambio de cuenta e identidad, las ramas y los PR están en [`.agents/workflow.md`](.agents/workflow.md).
 
@@ -48,7 +49,7 @@ Solo esas tres cuentas. El cambio de cuenta e identidad, las ramas y los PR est�
 
 ### 3.2 Sin valores quemados
 Cada valor tiene una sola fuente ([`docs/Configuracion-sin-valores-quemados.md`](docs/Configuracion-sin-valores-quemados.md)):
-1. **Parámetros de negocio** (rango de la regla 0 a 5, horas por banda 16/8/3, reserva, horario, prioridades, máximos) → **base de datos**, en las reglas versionadas de la Junta. Se leen con `GET /api/v1/rule-sets/current`. Si "Máximo 24" pasa a 23, solo se crea una nueva versión de reglas.
+1. **Parámetros de negocio** (umbrales de nivel, reserva, tiempos de dato viejo, ventanas de tendencia y pronóstico, parámetros del piloto) → **base de datos**, en `org.institution_settings`, una fila por institución, editable por el admin y auditada. Se leen y editan con `GET/PATCH /api/v1/institution/settings`. La geometría y la calibración del tanque van en `org.tanks`, y el canal y los ángulos de cada válvula en `org.valves`. *Hoy* el backend todavía lee las reglas versionadas con `GET /api/v1/rule-sets/current`; la migración a `institution_settings` es parte de la Fase 2 B2B (por implementar).
 2. **Límites técnicos y de seguridad** (longitudes, patrones) → clase `FieldLimits`, que alimenta Bean Validation, `@Column`, los placeholders de Flyway y `GET /api/v1/meta/constraints`.
 3. **Entorno** → variables de entorno documentadas en [`.env.example`](.env.example).
 4. **Textos** → `messages_es.properties` con claves en inglés.
@@ -59,7 +60,7 @@ Política completa: [`docs/Seguridad.md`](docs/Seguridad.md) y [`.agents/securit
 - Contraseñas con Argon2id (m = 19 MiB, t = 2, p = 1), 12 a 128 caracteres, nunca en logs, respuestas ni URLs.
 - JWT de 15 minutos; refresh opaco hasheado que rota y detecta reutilización.
 - Toda entrada validada con la tabla canónica de [`.agents/input-validation.md`](.agents/input-validation.md): longitudes, caracteres prohibidos, campos desconocidos rechazados, tamaño de cuerpo.
-- Autorización que niega por defecto, por permiso (desde la BD) y por acueducto, más RLS en PostgreSQL.
+- Autorización que niega por defecto, por permiso (desde la BD) y por institución (`institution_id`), más RLS en PostgreSQL.
 - Consultas solo parametrizadas. Nada de SQL concatenado.
 - Ningún secreto en git. Ningún dato personal en lo público ni en los logs.
 
@@ -67,7 +68,7 @@ Política completa: [`docs/Seguridad.md`](docs/Seguridad.md) y [`.agents/securit
 Cada patrón del catálogo se implementa **de forma explícita** (interfaz y clases propias, prueba y dueño), aunque Spring ya traiga una versión nativa (beans singleton, proxies AOP, `ApplicationEventPublisher`, filter chain, Resilience4j). Catálogo: [`docs/Patrones-de-diseno.md`](docs/Patrones-de-diseno.md); guía del backend: [`.agents/design-patterns.md`](.agents/design-patterns.md). Las clases que implementan un patrón llevan `@pattern` en el Javadoc.
 
 ### 3.5 Datos simulados
-No hay datos reales de la región. Todo lo del acueducto demo (`aqueducts.is_demo = true`) es simulado y se muestra como "Datos simulados". La importación de historial solo funciona en acueductos demo. Ver [`docs/Datos-simulados.md`](docs/Datos-simulados.md).
+Los datos de una institución con `is_simulated = true` son simulados y se muestran como "Datos simulados". Solo esas instituciones admiten importar historial simulado (`IMPORT_SIMULATED`). La institución de prueba `maqueta-caudal` no es simulada: su tanque es la maqueta física real. *Hoy* la columna se llama `aqueducts.is_demo`; el renombre a `is_simulated` es parte de la Fase 2 B2B (por implementar). Ver [`docs/Datos-simulados.md`](docs/Datos-simulados.md).
 
 ### 3.6 Diagramas
 Se hacen con draw.io (MCP de draw.io y sus iconos). El fuente `.drawio` y su `.png` (mismo nombre) van en `docs/images/`. Si cambias algo que aparece en un diagrama, actualiza el `.drawio` y vuelve a exportar el `.png`.
@@ -89,7 +90,7 @@ Swagger: `http://localhost:8080/swagger-ui.html` · OpenAPI: `http://localhost:8
 
 ## 5. Arquitectura
 
-Hexagonal: `api → application → domain ← infrastructure`, paquete base `co.caudal`. El dominio es Java puro (sin Spring, JPA ni Jackson) y ArchUnit lo verifica. Detalle y árbol de carpetas: [`docs/Arquitectura.md`](docs/Arquitectura.md) y [`.agents/architecture.md`](.agents/architecture.md). Modelo de datos (7 esquemas, 59 tablas): [`docs/Modelo-de-datos.md`](docs/Modelo-de-datos.md) y [`docs/Diccionario-de-datos.md`](docs/Diccionario-de-datos.md). API: [`docs/API.md`](docs/API.md).
+Hexagonal: `api → application → domain ← infrastructure`, paquete base `co.caudal`. El dominio es Java puro (sin Spring, JPA ni Jackson) y ArchUnit lo verifica. Detalle y árbol de carpetas: [`docs/Arquitectura.md`](docs/Arquitectura.md) y [`.agents/architecture.md`](.agents/architecture.md). Modelo de datos (7 esquemas; número de tablas por verificar al regenerar): [`docs/Modelo-de-datos.md`](docs/Modelo-de-datos.md) y [`docs/Diccionario-de-datos.md`](docs/Diccionario-de-datos.md). API: [`docs/API.md`](docs/API.md).
 
 ## 6. Checklist para una funcionalidad nueva
 

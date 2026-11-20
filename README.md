@@ -1,6 +1,6 @@
 # CAUDAL Backend
 
-API REST de **CAUDAL**, el cuaderno digital del acueducto veredal: reglas versionadas de la Junta, lecturas validadas del tanque, pronóstico con IA y respaldo simple, propuesta de turnos explicada, aprobación de la Junta, publicación sin datos personales, cierre del día y actas.
+API REST de **CAUDAL**, producto B2B para instituciones que almacenan agua en un tanque y la reparten por válvulas: configuración del tanque y las válvulas por institución, sensor ultrasónico en vivo, control de válvulas con confirmación, pronóstico con IA y respaldo simple, piloto automático, asistente, cierre del día y actas.
 
 Java 25 · Spring Boot 4.1 · PostgreSQL 18 · Swagger.
 
@@ -83,9 +83,10 @@ Las pruebas de integración usan PostgreSQL 18 real con Testcontainers (perfil `
 | Repositorio | Contenido |
 |---|---|
 | `caudal-backend` (este) | API, dominio, seguridad, base de datos y documentación canónica |
-| [`caudal-frontend`](https://github.com/NicoalsD/caudal-frontend) | PWA del fontanero, panel de la Junta y página pública |
-| [`caudal-ia`](https://github.com/NicoalsD/caudal-ia) | Pronóstico con Chronos |
-| [`caudal-simulador`](https://github.com/NicoalsD/caudal-simulador) | Simulador de datos de la región y del hardware |
+| [`caudal-frontend`](https://github.com/NicoalsD/caudal-frontend) | Panel web por institución (PWA) |
+| [`caudal-ia`](https://github.com/NicoalsD/caudal-ia) | Pronóstico con Chronos y asistente con LLM |
+| [`caudal-simulador`](https://github.com/NicoalsD/caudal-simulador) | Simulador de datos de instituciones simuladas y del hardware, con el puente USB de la maqueta |
+| `caudal-maqueta` | Maqueta física de la institución de prueba: Arduino UNO por USB (firmware ESP32 como alternativa) |
 
 ## Equipo
 
