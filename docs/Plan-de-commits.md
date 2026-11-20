@@ -473,9 +473,9 @@ Las migraciones usan placeholders de Flyway que salen de `FieldLimits`, por eso 
 | B351 | `test: verifica la semilla de maqueta-caudal y su aislamiento` | `nicomora70` | HU-32 | - | [ ] |
 | B352 | `docs: regenera el diccionario de datos del modelo B2B` | `NicoalsD` | - | - | [ ] |
 | B353 | `docs: redibuja flujo, casos de uso y modelo de datos` | `NicoalsD` | - | - | [ ] |
-| B354 | `docs: dibuja la secuencia del comando de válvula` | `NicoalsD` | HU-15 | P18 | [ ] |
-| B355 | `docs: borra los diagramas estados-propuesta y secuencia-propuesta` | `NicoalsD` | - | - | [ ] |
-| B356 | `docs: redibuja las secuencias de login, telemetría y pronóstico` | `NicoalsD` | HU-01 | - | [ ] |
+| B354 | `docs: dibuja la secuencia del comando de válvula` | `NicoalsD` | HU-15 | P18 | [x] |
+| B355 | `docs: borra los diagramas estados-propuesta y secuencia-propuesta` | `NicoalsD` | - | - | [x] |
+| B356 | `docs: redibuja las secuencias de login, telemetría y pronóstico` | `NicoalsD` | HU-01 | - | [x] |
 
 ## `caudal-frontend`
 
