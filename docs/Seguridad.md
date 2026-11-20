@@ -166,11 +166,11 @@ Refresh token:
 
 - Deny-by-default: todo endpoint requiere autenticación y permiso, salvo los dos públicos: `GET /api/v1/public/institutions` (solo `{slug, name}` de las instituciones activas) y `POST /api/v1/auth/login`. `/actuator/health` es de infraestructura. Ver [`Actores-y-permisos.md`](Actores-y-permisos.md), sección 3.1.
 - RBAC desde la base de datos: los roles (`PLATFORM_ADMIN`, `INSTITUTION_ADMIN`, `OPERATOR`, `VIEWER`), los permisos y la matriz viven en `iam.roles`, `iam.permissions` y `iam.role_permissions`. El código solo conoce los códigos de permiso (`INSTITUTION_CONFIGURE`, `VALVE_COMMAND_MANUAL`, `OBSERVATION_CREATE`, `PLATFORM_MANAGE`, ...). Cambiar la matriz no exige un despliegue. TTL de la caché de permisos: por definir. La matriz completa está en [`Actores-y-permisos.md`](Actores-y-permisos.md), sección 3.
-- Chequeo por objeto: todo recurso pertenece a una institución. El `institution_id` sale del JWT validado, nunca de la URL ni de un parámetro. Un recurso de otra institución responde `404 RESOURCE_NOT_FOUND`, igual que uno inexistente, para no revelar su existencia.
+- Chequeo por objeto: todo recurso pertenece a una institución. El `institution_id` sale del JWT validado, nunca de la URL ni de un parámetro. Un recurso de otra institución responde `404 NOT_FOUND`, igual que uno inexistente, para no revelar su existencia.
 - RLS en la base de datos como segunda barrera: `app.institution_id` se fija por transacción desde el JWT. Ver [BD](Seguridad-de-la-base-de-datos.md), sección 5.
 - Superadmin de CAUDAL: el token de plataforma no tiene institución y solo ejecuta las funciones `platform.*` de la base de datos ([BD](Seguridad-de-la-base-de-datos.md), sección 5.4). Para configurar una institución recibe un token `act_as=platform` de 15 minutos, con permisos de `INSTITUTION_ADMIN` sobre esa institución. Cada emisión y cada acción quedan en `audit.audit_log` con el actor `PLATFORM_ADMIN` y la institución objetivo. No se renueva: al expirar, hay que volver a entrar.
 - Importar historial simulado (`IMPORT_SIMULATED`) solo se permite en instituciones con `is_simulated = true`. En otra institución responde `403` y se registra `IMPORT_REJECTED`.
-- Un `403` genera `PERMISSION_DENIED` en `iam.security_events`.
+- Un `403` genera `FORBIDDEN` en `iam.security_events`.
 - Un usuario pertenece a una sola institución en el modelo actual. Si una persona necesita varias, hoy se resuelve con una cuenta por institución (ver [`Actores-y-permisos.md`](Actores-y-permisos.md), sección 1).
 - Un cambio de rol o una desactivación incrementa `token_version`: el acceso se corta en la siguiente petición.
 
@@ -357,7 +357,7 @@ Reglas adicionales:
 ### 2.19 Puente USB y maqueta
 
 - La placa Arduino UNO se conecta por USB a una PC local. El puente `caudal-sim maqueta-usb` es el único proceso que habla con la placa y con el backend.
-- La clave privada Ed25519 del puente vive en disco local con permisos `600`. La clave pública está registrada en `devices.device_keys`. Si la clave privada se sospecha comprometida: revocar la clave y registrar otra (sección 2.14).
+- Las tres claves privadas Ed25519 de la maqueta (un sensor y dos actuadores) viven en disco local con permisos `600`. Cada clave pública está registrada en `devices.device_keys`. Si una clave privada se sospecha comprometida: revocar esa clave y registrar otra (sección 2.14).
 - El usuario que corre el puente debe tener acceso al puerto serie (grupo `dialout` en Linux). Ningún otro usuario de la PC debe poder leerlo.
 - El puente solo entrega a la placa los comandos que recibe firmados del backend, y traduce `OPEN` o `CLOSE` al ángulo de su configuración firmada.
 - El firmware no cambia: recibe ángulos crudos. Por eso la validación de rangos de ángulo ocurre en el backend y en el puente, no en la placa (por confirmar en la prueba de banco).
