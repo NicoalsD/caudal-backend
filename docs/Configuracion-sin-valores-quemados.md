@@ -81,6 +81,7 @@ Una fila por institución, editable por `INSTITUTION_ADMIN` con `INSTITUTION_CON
 | `critical_level_pct` | % | Alerta de nivel crítico | 10 |
 | `stale_after_seconds` | s | Sin telemetría durante este tiempo, `STALE_DATA` | 30 |
 | `persist_interval_seconds` | s | Cada cuánto se guarda la lectura efectiva en `ops.readings` | 60 |
+| `max_backdate_hours` | h | Antigüedad máxima de un punto de telemetría; más viejo se rechaza con `TIMESTAMP_TOO_OLD` | 48 |
 | `max_level_change_per_minute` | mm/min | Baja más rápida que esta, `ABNORMAL_DROP` | 2 |
 | `sensor_stuck_window_seconds` | s | Valor pegado durante esta ventana, con alguna válvula abierta, `SENSOR_FAULT` | 120 |
 | `trend_window_minutes` | min | Ventana para la pendiente (tasa actual) | 10 |
@@ -107,6 +108,7 @@ Reglas de la tabla:
 | Canal del servo | `servo_channel` | `org.valves` | Igual | 1 y 2 en la maqueta |
 | Ángulo abierto | `open_angle_deg` | `org.valves` | Igual | 90 (ejemplo) |
 | Ángulo cerrado | `closed_angle_deg` | `org.valves` | Igual | 0 (ejemplo) |
+| Mantener torque tras moverse | `hold_torque_after_move` | `org.valves` | Igual. Si es `false`, el puente envía `R<n>` tras `DONE` | `true` |
 | Posición de seguridad | `fail_safe_position` | `org.valves` | Igual | Por definir |
 
 El ángulo debe estar en el rango del servo (constante física de 0 a 180 grados, por confirmar). El número de líneas y de válvulas lo decide el administrador: no hay valor fijo en el código.
@@ -118,7 +120,7 @@ El puente y los actuadores no leen valores de su YAML. Leen de `GET /api/v1/devi
 | Destinatario | Campos que entrega | Fuente |
 |---|---|---|
 | Sensor | `empty_distance_mm`, `full_distance_mm`, `blind_zone_mm`, `sample_interval_seconds` | `org.tanks`, y el intervalo de muestreo de la institución |
-| Actuador | `valve_id`, `servo_channel`, `open_angle_deg`, `closed_angle_deg`, `fail_safe_position` | `org.valves` |
+| Actuador | `valve_id`, `servo_channel`, `open_angle_deg`, `closed_angle_deg`, `hold_torque_after_move`, `fail_safe_position` | `org.valves` |
 | Todos | `config_version` | Se incrementa con cada cambio de calibración, ángulos o canal |
 
 El puente relee la configuración sin reiniciarse. Por eso un cambio del admin llega a la maqueta en el siguiente ciclo, sin tocar el YAML.
