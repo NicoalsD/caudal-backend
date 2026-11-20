@@ -42,8 +42,9 @@ public interface UserAccountPort {
    * @param fullName the full name
    * @param passwordHash the hash of an unknowable password
    * @param createdBy the account that creates it
-   * @return the id of the new account, or empty if the username already exists
+   * @param aqueductId the institution of the account
+   * @return the id of the new account, or empty if the username already exists in that institution
    */
   Optional<UUID> insertIfAbsent(
-      String username, String fullName, String passwordHash, UUID createdBy);
+      String username, String fullName, String passwordHash, UUID createdBy, UUID aqueductId);
 }

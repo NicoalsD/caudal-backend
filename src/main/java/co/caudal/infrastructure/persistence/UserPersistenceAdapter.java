@@ -77,7 +77,38 @@ public class UserPersistenceAdapter
 
   @Override
   public Optional<LoginAccount> findByUsername(String username) {
-    return users.findByUsername(username).map(UserPersistenceAdapter::toAccount);
+    // Without an institution, only an unambiguous username can sign in. Two matches are answered
+    // as "not found", so the caller can never be routed to the wrong institution.
+    List<UserEntity> matches = users.findByUsername(username);
+    return matches.size() == 1 ? Optional.of(toAccount(matches.getFirst())) : Optional.empty();
+  }
+
+  @Override
+  public Optional<LoginAccount> findByInstitutionAndUsername(
+      String institutionSlug, String username) {
+    return jdbc.sql(
+            "SELECT u.id, u.username, u.full_name, u.password_hash, u.status, u.locked_until,"
+                + " u.lockout_level, u.token_version, u.must_change_password, u.aqueduct_id"
+                + " FROM iam.users u JOIN org.aqueducts a ON a.id = u.aqueduct_id"
+                + " WHERE a.slug = :slug AND u.username = :username")
+        .param("slug", institutionSlug)
+        .param("username", username)
+        .query(UserPersistenceAdapter::loginAccount)
+        .optional();
+  }
+
+  private static LoginAccount loginAccount(ResultSet rs, int row) throws SQLException {
+    return new LoginAccount(
+        rs.getObject("id", UUID.class),
+        rs.getString("username"),
+        rs.getString("full_name"),
+        rs.getString("password_hash"),
+        rs.getString("status"),
+        SqlTime.instant(rs, "locked_until"),
+        rs.getInt("lockout_level"),
+        rs.getInt("token_version"),
+        rs.getBoolean("must_change_password"),
+        rs.getObject("aqueduct_id", UUID.class));
   }
 
   @Override
@@ -95,7 +126,8 @@ public class UserPersistenceAdapter
         user.getLockedUntil(),
         user.getLockoutLevel(),
         user.getTokenVersion(),
-        user.isMustChangePassword());
+        user.isMustChangePassword(),
+        null);
   }
 
   @Override
@@ -157,17 +189,19 @@ public class UserPersistenceAdapter
 
   @Override
   public Optional<UUID> insertIfAbsent(
-      String username, String fullName, String passwordHash, UUID createdBy) {
+      String username, String fullName, String passwordHash, UUID createdBy, UUID aqueductId) {
     // Must-change-password is true by default in the table. ON CONFLICT avoids an exception that
-    // would leave the transaction aborted.
+    // would leave the transaction aborted. The conflict target is the username inside the
+    // institution, so the same username can exist in two institutions.
     return jdbc.sql(
-            "INSERT INTO iam.users (username, full_name, password_hash, created_by)"
-                + " VALUES (:username, :fullName, :hash, :createdBy)"
-                + " ON CONFLICT (username) DO NOTHING RETURNING id")
+            "INSERT INTO iam.users (username, full_name, password_hash, created_by, aqueduct_id)"
+                + " VALUES (:username, :fullName, :hash, :createdBy, :aqueductId)"
+                + " ON CONFLICT (aqueduct_id, username) DO NOTHING RETURNING id")
         .param("username", username)
         .param("fullName", fullName)
         .param("hash", passwordHash)
         .param("createdBy", createdBy)
+        .param("aqueductId", aqueductId)
         .query(UUID.class)
         .optional();
   }

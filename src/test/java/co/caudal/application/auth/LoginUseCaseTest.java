@@ -394,4 +394,91 @@ class LoginUseCaseTest {
     assertThat(events.recorded).anyMatch(event -> event.type() == SecurityEventType.RATE_LIMITED);
     verify(passwords, never()).matches(any(), anyString());
   }
+
+  private LoginInput inInstitution(String username, String password, String slug) {
+    return new LoginInput(username, password, "203.0.113.9", "JUnit", null, slug);
+  }
+
+  @Test
+  void institutionLoginUsesTheAccountAndMembershipOfThatInstitution() {
+    UUID other = UUID.randomUUID();
+    LoginAccount inside =
+        new LoginAccount(
+            USER,
+            "test.operator",
+            "Persona de Prueba Uno",
+            "stored-hash",
+            "ACTIVE",
+            null,
+            0,
+            3,
+            false,
+            AQUEDUCT);
+    when(rateLimiter.tryConsume(anyString(), any())).thenReturn(RateLimitDecision.allow());
+    when(hasher.hmac(anyString())).thenAnswer(call -> "hmac:" + call.getArgument(0));
+    when(hasher.hmac("203.0.113.9")).thenReturn(IP_HMAC);
+    when(accounts.findByInstitutionAndUsername("maqueta-caudal", "test.operator"))
+        .thenReturn(Optional.of(inside));
+    when(passwords.matches(any(), anyString())).thenReturn(true);
+    // The older membership is in another institution: it must not decide the login.
+    when(memberships.findActive(eq(USER), any()))
+        .thenReturn(
+            List.of(
+                new Membership(other, "BOARD_ADMIN", NOW.minusSeconds(600), null),
+                new Membership(AQUEDUCT, "OPERATOR", NOW.minusSeconds(60), null)));
+    when(accessTokens.issue(any()))
+        .thenReturn(new IssuedAccessToken("jwt-value", Duration.ofMinutes(15)));
+
+    LoginResult result =
+        useCase.execute(inInstitution("test.operator", "clave-correcta-larga", "maqueta-caudal"));
+
+    assertThat(result.user().aqueductId()).isEqualTo(AQUEDUCT);
+    assertThat(result.user().role()).isEqualTo("OPERATOR");
+    verify(accounts, never()).findByUsername(anyString());
+  }
+
+  @Test
+  void institutionLoginWithoutMembershipInThatInstitutionIsInvalidCredentials() {
+    LoginAccount inside =
+        new LoginAccount(
+            USER,
+            "test.operator",
+            "Persona de Prueba Uno",
+            "stored-hash",
+            "ACTIVE",
+            null,
+            0,
+            3,
+            false,
+            AQUEDUCT);
+    when(rateLimiter.tryConsume(anyString(), any())).thenReturn(RateLimitDecision.allow());
+    when(hasher.hmac(anyString())).thenAnswer(call -> "hmac:" + call.getArgument(0));
+    when(accounts.findByInstitutionAndUsername("otra-vereda", "test.operator"))
+        .thenReturn(Optional.of(inside));
+    when(passwords.matches(any(), anyString())).thenReturn(true);
+    when(memberships.findActive(eq(USER), any()))
+        .thenReturn(
+            List.of(new Membership(UUID.randomUUID(), "OPERATOR", NOW.minusSeconds(60), null)));
+
+    assertThatThrownBy(
+            () ->
+                useCase.execute(
+                    inInstitution("test.operator", "clave-correcta-larga", "otra-vereda")))
+        .isInstanceOf(InvalidCredentialsException.class);
+  }
+
+  @Test
+  void unknownInstitutionIsInvalidCredentialsAndSpendsTheDecoyHash() {
+    when(rateLimiter.tryConsume(anyString(), any())).thenReturn(RateLimitDecision.allow());
+    when(hasher.hmac(anyString())).thenAnswer(call -> "hmac:" + call.getArgument(0));
+    when(accounts.findByInstitutionAndUsername("no-existe", "test.operator"))
+        .thenReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () ->
+                useCase.execute(
+                    inInstitution("test.operator", "clave-correcta-larga", "no-existe")))
+        .isInstanceOf(InvalidCredentialsException.class);
+    verify(passwords).verifyAgainstDecoy(any());
+  }
 }

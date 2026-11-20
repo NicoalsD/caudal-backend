@@ -1,5 +1,6 @@
 package co.caudal.infrastructure.persistence;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -9,7 +10,11 @@ import org.springframework.data.repository.query.Param;
 /** Spring Data access to {@code iam.users}. Every query is parameterized. */
 interface UserJpaRepository extends JpaRepository<UserEntity, UUID> {
 
-  Optional<UserEntity> findByUsername(String username);
+  /**
+   * Accounts with that username in any institution. The username is unique only inside an
+   * institution, so the caller accepts the result only when it is exactly one.
+   */
+  List<UserEntity> findByUsername(String username);
 
   @Query("select u.tokenVersion from UserEntity u where u.id = :id and u.status <> :disabledStatus")
   Optional<Integer> findTokenVersionUnlessDisabled(

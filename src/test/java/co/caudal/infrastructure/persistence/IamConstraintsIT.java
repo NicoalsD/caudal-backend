@@ -11,10 +11,15 @@ import org.springframework.dao.DataIntegrityViolationException;
 class IamConstraintsIT extends DatabaseIT {
 
   private static final String INSERT_USER =
-      "INSERT INTO iam.users (username, full_name, password_hash) VALUES (?, ?, 'x') RETURNING id";
+      "INSERT INTO iam.users (username, full_name, password_hash, aqueduct_id)"
+          + " VALUES (?, ?, 'x', ?) RETURNING id";
 
   private UUID newUser(String username) {
-    return owner.queryForObject(INSERT_USER, UUID.class, username, "Persona de Prueba");
+    return newUser(username, null);
+  }
+
+  private UUID newUser(String username, UUID aqueduct) {
+    return owner.queryForObject(INSERT_USER, UUID.class, username, "Persona de Prueba", aqueduct);
   }
 
   @Test
@@ -32,13 +37,46 @@ class IamConstraintsIT extends DatabaseIT {
   }
 
   @Test
-  void rejectsDuplicateUsername() {
+  void rejectsDuplicateUsernameInsideOneInstitution() {
+    UUID aqueduct =
+        owner.queryForObject(
+            "INSERT INTO org.aqueducts (slug, name, municipality, department)"
+                + " VALUES (?, 'Vereda de Prueba', 'Guaitarilla', 'Nariño') RETURNING id",
+            UUID.class,
+            "dup-" + UUID.randomUUID().toString().substring(0, 8));
     String username = "dup." + UUID.randomUUID().toString().substring(0, 8);
+    newUser(username, aqueduct);
+
+    assertThatThrownBy(() -> newUser(username, aqueduct))
+        .isInstanceOf(DataIntegrityViolationException.class)
+        .hasStackTraceContaining("users_aqueduct_username_uq");
+  }
+
+  @Test
+  void allowsTheSameUsernameInTwoInstitutions() {
+    String username = "same." + UUID.randomUUID().toString().substring(0, 8);
+    UUID first = newAqueductRow();
+    UUID second = newAqueductRow();
+
+    assertThat(newUser(username, first)).isNotEqualTo(newUser(username, second));
+  }
+
+  @Test
+  void rejectsDuplicatePlatformUsernameWhenNoInstitution() {
+    String username = "platform." + UUID.randomUUID().toString().substring(0, 8);
     newUser(username);
 
     assertThatThrownBy(() -> newUser(username))
         .isInstanceOf(DataIntegrityViolationException.class)
-        .hasStackTraceContaining("users_username_uq");
+        .hasStackTraceContaining("users_platform_username_uq");
+  }
+
+  private UUID newAqueductRow() {
+    return owner.queryForObject(
+        "INSERT INTO org.aqueducts (slug, name, municipality, department)"
+            + " VALUES (?, 'Vereda de Prueba', 'Guaitarilla', 'Nariño') RETURNING id",
+        UUID.class,
+        "uniq-" + UUID.randomUUID().toString().substring(0, 8));
   }
 
   @Test
@@ -93,7 +131,25 @@ class IamConstraintsIT extends DatabaseIT {
 
   @Test
   void seedsTheRoleMatrix() {
-    assertThat(owner.queryForObject("SELECT count(*) FROM iam.roles", Integer.class)).isEqualTo(5);
+    assertThat(owner.queryForObject("SELECT count(*) FROM iam.roles", Integer.class)).isEqualTo(7);
+    // The new admin role gets the same permissions as the old board administrator.
+    assertThat(
+            owner.queryForObject(
+                "SELECT count(*) FROM (SELECT permission_code FROM iam.role_permissions"
+                    + " WHERE role_code = 'BOARD_ADMIN' EXCEPT SELECT permission_code FROM"
+                    + " iam.role_permissions WHERE role_code = 'INSTITUTION_ADMIN') d",
+                Integer.class))
+        .isZero();
+    // The viewer only reads: no permission of the viewer ends in _MANAGE, _CREATE, _DECIDE or the
+    // like.
+    assertThat(
+            owner.queryForObject(
+                "SELECT count(*) FROM iam.role_permissions WHERE role_code = 'VIEWER'"
+                    + " AND (permission_code LIKE '%\\_CREATE' OR permission_code LIKE '%\\_MANAGE'"
+                    + " OR permission_code LIKE '%\\_DECIDE' OR permission_code LIKE '%\\_CORRECT'"
+                    + " OR permission_code LIKE '%\\_COMMAND_MANUAL')",
+                Integer.class))
+        .isZero();
     assertThat(
             owner.queryForObject(
                 "SELECT count(*) FROM iam.role_permissions WHERE role_code = 'BOARD_ADMIN'"

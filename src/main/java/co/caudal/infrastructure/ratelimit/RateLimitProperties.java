@@ -9,10 +9,15 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param forecastPerHour forecasts per aqueduct per hour ({@code RATE_LIMIT_FORECAST_PER_HOUR})
  * @param publicReportsPerHour public damage reports per address per hour ({@code
  *     RATE_LIMIT_PUBLIC_REPORTS_PER_HOUR})
+ * @param publicDirectoryPerMinute public directory queries per address per minute ({@code
+ *     RATE_LIMIT_PUBLIC_DIRECTORY_PER_MINUTE})
  */
 @ConfigurationProperties(prefix = "caudal.security.rate-limit")
 public record RateLimitProperties(
-    int loginPerMinute, int forecastPerHour, int publicReportsPerHour) {
+    int loginPerMinute,
+    int forecastPerHour,
+    int publicReportsPerHour,
+    int publicDirectoryPerMinute) {
 
   /**
    * Refuses a limit below one.
@@ -20,7 +25,10 @@ public record RateLimitProperties(
    * @throws IllegalArgumentException if a limit is not positive
    */
   public RateLimitProperties {
-    if (loginPerMinute < 1 || forecastPerHour < 1 || publicReportsPerHour < 1) {
+    if (loginPerMinute < 1
+        || forecastPerHour < 1
+        || publicReportsPerHour < 1
+        || publicDirectoryPerMinute < 1) {
       throw new IllegalArgumentException("Rate limits must be positive");
     }
   }

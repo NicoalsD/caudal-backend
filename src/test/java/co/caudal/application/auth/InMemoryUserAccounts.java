@@ -49,7 +49,7 @@ class InMemoryUserAccounts implements UserAccountPort {
 
   @Override
   public Optional<UUID> insertIfAbsent(
-      String username, String fullName, String passwordHash, UUID createdBy) {
+      String username, String fullName, String passwordHash, UUID createdBy, UUID aqueductId) {
     boolean taken = accounts.values().stream().anyMatch(a -> a.username().equals(username));
     if (taken) {
       return Optional.empty();

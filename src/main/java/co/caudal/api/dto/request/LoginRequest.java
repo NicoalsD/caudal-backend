@@ -3,6 +3,7 @@ package co.caudal.api.dto.request;
 import co.caudal.shared.FieldLimits;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -12,6 +13,8 @@ import jakarta.validation.constraints.Size;
  *
  * @param username username as typed
  * @param password password as typed
+ * @param mfaCode second factor code, if the account has one
+ * @param institutionSlug institution chosen in the directory, or null for the single-step login
  */
 @Schema(description = "Credenciales para iniciar sesión.")
 public record LoginRequest(
@@ -34,7 +37,16 @@ public record LoginRequest(
             example = "123456",
             nullable = true)
         @Size(max = FieldLimits.RESET_CODE_INPUT_MAX)
-        String mfaCode) {
+        String mfaCode,
+    @Schema(
+            description =
+                "Identificador (slug) de la institución elegida en el directorio. Si se omite, el"
+                    + " usuario debe ser único en toda la plataforma.",
+            example = "maqueta-caudal",
+            nullable = true)
+        @Size(min = FieldLimits.AQUEDUCT_SLUG_MIN, max = FieldLimits.AQUEDUCT_SLUG_MAX)
+        @Pattern(regexp = FieldLimits.AQUEDUCT_SLUG_PATTERN)
+        String institutionSlug) {
 
   @Override
   public String toString() {

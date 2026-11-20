@@ -111,4 +111,12 @@
     <Class name="co.caudal.api.controller.AuthController"/>
     <Bug pattern="SERVLET_HEADER_USER_AGENT"/>
   </Match>
+  <!-- The slug pattern (FieldLimits.AQUEDUCT_SLUG_PATTERN) is ^[a-z0-9]+(-[a-z0-9]+)*$. Every
+       repetition group starts with a mandatory hyphen, so the alternatives never overlap and the
+       match is linear: the ReDoS heuristic is a false positive. The pattern stays enforced. -->
+  <Match>
+    <Class name="co.caudal.api.dto.request.LoginRequest"/>
+    <Bug pattern="REDOS"/>
+  </Match>
+
 </FindBugsFilter>

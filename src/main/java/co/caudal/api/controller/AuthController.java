@@ -130,7 +130,8 @@ public class AuthController {
                 request.password(),
                 http.getRemoteAddr(),
                 http.getHeader(HttpHeaders.USER_AGENT),
-                request.mfaCode()));
+                request.mfaCode(),
+                request.institutionSlug()));
     return ResponseEntity.ok()
         .cacheControl(CacheControl.noStore())
         .header(

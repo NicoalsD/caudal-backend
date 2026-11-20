@@ -64,7 +64,7 @@ class CreateUserCommandHandlerTest {
         .thenAnswer(call -> ((Supplier<Object>) call.getArgument(1)).get());
     when(passwords.hash(any(NormalizedPassword.class))).thenReturn("argon2-hash-of-nobody");
     when(memberships.roleExists("OPERATOR")).thenReturn(true);
-    when(accounts.insertIfAbsent(anyString(), anyString(), anyString(), any()))
+    when(accounts.insertIfAbsent(anyString(), anyString(), anyString(), any(), any()))
         .thenReturn(Optional.of(NEW_USER));
     when(memberships.insert(any(), any(), anyString(), any(), any(), any())).thenReturn(MEMBERSHIP);
   }
@@ -98,7 +98,8 @@ class CreateUserCommandHandlerTest {
         .save(eq(NEW_USER), storedHash.capture(), eq(ADMIN), eq(NOW.plus(Duration.ofHours(24))));
     assertThat(storedHash.getValue()).isEqualTo(shown.hash()).isNotEqualTo(shown.value());
     verify(accounts)
-        .insertIfAbsent("operador.uno", "Persona de Ejemplo", "argon2-hash-of-nobody", ADMIN);
+        .insertIfAbsent(
+            "operador.uno", "Persona de Ejemplo", "argon2-hash-of-nobody", ADMIN, AQUEDUCT);
     verify(memberships).insert(NEW_USER, AQUEDUCT, "OPERATOR", NOW, null, ADMIN);
     verify(unitOfWork).executeAs(eq(new SessionScope(ADMIN, AQUEDUCT)), any());
   }
@@ -135,7 +136,7 @@ class CreateUserCommandHandlerTest {
   @Test
   void aTakenUsernameIsAConflictAndNoCodeIsIssued() {
     givenHappyWorld();
-    when(accounts.insertIfAbsent(anyString(), anyString(), anyString(), any()))
+    when(accounts.insertIfAbsent(anyString(), anyString(), anyString(), any(), any()))
         .thenReturn(Optional.empty());
 
     assertThatThrownBy(
