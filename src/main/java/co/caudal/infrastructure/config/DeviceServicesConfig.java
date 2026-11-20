@@ -88,8 +88,10 @@ class DeviceServicesConfig {
       DevicePort devices,
       NetworkPort network,
       ValveCommandPort commands,
-      UnitOfWorkPort unitOfWork) {
-    return new ManualValveCommandHandler(devices, network, commands, unitOfWork);
+      UnitOfWorkPort unitOfWork,
+      DomainEventPublisher events,
+      Clock clock) {
+    return new ManualValveCommandHandler(devices, network, commands, unitOfWork, events, clock);
   }
 
   @Bean

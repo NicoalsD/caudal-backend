@@ -12,6 +12,7 @@ import java.util.UUID;
  * @param parentSectorId parent sector
  * @param householdsCount number of households
  * @param isActive in use
+ * @param isRegion true when it is a root sector, that is, a region
  */
 @Schema(description = "Sector que recibe agua por turnos. Sin datos personales.")
 public record SectorResponse(
@@ -20,4 +21,8 @@ public record SectorResponse(
     @Schema(description = "Nombre.", example = "El Alto") String name,
     @Schema(description = "Sector padre.", nullable = true) UUID parentSectorId,
     @Schema(description = "Número de hogares (agregado).", example = "18") int householdsCount,
-    @Schema(description = "El sector está activo.", example = "true") boolean isActive) {}
+    @Schema(description = "El sector está activo.", example = "true") boolean isActive,
+    @Schema(
+            description = "true si es una región: un sector raíz, sin sector padre.",
+            example = "false")
+        boolean isRegion) {}

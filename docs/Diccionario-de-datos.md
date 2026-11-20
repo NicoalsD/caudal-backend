@@ -2,9 +2,9 @@
 
 > Documento generado desde la especificación del esquema. No se edita a mano: si cambia una columna, se cambia la especificación y se regenera junto con la ERD.
 
-PostgreSQL 18 · 7 esquemas · 57 tablas. Convenciones: nombres en inglés y `snake_case`; IDs `uuidv7()`; fechas `timestamptz` en UTC; los tamaños `${...}` son placeholders de Flyway que salen de `FieldLimits` (única fuente de los límites técnicos).
+PostgreSQL 18 · 7 esquemas · 59 tablas. Convenciones: nombres en inglés y `snake_case`; IDs `uuidv7()`; fechas `timestamptz` en UTC; los tamaños `${...}` son placeholders de Flyway que salen de `FieldLimits` (única fuente de los límites técnicos).
 
-**Implementación:** las tablas se crean con las migraciones Flyway `V2` a `V38` (generadas de esta misma especificación) y están desplegadas en Neon (rama `production`, base `caudal`). Además de lo que lista cada tabla, la base agrega: llaves foráneas compuestas `(x_id, aqueduct_id)` cuando las dos tablas tienen acueducto (una FK no pasa por RLS), `UNIQUE (id, aqueduct_id)` en esas tablas, índices en cada llave foránea y la vista `ops.effective_readings`. Detalle en [Seguridad de la base de datos](Seguridad-de-la-base-de-datos.md), sección 13.
+**Implementación:** las tablas se crean con las migraciones Flyway `V2` a `V38` (y `V54` para las tablas del piloto automático) (generadas de esta misma especificación) y están desplegadas en Neon (rama `production`, base `caudal`). Además de lo que lista cada tabla, la base agrega: llaves foráneas compuestas `(x_id, aqueduct_id)` cuando las dos tablas tienen acueducto (una FK no pasa por RLS), `UNIQUE (id, aqueduct_id)` en esas tablas, índices en cada llave foránea y la vista `ops.effective_readings`. Detalle en [Seguridad de la base de datos](Seguridad-de-la-base-de-datos.md), sección 13.
 
 **Clasificación de datos:** P = pública, I = interna, C = confidencial, S = secreta (nunca sale en respuestas, logs ni exportes; sin lectura para `caudal_readonly`).
 
@@ -13,8 +13,8 @@ PostgreSQL 18 · 7 esquemas · 57 tablas. Convenciones: nombres en inglés y `sn
 ## Índice
 
 - **`iam`** (16): Identidad, acceso y seguridad de las cuentas. [`users`](#iamusers), [`roles`](#iamroles), [`permissions`](#iampermissions), [`role_permissions`](#iamrolepermissions), [`memberships`](#iammemberships), [`refresh_tokens`](#iamrefreshtokens), [`login_attempts`](#iamloginattempts), [`password_history`](#iampasswordhistory), [`password_reset_grants`](#iampasswordresetgrants), [`mfa_factors`](#iammfafactors), [`mfa_recovery_codes`](#iammfarecoverycodes), [`api_keys`](#iamapikeys), [`privacy_notice_versions`](#iamprivacynoticeversions), [`privacy_acceptances`](#iamprivacyacceptances), [`security_events`](#iamsecurityevents), [`rate_limit_buckets`](#iamratelimitbuckets)
-- **`org`** (10): Organización del acueducto y reglas versionadas de la Junta. [`aqueducts`](#orgaqueducts), [`tanks`](#orgtanks), [`sectors`](#orgsectors), [`valves`](#orgvalves), [`catalog_items`](#orgcatalogitems), [`rule_sets`](#orgrulesets), [`rule_level_bands`](#orgrulelevelbands), [`rule_sector_settings`](#orgrulesectorsettings), [`rule_valve_orders`](#orgrulevalveorders), [`rule_operating_windows`](#orgruleoperatingwindows)
-- **`ops`** (18): Operación diaria (lecturas, pronósticos, turnos, publicación, cierre e incidentes). [`sync_batches`](#opssyncbatches), [`readings`](#opsreadings), [`reading_issues`](#opsreadingissues), [`reading_corrections`](#opsreadingcorrections), [`anomalies`](#opsanomalies), [`forecast_runs`](#opsforecastruns), [`forecast_points`](#opsforecastpoints), [`forecast_evaluations`](#opsforecastevaluations), [`schedule_proposals`](#opsscheduleproposals), [`schedule_items`](#opsscheduleitems), [`schedule_item_reasons`](#opsscheduleitemreasons), [`proposal_snapshots`](#opsproposalsnapshots), [`proposal_decisions`](#opsproposaldecisions), [`publications`](#opspublications), [`shift_executions`](#opsshiftexecutions), [`day_closures`](#opsdayclosures), [`incidents`](#opsincidents), [`incident_status_history`](#opsincidentstatushistory)
+- **`org`** (11): Organización del acueducto y reglas versionadas de la Junta. [`aqueducts`](#orgaqueducts), [`tanks`](#orgtanks), [`sectors`](#orgsectors), [`valves`](#orgvalves), [`catalog_items`](#orgcatalogitems), [`rule_sets`](#orgrulesets), [`rule_level_bands`](#orgrulelevelbands), [`rule_sector_settings`](#orgrulesectorsettings), [`rule_valve_orders`](#orgrulevalveorders), [`rule_operating_windows`](#orgruleoperatingwindows), [`autopilot_settings`](#orgautopilotsettings)
+- **`ops`** (19): Operación diaria (lecturas, pronósticos, turnos, publicación, cierre e incidentes). [`sync_batches`](#opssyncbatches), [`readings`](#opsreadings), [`reading_issues`](#opsreadingissues), [`reading_corrections`](#opsreadingcorrections), [`anomalies`](#opsanomalies), [`forecast_runs`](#opsforecastruns), [`forecast_points`](#opsforecastpoints), [`forecast_evaluations`](#opsforecastevaluations), [`schedule_proposals`](#opsscheduleproposals), [`schedule_items`](#opsscheduleitems), [`schedule_item_reasons`](#opsscheduleitemreasons), [`proposal_snapshots`](#opsproposalsnapshots), [`proposal_decisions`](#opsproposaldecisions), [`publications`](#opspublications), [`shift_executions`](#opsshiftexecutions), [`day_closures`](#opsdayclosures), [`incidents`](#opsincidents), [`incident_status_history`](#opsincidentstatushistory), [`autopilot_decisions`](#opsautopilotdecisions)
 - **`reporting`** (2): Actas y resúmenes autorizados para entidades de apoyo. [`minutes`](#reportingminutes), [`summary_shares`](#reportingsummaryshares)
 - **`devices`** (6): Dispositivos de campo (reales a futuro, simulados por ahora). [`devices`](#devicesdevices), [`device_keys`](#devicesdevicekeys), [`device_nonces`](#devicesdevicenonces), [`telemetry_points`](#devicestelemetrypoints), [`valve_commands`](#devicesvalvecommands), [`valve_command_events`](#devicesvalvecommandevents)
 - **`audit`** (4): Auditoría y retención. [`audit_log`](#auditauditlog), [`audit_anchors`](#auditauditanchors), [`data_access_log`](#auditdataaccesslog), [`retention_policies`](#auditretentionpolicies)
@@ -380,6 +380,21 @@ Versiones de las reglas de la Junta. Inmutables una vez activas (trigger). (RLS 
 | `activated_by` | `uuid` | FK → `iam.users` | I | Quién la activó. |
 | `activated_at` | `timestamptz` |  | I | Activación. |
 
+<a id="orgautopilotsettings"></a>
+### `org.autopilot_settings`
+
+Configuración del piloto automático por acueducto: modo, ausencia del operario y piso de reserva. (RLS por acueducto)
+
+| Columna | Tipo | Restricciones | Clase | Descripción |
+|---|---|---|---|---|
+| `aqueduct_id` | `uuid` | PK; FK → `org.aqueducts` | I | Acueducto (una fila por acueducto). |
+| `mode` | `varchar(10)` | NOT NULL; por defecto `'ASSISTED'`; CHECK: IN (MANUAL, ASSISTED, AUTOMATIC) | I | Modo del piloto. |
+| `operator_absence_minutes` | `integer` | NOT NULL; por defecto `30`; CHECK: de `OPERATOR_ABSENCE_MINUTES_MIN` a `OPERATOR_ABSENCE_MINUTES_MAX` (1 a 1440) | I | Minutos sin acción humana antes de que AUTOMATIC actúe. |
+| `reserve_floor_pct` | `numeric(5,2)` | NOT NULL; por defecto `25.00`; CHECK: de 0 a 100 | I | Nivel del tanque, en %, en o bajo el cual nunca se abre una llave. |
+| `updated_by` | `uuid` | FK → `iam.users` | I | Quién la cambió por última vez. |
+| `created_at` | `timestamptz` | NOT NULL; por defecto `now()` | I | Creación. |
+| `updated_at` | `timestamptz` | NOT NULL; por defecto `now()` | I | Última actualización. |
+
 <a id="orgrulelevelbands"></a>
 ### `org.rule_level_bands`
 
@@ -740,6 +755,28 @@ Historial de estados de un incidente. (append-only, RLS por acueducto)
 | `changed_by` | `uuid` | FK → `iam.users` | I | Quién lo cambió. |
 | `changed_at` | `timestamptz` | NOT NULL; por defecto `now()` | I | Momento. |
 
+<a id="opsautopilotdecisions"></a>
+### `ops.autopilot_decisions`
+
+Decisiones del piloto automático: recomendación, origen (LLM o reglas), estado y quién la resolvió. (RLS por acueducto; solo se actualizan `status`, `status_detail`, `decided_by` y `decided_at`)
+
+| Columna | Tipo | Restricciones | Clase | Descripción |
+|---|---|---|---|---|
+| `id` | `uuid` | PK; por defecto `uuidv7()` | I | Identificador. |
+| `aqueduct_id` | `uuid` | NOT NULL; FK → `org.aqueducts` | I | Acueducto. |
+| `source` | `varchar(5)` | NOT NULL; CHECK: IN (LLM, RULES) | I | Quién la produjo: el modelo de lenguaje o las reglas deterministas. |
+| `model` | `varchar(${autopilot_model_max})` | NOT NULL | I | Modelo o versión de las reglas (por ejemplo `rules-v1`). |
+| `action` | `varchar(10)` | NOT NULL; CHECK: IN (OPEN, CLOSE, WAIT, INSPECT) | I | Acción recomendada. |
+| `valve_id` | `uuid` | FK → `org.valves`; CHECK: obligatorio en OPEN y CLOSE | I | Llave de la acción. |
+| `reason` | `varchar(${autopilot_reason_max})` | NOT NULL | I | Motivo en español. |
+| `confidence` | `numeric(4,3)` | NOT NULL; CHECK: de 0 a 1 | I | Confianza. |
+| `status` | `varchar(10)` | NOT NULL; por defecto `'PENDING'`; CHECK: IN (PENDING, ACCEPTED, REJECTED, EXECUTED, EXPIRED, SKIPPED) | I | Estado. |
+| `status_detail` | `varchar(${autopilot_detail_max})` |  | I | Por qué se omitió (`RESERVE_FLOOR`, `COMMAND_REFUSED`), por qué esperó (`OPERATOR_ACTIVE`) o el motivo del rechazo. |
+| `decided_by` | `uuid` | FK → `iam.users` | I | Persona que la aceptó o rechazó (nulo si la resolvió el piloto). |
+| `decided_at` | `timestamptz` |  | I | Momento en que se aceptó, rechazó o ejecutó. |
+| `inputs` | `jsonb` | NOT NULL; por defecto `'{}'` | I | Resumen del estado que la originó. |
+| `created_at` | `timestamptz` | NOT NULL; por defecto `now()` | I | Creación. |
+
 ## Esquema `reporting`
 
 Actas y resúmenes autorizados para entidades de apoyo.
@@ -852,7 +889,7 @@ Telemetría cruda de los dispositivos (idempotente por id del punto). (append-on
 <a id="devicesvalvecommands"></a>
 ### `devices.valve_commands`
 
-Comandos de válvula, solo desde turnos aprobados o manuales con motivo. (RLS por acueducto)
+Comandos de válvula, con un solo origen: turno aprobado, comando manual con motivo o decisión del piloto. (RLS por acueducto)
 
 | Columna | Tipo | Restricciones | Clase | Descripción |
 |---|---|---|---|---|
@@ -862,7 +899,8 @@ Comandos de válvula, solo desde turnos aprobados o manuales con motivo. (RLS po
 | `device_id` | `uuid` | NOT NULL; FK → `devices.devices` | I | Actuador. |
 | `command` | `varchar(10)` | NOT NULL; CHECK: IN (OPEN, CLOSE) | I | Acción. |
 | `schedule_item_id` | `uuid` | FK → `ops.schedule_items` | I | Turno aprobado que lo origina. |
-| `manual_reason` | `varchar(${reason_max})` | CHECK: obligatorio si schedule_item_id es nulo | I | Motivo de un comando manual. |
+| `manual_reason` | `varchar(${reason_max})` | CHECK `valve_commands_origin_required`: exactamente uno de `schedule_item_id`, `manual_reason` y `autopilot_decision_id` no es nulo | I | Motivo de un comando manual. |
+| `autopilot_decision_id` | `uuid` | FK → `ops.autopilot_decisions` (compuesta con `aqueduct_id`) | I | Decisión del piloto que lo origina (v2, `V54`). |
 | `status` | `varchar(12)` | NOT NULL; por defecto `'PENDING'`; CHECK: IN (PENDING, DELIVERED, ACKED, FAILED, EXPIRED, CANCELLED) | I | Estado. |
 | `not_before` | `timestamptz` | NOT NULL | I | No ejecutar antes de. |
 | `expires_at` | `timestamptz` | NOT NULL; CHECK: expires_at > not_before | I | Expiración. |

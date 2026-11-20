@@ -36,6 +36,10 @@ class FieldLimitsDatabaseDriftIT extends DatabaseIT {
         Arguments.of("ops", "day_closures", "notes", FieldLimits.NOTE_MAX),
         Arguments.of("devices", "devices", "name", FieldLimits.PLACE_NAME_MAX),
         Arguments.of("devices", "valve_commands", "manual_reason", FieldLimits.REASON_MAX),
+        Arguments.of("ops", "autopilot_decisions", "reason", FieldLimits.AUTOPILOT_REASON_MAX),
+        Arguments.of("ops", "autopilot_decisions", "model", FieldLimits.AUTOPILOT_MODEL_MAX),
+        Arguments.of(
+            "ops", "autopilot_decisions", "status_detail", FieldLimits.AUTOPILOT_DETAIL_MAX),
         Arguments.of("audit", "audit_log", "request_id", FieldLimits.REQUEST_ID_MAX));
   }
 
@@ -72,6 +76,16 @@ class FieldLimitsDatabaseDriftIT extends DatabaseIT {
         .contains(">= " + FieldLimits.INCIDENT_DESCRIPTION_MIN);
     assertThat(checkOf("reading_corrections_reason_length"))
         .contains(">= " + FieldLimits.REASON_MIN);
+  }
+
+  @Test
+  void autopilotRangesAreTheOnesOfFieldLimits() {
+    assertThat(checkOf("autopilot_settings_absence_range"))
+        .contains(">= " + FieldLimits.OPERATOR_ABSENCE_MINUTES_MIN)
+        .contains("<= " + FieldLimits.OPERATOR_ABSENCE_MINUTES_MAX);
+    assertThat(checkOf("autopilot_settings_floor_range"))
+        .contains(">= (" + FieldLimits.RESERVE_FLOOR_PCT_MIN + ")")
+        .contains("<= (" + FieldLimits.RESERVE_FLOOR_PCT_MAX + ")");
   }
 
   private String checkOf(String constraint) {

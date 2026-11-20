@@ -172,14 +172,17 @@ public class NetworkPersistenceAdapter implements NetworkPort {
   }
 
   @Override
-  public SectorView updateSector(UUID sectorId, String name, int householdsCount, boolean active) {
+  public SectorView updateSector(
+      UUID sectorId, String name, int householdsCount, boolean active, UUID parentSectorId) {
     return jdbc.sql(
             "UPDATE org.sectors SET name = :name, households_count = :households,"
-                + " is_active = :active, updated_at = now() WHERE id = :id"
+                + " is_active = :active, parent_sector_id = :parent, updated_at = now()"
+                + " WHERE id = :id"
                 + " RETURNING id, code, name, parent_sector_id, households_count, is_active")
         .param("name", name)
         .param("households", householdsCount)
         .param("active", active)
+        .param("parent", parentSectorId, java.sql.Types.OTHER)
         .param("id", sectorId)
         .query(NetworkPersistenceAdapter::sector)
         .single();

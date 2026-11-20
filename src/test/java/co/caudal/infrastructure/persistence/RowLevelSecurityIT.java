@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 
 class RowLevelSecurityIT extends DatabaseIT {
 
-  private static final int TABLES_WITH_RLS = 37;
+  private static final int TABLES_WITH_RLS = 39;
 
   private static int count(Connection connection, String sql) throws SQLException {
     try (var statement = connection.createStatement();

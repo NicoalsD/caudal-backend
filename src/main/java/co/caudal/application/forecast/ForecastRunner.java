@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -96,7 +97,7 @@ public class ForecastRunner {
     }
     ForecastRequest request =
         new ForecastRequest(
-            new ForecastSeries(tankId, input.points(), horizon, input.zone()),
+            new ForecastSeries(tankId, hourly(input.points()), horizon, input.zone()),
             daily(input.points(), input.zone()),
             input.tank().gaugeMin(),
             input.tank().gaugeMax());
@@ -163,6 +164,26 @@ public class ForecastRunner {
             .map(ZoneId::of)
             .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
     return new Input(tank, rules, points, zone);
+  }
+
+  /**
+   * The last level of each hour, oldest first. A sensor reports every few seconds, so a month of
+   * raw levels passes the 2,000 points the forecast service takes (docs/Contrato-IA.md, section
+   * 3.1). The service keeps the last level of each day, which this keeps too: the forecast does not
+   * change.
+   *
+   * @param points effective levels, oldest first
+   * @return at most one level per hour
+   */
+  public static List<LevelPoint> hourly(List<LevelPoint> points) {
+    Map<Instant, LevelPoint> lastOfHour = new TreeMap<>();
+    for (LevelPoint point : points) {
+      lastOfHour.merge(
+          point.observedAt().truncatedTo(ChronoUnit.HOURS),
+          point,
+          (a, b) -> b.observedAt().isAfter(a.observedAt()) ? b : a);
+    }
+    return List.copyOf(lastOfHour.values());
   }
 
   /**

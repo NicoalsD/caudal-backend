@@ -3,10 +3,14 @@ package co.caudal.application.network;
 import co.caudal.application.command.CommandHandler;
 import co.caudal.application.port.out.NetworkPort;
 import co.caudal.application.port.out.UnitOfWorkPort;
+import co.caudal.domain.network.SectorHierarchy;
 import co.caudal.shared.error.DomainException;
 import co.caudal.shared.error.ErrorCode;
 import co.caudal.shared.error.FieldValidationException;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
 
 /** Handlers that add and change sectors (docs/API.md, sections 5.4 and 5.5). */
 public final class SectorCommandHandlers {
@@ -63,7 +67,8 @@ public final class SectorCommandHandlers {
   }
 
   /**
-   * Changes the name, the households or the state of a sector.
+   * Changes the name, the households, the state or the parent of a sector. Making a sector a region
+   * (a root) or moving it keeps the tree free of cycles and orphans.
    *
    * @pattern P13 Command
    */
@@ -85,6 +90,9 @@ public final class SectorCommandHandlers {
 
     @Override
     public SectorView handle(UpdateSectorCommand command) {
+      if (command.parentSectorId() != null && Boolean.TRUE.equals(command.region())) {
+        throw new FieldValidationException("is_region", "FIELD_VALUE_NOT_ALLOWED");
+      }
       return unitOfWork.executeAs(
           command.caller().scope(),
           () -> {
@@ -92,14 +100,37 @@ public final class SectorCommandHandlers {
                 network
                     .sector(command.sectorId())
                     .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+            boolean active = command.active() == null ? current.active() : command.active();
+            UUID parent = newParent(command, current);
+            checkTree(current, parent);
             return network.updateSector(
                 current.id(),
                 command.name() == null ? current.name() : command.name().strip(),
                 command.householdsCount() == null
                     ? current.householdsCount()
                     : command.householdsCount(),
-                command.active() == null ? current.active() : command.active());
+                active,
+                parent);
           });
+    }
+
+    /** The parent after the change: a region has none, and no request leaves it as it is. */
+    private static UUID newParent(UpdateSectorCommand command, SectorView current) {
+      if (Boolean.TRUE.equals(command.region())) {
+        return null;
+      }
+      return command.parentSectorId() == null ? current.parentSectorId() : command.parentSectorId();
+    }
+
+    /** The tree stays valid (P08): no cycles and no orphans. */
+    private void checkTree(SectorView current, UUID parent) {
+      Map<UUID, UUID> parentOf = new HashMap<>();
+      for (SectorView sector : network.sectors()) {
+        parentOf.put(sector.id(), sector.parentSectorId());
+      }
+      if (!Objects.equals(parent, current.parentSectorId())) {
+        SectorHierarchy.requireValidMove(current.id(), parent, parentOf);
+      }
     }
 
     @Override

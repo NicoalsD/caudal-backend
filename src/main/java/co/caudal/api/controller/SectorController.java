@@ -82,11 +82,18 @@ public class SectorController {
   @Operation(
       summary = "Cambiar un sector",
       description =
-          "Cambia el nombre, las viviendas o si sigue en uso. El código no cambia. Requiere el"
-              + " permiso NETWORK_MANAGE.")
+          "Cambia el nombre, las viviendas, si sigue en uso o su lugar en el árbol: parent_sector_id"
+              + " lo mueve bajo otro sector e is_region=true lo convierte en región (sector raíz)."
+              + " El árbol no admite ciclos ni sectores huérfanos. El código no cambia. Requiere el permiso"
+              + " NETWORK_MANAGE.")
   @SecurityRequirement(name = "bearerAuth")
   @ApiResponse(responseCode = "200", description = "Sector actualizado")
   @ApiResponse(responseCode = "403", description = "FORBIDDEN: falta el permiso NETWORK_MANAGE")
+  @ApiResponse(
+      responseCode = "400",
+      description =
+          "VALIDATION_ERROR: el padre no existe, es el mismo sector o uno de sus descendientes,"
+              + " o se combinan parent_sector_id e is_region")
   @ApiResponse(responseCode = "404", description = "NOT_FOUND: el sector no existe")
   @PatchMapping("/{id}")
   @PreAuthorize("hasAuthority('NETWORK_MANAGE')")
@@ -102,7 +109,9 @@ public class SectorController {
                 id,
                 request.name(),
                 request.householdsCount(),
-                request.isActive()));
+                request.isActive(),
+                request.parentSectorId(),
+                request.isRegion()));
     return ResponseEntity.ok()
         .cacheControl(CacheControl.noStore())
         .body(NetworkMapper.toResponse(sector));

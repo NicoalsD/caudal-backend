@@ -44,7 +44,7 @@ public class ManualValveCommandController {
               + " (de 10 a 500 caracteres) y queda en la auditoría con el usuario que lo envió."
               + " not_before debe ser anterior a expires_at. No puede haber otro comando activo"
               + " (PENDING o DELIVERED) de la misma válvula con el mismo not_before. Requiere el"
-              + " permiso VALVE_COMMAND_MANUAL (solo BOARD_ADMIN).")
+              + " permiso VALVE_COMMAND_MANUAL (BOARD_ADMIN y OPERATOR).")
   @SecurityRequirement(name = "bearerAuth")
   @ApiResponse(responseCode = "201", description = "Comando creado en estado PENDING")
   @ApiResponse(
