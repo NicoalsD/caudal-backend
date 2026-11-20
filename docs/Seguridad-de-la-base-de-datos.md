@@ -65,7 +65,7 @@ Regla general para `caudal_app`: `S` e `I` por defecto. `U` solo en columnas de 
 | `roles` | Catálogo | S | No |
 | `permissions` | Catálogo | S | No |
 | `role_permissions` | Catálogo | S (escritura solo por migración) | No |
-| `memberships` | RLS. Estado por definir (ver [`Actores-y-permisos.md`](Actores-y-permisos.md), sección 1) | S, I, U(`valid_to`) si se mantiene | No |
+| `memberships` | RLS. Una sola membresía activa por usuario (ver [`Actores-y-permisos.md`](Actores-y-permisos.md), sección 1) | S, I, U(`valid_to`) | No |
 | `refresh_tokens` | Normal | S, I, U(`last_used_at`, `revoked_at`, `revoked_reason`, `replaced_by_id`) | No |
 | `login_attempts` | AO | S, I | No |
 | `password_history` | AO | S, I | No |
@@ -559,7 +559,7 @@ En el modelo B2B no hay restricciones `EXCLUDE`: las bandas de nivel y los turno
 - `UNIQUE (institution_id)` en `org.institution_settings`: una fila por institución.
 - `UNIQUE (service_line_id)` en `org.valves`: una válvula por línea. Un `UNIQUE (institution_id, servo_channel)` impide dos válvulas en el mismo canal (propuesta).
 - `UNIQUE (tank_id, service_date)` en `ops.day_closures`: un cierre por día y tanque.
-- Un solo comando activo por válvula: índice único parcial propuesto. Si la API rechaza el segundo comando (la decisión está por definir en [`Reglas-de-negocio.md`](Reglas-de-negocio.md), sección 9.3), el índice solo protege la regla.
+- Un solo comando activo por válvula: índice único parcial propuesto. La API reemplaza el comando activo (el anterior pasa a `CANCELLED` con motivo `SUPERSEDED`, [`Reglas-de-negocio.md`](Reglas-de-negocio.md), sección 9.3). El índice solo protege la regla.
 
 ```sql
 CREATE UNIQUE INDEX valve_commands_one_active_per_valve
