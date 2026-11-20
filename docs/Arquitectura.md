@@ -212,10 +212,10 @@ Caso: el operador pulsa "Abrir" en la línea "Acueducto 1". La maqueta es un Ard
 
 Diagrama por crear: secuencia del comando de válvula (no existe todavía en `images/`).
 
-1. `POST /api/v1/valve-commands/manual` (permiso `VALVE_COMMAND_MANUAL`) crea el comando en `PENDING`, con origen `manual` (`manual_reason`, texto por defecto si no se escribe) y `expires_at`.
+1. `POST /api/v1/valve-commands/manual` (permiso `VALVE_COMMAND_MANUAL`) crea el comando en `PENDING`, con origen `manual` (`manual_reason`, texto por defecto si no se escribe) y `expires_at` (por defecto, ahora más 2 minutos). Si la válvula ya tenía un comando activo, este pasa a `CANCELLED` con motivo `SUPERSEDED`.
 2. El puente consulta `GET /api/v1/devices/commands` cada 2 s, firmado con Ed25519. Al recogerlo, el comando pasa a `DELIVERED`.
 3. El puente traduce `OPEN` o `CLOSE` al ángulo de `org.valves` (`open_angle_deg` o `closed_angle_deg`) y lo envía por serie como `S<n> <deg>`. El ángulo viene de `GET /api/v1/devices/config`, que el puente relee sin reiniciarse.
-4. El UNO responde `OK S<n> <deg>` y, cuando el servo llega, `DONE S<n> <deg>`.
+4. El UNO responde `OK S<n> <deg>` y, cuando el servo llega, `DONE S<n> <deg>`. Si `hold_torque_after_move` es `false`, el puente envía `R<n>` y el servo queda suelto.
 5. El puente responde `POST /api/v1/devices/commands/{id}/ack` con `ACKED`, o `FAILED` si `DONE` no llega en `max_travel_seconds`.
 6. Si `expires_at` pasa antes de la entrega, el comando pasa a `EXPIRED`. Cada cambio queda en `devices.valve_command_events`.
 7. `GET /api/v1/valves/live` muestra `OPEN`, `CLOSED` o `UNKNOWN`. El estado sale del último comando `ACKED`. Un `FAILED` o `EXPIRED` no cambia el estado.
@@ -242,7 +242,7 @@ Pasos:
    - `level_mm = clamp(empty_distance_mm - distance_mm, 0, empty_distance_mm - full_distance_mm)`
    - `level_pct = level_mm / (empty_distance_mm - full_distance_mm) * 100`
    - `volume_l = area_mm2 * level_mm / 1e6`
-5. La lectura efectiva se guarda en `ops.readings` cada `persist_interval_seconds`, o antes si el nivel cambia más de un umbral (por definir). Así no se guardan unas 86 400 filas al día.
+5. La lectura efectiva se guarda en `ops.readings` cada `persist_interval_seconds`, o antes si el nivel cambia más de un umbral (por definir). Un punto `-1` no crea lectura. Así no se guardan unas 86 400 filas al día.
 6. `GET /api/v1/tanks/{id}/live` devuelve `distance_mm`, `level_mm`, `level_pct`, `volume_l`, `observed_at`, `age_seconds` y `sensor_status` (`OK`, `NO_ECHO` o `STALE`). La aplicación lo consulta cada 2 s.
 7. La calibración la hace el administrador con la lectura actual: `POST /api/v1/tanks/{id}/calibration` con `{point: EMPTY|FULL}` toma la última distancia y la guarda como `empty_distance_mm` o `full_distance_mm`.
 8. Las anomalías de telemetría (`ops.anomalies`) se evalúan sobre `ops.readings`: `SENSOR_FAULT` (valor pegado o sin eco durante `sensor_stuck_window_seconds` con alguna válvula abierta; con todas cerradas, un valor estable es normal), `STALE_DATA` (sin telemetría en `stale_after_seconds`), `ABNORMAL_DROP` y `POSSIBLE_LEAK` (baja con todas las válvulas cerradas).
@@ -261,7 +261,7 @@ Las tres salidas son independientes. `GET /api/v1/tanks/{id}/outlook` devuelve c
 
 1. **Agua que queda**: litros y porcentaje, calculados con la geometría a partir de la última lectura válida. Origen `OBSERVED`. No es IA.
 2. **Tiempo hasta la reserva y hasta vaciarse**: con la tasa actual de cambio (pendiente sobre `trend_window_minutes`). Es determinista, sin IA. Origen `ESTIMATED`. Si el nivel sube o está estable, la respuesta es "no se vacía al ritmo actual".
-3. **Banda Chronos**: cuantiles p10, p50 y p90 en pasos de `forecast_step_seconds`, hasta `forecast_horizon_steps`. Origen `ESTIMATED`. Si Chronos falla, se usa la estimación simple (`is_fallback`).
+3. **Banda Chronos**: cuantiles p10, p50 y p90 en pasos de `forecast_step_seconds`, hasta `forecast_horizon_steps`, en `level_mm` y en `level_pct`. Origen `ESTIMATED`. Si Chronos falla, se usa la estimación simple (`is_fallback`).
 
 El cálculo de Chronos pasa por `ForecastPort`. La implementación es `RemoteForecasterProxy` (P11), que llama a `IaForecastClientAdapter` (P06) con timeouts de conexión de 2 s y de lectura de 10 s. Si la llamada falla o el circuito está abierto (P18), el proxy usa la estimación simple (`NaivePersistenceForecastAdapter`). Se guardan ambos pronósticos en `ops.forecast_runs` para compararlos después.
 
@@ -307,7 +307,7 @@ P17 (Observer) se aplica aquí.
 - El token de plataforma (`scope=platform`) no fija `app.institution_id`. Las operaciones entre instituciones pasan solo por funciones `SECURITY DEFINER` (`platform.create_institution`, `platform.list_institutions`) con `search_path` fijo.
 - Al crear una institución, la función hace `SET LOCAL app.institution_id` con el id nuevo para insertar sus filas dentro de la misma transacción.
 - Nivel de aislamiento: `READ COMMITTED` (valor por defecto de PostgreSQL, verificar). La unicidad (`UNIQUE`, por ejemplo `(institution_id, username)` y `(institution_id, service_date)`) y las restricciones `CHECK` se resuelven en la BD; el código traduce la violación a un error de negocio.
-- Un solo comando activo por válvula (`PENDING` o `DELIVERED`): la regla y su resolución (rechazar o reemplazar) están en `Reglas-de-negocio.md`, sección 9.3. El control de concurrencia de ese caso es por definir.
+- Un solo comando activo por válvula (`PENDING` o `DELIVERED`): la regla (el comando nuevo reemplaza al activo) está en `Reglas-de-negocio.md`, sección 9.3.
 - Límites de sesión por rol en PostgreSQL: `statement_timeout` 5 s, `lock_timeout` 3 s, `idle_in_transaction_session_timeout` 10 s.
 
 ## 9. Manejo de errores
@@ -332,7 +332,7 @@ Reglas:
 - `request_id` es el mismo que aparece en los logs.
 - Las excepciones de negocio extienden `DomainException`, que lleva un `ErrorCode`. `ApiExceptionHandler` (`@RestControllerAdvice`) las convierte en el formato anterior.
 - El login responde siempre `INVALID_CREDENTIALS`, sin revelar si la institución o el usuario existen.
-- Un recurso de otra institución responde como si no existiera (`404 RESOURCE_NOT_FOUND`), para no revelar su existencia. El nombre exacto del código se alinea con `API.md`.
+- Un recurso de otra institución responde como si no existiera (`404 NOT_FOUND`), para no revelar su existencia.
 - La IA usa `INSUFFICIENT_HISTORY` e `INVALID_SERIES` (422) y `MODEL_NOT_READY` (503). El backend responde `IA_UNAVAILABLE` (503) solo si también falla la estimación simple.
 
 Tabla de mapeo general (según `API.md`, por alinear):
@@ -344,7 +344,7 @@ Tabla de mapeo general (según `API.md`, por alinear):
 | Credenciales incorrectas (login) | `401` | `INVALID_CREDENTIALS` |
 | Sin sesión o token inválido | `401` | `UNAUTHORIZED` (sesión revocada: `SESSION_REVOKED`) |
 | Sin permiso, o sin membresía en la institución | `403` | `FORBIDDEN` |
-| Recurso inexistente o de otra institución (no se distingue) | `404` | `RESOURCE_NOT_FOUND` |
+| Recurso inexistente o de otra institución (no se distingue) | `404` | `NOT_FOUND` |
 | Estado, lock, idempotencia o unicidad en conflicto | `409` | `CONFLICT`, `INVALID_STATE_TRANSITION` |
 | Regla de negocio no cumplida (no se guarda nada) | `422` | Por definir en `API.md` |
 | Cuerpo demasiado grande | `413` | `PAYLOAD_TOO_LARGE` |
@@ -475,12 +475,11 @@ Cada decisión sigue el formato corto: contexto, decisión y consecuencias.
 
 | Secuencia | Imagen | Estado y qué muestra |
 |---|---|---|
-| Inicio de sesión por institución | ![Login](images/secuencia-login.png) | Diagrama en actualización. Sección 3. |
-| Comando de válvula | Diagrama por crear | Sección 4. No existe todavía en `images/`. |
-| Telemetría y sensor en vivo | ![Telemetría](images/secuencia-telemetria.png) | Diagrama en actualización. Sección 5. |
-| Pronóstico y asistente | ![Pronóstico](images/secuencia-pronostico.png) | Diagrama en actualización. Sección 6. |
-| Lectura manual | ![Lectura](images/secuencia-lectura.png) | Obsoleta: muestra el flujo de lectura manual que se retira. Sustituida por la sección 5. |
+| Inicio de sesión por institución | ![Login](images/secuencia-login.png) | Elegir la institución, credenciales y token con `institution_id`. Sección 3. |
+| Comando de válvula | ![Comando de válvula](images/secuencia-comando-valvula.png) | De la app al servo y de vuelta con el ack. Sección 4. Sus estados están en [estados-comando-valvula](images/estados-comando-valvula.png). |
+| Telemetría y sensor en vivo | ![Telemetría](images/secuencia-telemetria.png) | Distancia firmada, conversión por geometría y configuración del puente. Sección 5. |
+| Pronóstico en tres salidas | ![Pronóstico](images/secuencia-pronostico.png) | Agua que queda, tiempo hasta la reserva y banda Chronos, con respaldo. Sección 6. |
 
-Los diagramas `secuencia-propuesta` y `estados-propuesta` se retiran del proyecto junto con los turnos, y sus enlaces ya no aparecen en este documento.
+Los diagramas `secuencia-lectura`, `secuencia-propuesta` y `estados-propuesta` se retiraron junto con la lectura manual y los turnos.
 
 Relacionados: [Modelo de datos](Modelo-de-datos.md), [Reglas de negocio](Reglas-de-negocio.md), [Protocolo de dispositivos](Protocolo-de-dispositivos.md), [Patrones de diseño](Patrones-de-diseno.md), [Arquitectura operativa para agentes](../.agents/architecture.md), [Pruebas del backend](../.agents/testing-plan.md)
