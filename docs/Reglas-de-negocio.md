@@ -144,11 +144,12 @@ Cada punto pasa por los validadores en este orden (patrón Chain of Responsibili
 
 | Orden | Validador | Condición | Efecto |
 |---|---|---|---|
-| 1 | Sin eco | `distance_mm = -1` | No produce nivel. Cuenta para `SENSOR_FAULT`. |
+| 1 | Sin eco | `distance_mm = -1` | No crea lectura en `ops.readings` ni produce nivel. Cuenta para `SENSOR_FAULT`. |
 | 2 | Zona ciega | `distance_mm < blind_zone_mm` | No produce nivel. Cuenta para `SENSOR_FAULT`. |
 | 3 | Fuera de rango físico | `distance_mm` menor que 0 (distinto de -1) o mayor que el alcance del sensor (4000 mm en el HC-SR04) | Rechazo. No se guarda. |
 | 4 | Futuro | `observed_at > ahora + 5 min` (constante de `FieldLimits`) | Rechazo. No se guarda. |
-| 5 | Duplicado por nonce | El `nonce` de la firma ya se usó dentro de `DEVICE_NONCE_TTL_SECONDS` (600 s) | Rechazo. Es una repetición del mismo envío. |
+| 5 | Antigüedad | `observed_at < ahora - max_backdate_hours` | Rechazo (`TIMESTAMP_TOO_OLD`). No se guarda. Sirve para los lotes que el puente guardó sin conexión. |
+| 6 | Duplicado por nonce | El `nonce` de la firma ya se usó dentro de `DEVICE_NONCE_TTL_SECONDS` (600 s) | Rechazo. Es una repetición del mismo envío. |
 
 Ejemplos con `blind_zone_mm = 20`:
 
@@ -174,8 +175,8 @@ Ejemplos con `blind_zone_mm = 20`:
 
 Reglas de `sensor_status`, en este orden:
 
-1. `STALE` si `age_seconds > stale_after_seconds` (ejemplo: 30 s).
-2. `NO_ECHO` si el último punto fue `-1`. Una distancia en zona ciega tampoco produce nivel y se reporta como `NO_ECHO` (por confirmar).
+1. `STALE` si no llegó ningún punto en `stale_after_seconds` (ejemplo: 30 s).
+2. `NO_ECHO` si el último punto fue `-1`. Una distancia en zona ciega tampoco produce nivel y se reporta como `NO_ECHO`.
 3. `OK` en los demás casos.
 
 Ejemplo de respuesta, con la lectura del ejemplo de la sección 2 (15:30 en Bogotá son las 20:30 UTC):
@@ -257,7 +258,7 @@ Limitación: la salida supone que el ritmo de bajada se mantiene. No considera v
 - El servicio de pronóstico (`caudal-ia`) recibe la serie remuestreada cada `forecast_step_seconds` (ejemplo: 300 s) y devuelve la banda p10, p50 y p90 para cada paso.
 - La historia enviada son `forecast_context_steps` pasos (ejemplo: 288, que son 24 h).
 - El horizonte son `forecast_horizon_steps` pasos (ejemplo: 12, que es 1 h).
-- La banda se expresa en nivel. La unidad (`level_pct` o mm) está **por definir**.
+- La banda se expresa en `level_mm` y en `level_pct`, los dos en la respuesta del outlook.
 - Si `caudal-ia` no responde dentro de `IA_READ_TIMEOUT_MS` (10 s), la salida usa una estimación simple (la misma pendiente de la sección 5.1). Se marca con `is_fallback = true` y se indica el motivo.
 
 Los eventos (sección 7) y las recomendaciones del piloto (sección 10) se muestran aparte de estas tres salidas.
@@ -278,7 +279,7 @@ Ejemplos:
 - `ABNORMAL_DROP`: con tendencia de `-3 mm/min` y límite de 2 mm/min, `3 > 2`, así que se crea la anomalía. Con `-2 mm/min` no se crea, porque no supera el límite.
 - `POSSIBLE_LEAK`: todas las válvulas están cerradas y el nivel baja 5 mm entre dos lecturas. Como 5 mm supera la tolerancia de ejemplo (3 mm), se crea la anomalía.
 
-Ciclo de vida: `OPEN` pasa a `CONFIRMED` (el operador confirma en campo, con su nombre y una nota) o a `DISMISSED`. La nota es opcional y su regla está **por definir**.
+Ciclo de vida: `OPEN` pasa a `CONFIRMED` (un `OPERATOR` o un `INSTITUTION_ADMIN` la confirma en campo, con su nombre y una nota, con el permiso `ANOMALY_REVIEW`) o a `DISMISSED`. La nota es opcional y su regla está **por definir**.
 
 Eventos (no son anomalías):
 
@@ -305,7 +306,7 @@ El operador anota lo que ve en campo. Una observación no es una medida del sens
 
 Cada comando tiene un solo origen:
 
-- **Manual**: `POST /api/v1/valve-commands/manual`, con el permiso `VALVE_COMMAND_MANUAL` (`OPERATOR` e `INSTITUTION_ADMIN`). El motivo (`manual_reason`) es opcional. Si falta, se guarda un texto por defecto, así que todo comando manual tiene motivo.
+- **Manual**: `POST /api/v1/valve-commands/manual`, con el permiso `VALVE_COMMAND_MANUAL` (`OPERATOR` e `INSTITUTION_ADMIN`). El motivo (`manual_reason`) es opcional. Si falta, se guarda el texto por defecto "Operación manual desde la app", así que todo comando manual tiene motivo.
 - **Piloto**: el comando lleva `autopilot_decision_id` (sección 10).
 
 La restricción de la base de datos es `manual_reason XOR autopilot_decision_id`: exactamente uno de los dos no es nulo.
@@ -313,11 +314,11 @@ La restricción de la base de datos es `manual_reason XOR autopilot_decision_id`
 ### 9.2 Vigencia
 
 - `not_before`: el comando no se entrega antes de este momento.
-- `expires_at`: si llega este momento sin entregarse, el comando pasa a `EXPIRED`. Ejemplo: `expires_at` es la creación más 60 s. El valor real está **por definir**.
+- `expires_at`: si llega este momento sin entregarse, el comando pasa a `EXPIRED`. Por defecto es el momento de la creación más 2 minutos.
 
 ### 9.3 Un solo comando activo por válvula
 
-Un comando está activo si está en `PENDING` o `DELIVERED`. Si llega un segundo comando para la misma válvula mientras hay uno activo, la API lo rechaza o reemplaza el anterior. Cuál de las dos es **por definir**.
+Un comando está activo si está en `PENDING` o `DELIVERED`. Si llega un comando nuevo para la misma válvula mientras hay uno activo, el nuevo reemplaza al anterior: el anterior pasa a `CANCELLED` con motivo `SUPERSEDED`.
 
 ### 9.4 Máquina de estados
 
@@ -327,7 +328,8 @@ Estados: `PENDING`, `DELIVERED`, `ACKED`, `FAILED`, `EXPIRED` y `CANCELLED`. `AC
 |---|---|---|
 | `PENDING` | `DELIVERED` | El puente lo recoge con `GET /api/v1/devices/commands` (sondeo cada 2 s) |
 | `PENDING` | `EXPIRED` | Pasa `expires_at` sin entrega |
-| `PENDING` | `CANCELLED` | Se anula antes de entregarse. El disparador está **por definir** |
+| `PENDING` | `CANCELLED` | Llega un comando nuevo para la misma válvula (motivo `SUPERSEDED`) |
+| `DELIVERED` | `CANCELLED` | Llega un comando nuevo para la misma válvula (motivo `SUPERSEDED`) |
 | `DELIVERED` | `ACKED` | El Arduino responde `DONE` y el puente confirma con `POST /api/v1/devices/commands/{id}/ack` |
 | `DELIVERED` | `FAILED` | El puente o el Arduino informan un error. La forma de reportarlo está **por definir** |
 | `DELIVERED` | `EXPIRED` | No llega el ack antes de `expires_at`. Por confirmar |
@@ -336,7 +338,7 @@ Ejemplo: abrir "Acueducto 1" (canal 1, ángulo abierto de ejemplo 90°).
 
 | Hora | Paso | Estado | Dato |
 |---|---|---|---|
-| 10:00:00 | El operador pulsa Abrir | `PENDING` | `origin = manual`, `expires_at` a las 10:01:00 |
+| 10:00:00 | El operador pulsa Abrir | `PENDING` | `origin = manual`, `expires_at` a las 10:02:00 |
 | 10:00:02 | El puente recoge el comando y envía `S1 90` por serie | `DELIVERED` | |
 | 10:00:03 | El Arduino responde `DONE` y el puente hace el ack | `ACKED` | `GET /api/v1/valves/live` muestra `OPEN` |
 
@@ -348,9 +350,10 @@ Cada válvula está en `org.valves` con:
 
 - `is_motorized` y `servo_channel` (canal del servo en el Arduino; en la maqueta, 1 y 2).
 - `open_angle_deg` y `closed_angle_deg`. En el ejemplo, 90° y 0°. Los ángulos reales de la maqueta están **por definir** con la prueba de banco.
+- `hold_torque_after_move` (booleano, por defecto `true`): si es `false`, el puente envía `R<n>` al recibir `DONE` y el servo queda suelto. Motivo: en el banco, un servo sostenido a 0° contra la manguera siguió esforzándose.
 - `fail_safe_position`: la posición a la que se lleva el actuador si el sistema pierde el control. Su valor (`OPEN` o `CLOSED`) y su disparador están **por definir**.
 
-El puente recibe canal y ángulos en `GET /api/v1/devices/config`. El firmware recibe ángulos crudos y no conoce las palabras "abierto" o "cerrado".
+El puente recibe canal, ángulos y `hold_torque_after_move` en `GET /api/v1/devices/config`. El firmware recibe ángulos crudos y no conoce las palabras "abierto" o "cerrado".
 
 ### 9.6 Estado en vivo
 
@@ -374,7 +377,7 @@ El modo está en `institution_settings.autopilot_mode`:
 - `ASSISTED`: el piloto propone una recomendación y un operador confirma el comando.
 - `AUTOMATIC`: el piloto envía los comandos que decide, respetando las guardas de la sección 10.2.
 
-Las recomendaciones son `OPEN`, `CLOSE`, `WAIT` e `INSPECT`. Cada decisión se guarda en `ops.autopilot_decisions` con sus entradas (nivel, tendencia, anomalías abiertas, modo) y el comando que generó, si lo hubo.
+Las recomendaciones son `OPEN`, `CLOSE`, `WAIT` e `INSPECT`. Las arman reglas deterministas sobre el outlook, los eventos y el estado de las válvulas; el LLM no genera recomendaciones. Cada decisión se guarda en `ops.autopilot_decisions` con sus entradas (nivel, tendencia, anomalías abiertas, modo) y el comando que generó, si lo hubo.
 
 ### 10.2 Guardas
 
@@ -443,6 +446,7 @@ Reglas:
 | Alertas de nivel | `low_level_pct`, `critical_level_pct` | `org.institution_settings` | 30 % y 10 % (ejemplo) |
 | Dato viejo | `stale_after_seconds` | `org.institution_settings` | 30 s (ejemplo) |
 | Persistencia de lecturas | `persist_interval_seconds` | `org.institution_settings` | 60 s (ejemplo) |
+| Antigüedad máxima de una medida importada | `max_backdate_hours` | `org.institution_settings` | 48 h (ejemplo) |
 | Umbral de cambio para persistir | Por definir | Por definir | Por definir |
 | Caída anormal | `max_level_change_per_minute` | `org.institution_settings` | 2 mm/min (ejemplo) |
 | Sensor pegado | `sensor_stuck_window_seconds` | `org.institution_settings` | 120 s (ejemplo) |
@@ -455,7 +459,8 @@ Reglas:
 | Piso de reserva del piloto | `reserve_floor_pct` | `org.institution_settings` | 15 % (ejemplo) |
 | Prioridad humana | `operator_absence_minutes` | `org.institution_settings` | 30 min (ejemplo) |
 | Modo del piloto | `autopilot_mode` | `org.institution_settings` | `MANUAL`, `ASSISTED` o `AUTOMATIC` |
-| Vigencia de comandos | `expires_at` | `devices.valve_commands` | 60 s desde la creación (ejemplo); valor por definir |
+| Vigencia de comandos | `expires_at` | `devices.valve_commands` | Creación más 2 min por defecto |
+| Servo sostenido o suelto | `hold_torque_after_move` | `org.valves` | `true` (sostenido) |
 | Tolerancia de 5 minutos de futuro | Constante de la regla de telemetría | `FieldLimits` (constante) | 5 min |
 | Alcance del sensor | Constante física del HC-SR04 | Constante con nombre en `co.caudal.shared` (por definir) | 4000 mm |
 | Textos de observaciones (10 a 500) | Límites de texto | `FieldLimits` | 10 a 500 caracteres |
