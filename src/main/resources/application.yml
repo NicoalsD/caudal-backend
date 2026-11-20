@@ -109,6 +109,7 @@ caudal:
       login-per-minute: ${RATE_LIMIT_LOGIN_PER_MINUTE:5}
       forecast-per-hour: ${RATE_LIMIT_FORECAST_PER_HOUR:10}
       public-reports-per-hour: ${RATE_LIMIT_PUBLIC_REPORTS_PER_HOUR:3}
+      public-directory-per-minute: ${RATE_LIMIT_PUBLIC_DIRECTORY_PER_MINUTE:30}
     # Shortest time between opening the public form and sending it, in seconds.
     public-form:
       min-seconds: ${PUBLIC_FORM_MIN_SECONDS:3}
@@ -123,7 +124,7 @@ caudal:
       encryption-key: ${MFA_ENCRYPTION_KEY}
       key-id: ${MFA_KEY_ID}
       issuer: ${MFA_ISSUER:CAUDAL}
-      allowed-roles: ${MFA_ALLOWED_ROLES:BOARD_ADMIN,PROJECT_TEAM}
+      allowed-roles: ${MFA_ALLOWED_ROLES:BOARD_ADMIN,INSTITUTION_ADMIN,PROJECT_TEAM}
     # Argon2id (docs/Seguridad.md, section 2.1). The defaults are the canonical values.
     argon2:
       memory-kib: ${ARGON2_MEMORY_KIB:19456}
