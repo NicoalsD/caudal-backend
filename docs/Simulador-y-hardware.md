@@ -165,7 +165,7 @@ Las cantidades son por nodo, salvo que se indique otra cosa. Las marcas y modelo
 | Control | Regla |
 |---|---|
 | Algoritmo | Ed25519, una clave por dispositivo. |
-| Clave privada | Solo en el dispositivo. Para la maqueta, en disco local con permisos 600 (solo el dueño puede leerla). Para el campo, almacenamiento cifrado en el ESP32-S3 (mecanismo por verificar). Nunca en git, nunca en el servidor. |
+| Clave privada | Solo en el dispositivo. Para la maqueta, el puente guarda las tres claves (sensor y dos actuadores) en disco local con permisos 600 (solo el dueño puede leerlas). Para el campo, almacenamiento cifrado en el ESP32-S3 (mecanismo por verificar). Nunca en git, nunca en el servidor. |
 | Clave pública | En `devices.device_keys`. Rotación: se registra una clave nueva y la anterior se marca inactiva. |
 | Cabeceras | `X-Device-Id`, `X-Timestamp` (unix en segundos), `X-Nonce` (128 bits en hexadecimal), `X-Signature` (Ed25519 en base64url). |
 | Cadena firmada | `método\nruta\ntimestamp\nnonce\nsha256(cuerpo)`. |
@@ -182,7 +182,7 @@ El detalle de la cadena, las cabeceras y los errores está en `Protocolo-de-disp
 - Cada comando tiene `not_before` y `expires_at`. El dispositivo no ejecuta un comando antes de `not_before` ni después de `expires_at`.
 - Estados del comando: `PENDING`, `DELIVERED`, `ACKED`, `FAILED`, `EXPIRED`, `CANCELLED`. Cada transición queda en `devices.valve_command_events`.
 - El dispositivo recibe comandos con `GET /api/v1/devices/commands` (firmado) y confirma con `POST /api/v1/devices/commands/{id}/ack`.
-- La configuración de canal, ángulos y calibración la recibe con `GET /api/v1/devices/config` (firmado). Cada actuador recibe `valve_id`, `servo_channel`, `open_angle_deg`, `closed_angle_deg` y `fail_safe_position`.
+- La configuración de canal, ángulos y calibración la recibe con `GET /api/v1/devices/config` (firmado). Cada actuador recibe `valve_id`, `servo_channel`, `open_angle_deg`, `closed_angle_deg`, `hold_torque_after_move` y `fail_safe_position`.
 - **Por definir:** si los comandos que el servidor envía al dispositivo llevan firma propia, además del TLS. Se evalúa antes de la fase C.
 
 ### 5.3 Comportamiento seguro ante fallas
@@ -302,7 +302,7 @@ La placa responde estas líneas (`uno/caudal_uno`, detalle en `Protocolo-de-disp
 | `INFO` | Versión y configuración de la placa. |
 | `D` / `D <mm>` | Pide una distancia. Responde la mediana de 5 lecturas en mm; `-1` si no hay eco. |
 | `S<n> <deg>` / `OK S<n> <deg>` / `DONE S<n> <deg>` | Mueve el servo `n` al ángulo indicado. `DONE` cuando termina el recorrido. |
-| `R<n>` | Lee la posición del servo `n`. |
+| `R<n>` | Libera el servo `n` (sin par de sostén). Se envía tras `DONE` si `hold_torque_after_move` es `false`. |
 | `ERR <motivo>` | Error de la placa. |
 
 Velocidad: 115200 baudios. Abrir el puerto reinicia la placa: lo primero que llega es `READY caudal-uno <versiÃ³n>`. Los servos y el sensor se alimentan del riel de 5 V que indica el firmware. El puente traduce `OPEN` y `CLOSE` al ángulo que le da el backend. El firmware nunca conoce las palabras "abierto" o "cerrado".
@@ -312,7 +312,7 @@ Velocidad: 115200 baudios. Abrir el puerto reinicia la placa: lo primero que lle
 El puente vive en `caudal-simulador`. Es un proceso local que:
 
 - Lee la distancia con `D` y envía `DISTANCE` (mm crudos) al backend cada ~2 s, firmado con Ed25519.
-- Consulta `GET /api/v1/devices/commands` cada ~2 s. Por cada comando: lo marca `DELIVERED`, envía `S<n> <deg>` a la placa, espera `DONE` y confirma con `POST /api/v1/devices/commands/{id}/ack` (`ACKED`). Si no llega `DONE` en `max_travel_seconds`, confirma `FAILED`.
+- Consulta `GET /api/v1/devices/commands` cada ~2 s. Por cada comando: lo marca `DELIVERED`, envía `S<n> <deg>` a la placa, espera `DONE`, envía `R<n>` si `hold_torque_after_move` es `false` y confirma con `POST /api/v1/devices/commands/{id}/ack` (`ACKED`). Si no llega `DONE` en `max_travel_seconds`, confirma `FAILED`.
 - Lee canal, ángulos y calibración con `GET /api/v1/devices/config`, firmado. El puente la relee sin reiniciarse. **Por implementar.** El YAML del puente queda solo con el puerto serie y los tiempos.
 
 Subcomandos:
@@ -328,7 +328,7 @@ Subcomandos:
 ### 8.5 Firmware
 
 - **Arduino UNO** (`uno/caudal_uno/*.ino`, en `caudal-maqueta`). **No cambia**: recibe ángulos crudos y responde `DONE`. Solo cambia la documentación.
-- Las credenciales y la clave privada del dispositivo no van en el repositorio. La clave vive en disco local del equipo que corre el puente.
+- Las credenciales y la clave privada del dispositivo no van en el repositorio. Las tres claves viven en disco local del equipo que corre el puente.
 
 ### 8.6 Ciclo de un comando de válvula en la maqueta
 
