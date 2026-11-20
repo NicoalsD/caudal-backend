@@ -1,578 +1,468 @@
 # Reglas de negocio
 
-Este documento desarrolla las reglas de negocio de CAUDAL (sección 17 de los hechos canónicos) con ejemplos numéricos. Cada cifra indica el parámetro de la base de datos que la gobierna. Los valores de ejemplo viven en la semilla o en las filas de `org.rule_sets` y sus tablas hijas; el código no los quema.
+Este documento describe las reglas de negocio de CAUDAL en el modelo B2B. Cada institución tiene su tanque, su sensor ultrasónico, sus líneas de servicio y sus válvulas. Cada cifra indica el parámetro que la gobierna (sección 13).
 
 Convenciones:
 
-- Los valores marcados **semilla** vienen de los hechos canónicos y son los únicos de referencia.
-- Los valores marcados **ejemplo, verificar** son supuestos para ilustrar. La Junta los define.
-- **Por definir** indica un punto que no tiene decisión todavía. No se implementa sin confirmarlo.
-- Todas las horas se almacenan en UTC (`timestamptz`) y se muestran en `America/Bogota`. En los ejemplos se usa hora local.
-- Los números se muestran con coma decimal (`2,1`). En la base de datos se guardan con punto.
+- **ejemplo**: valor para ilustrar el cálculo. No es configuración real.
+- **por definir**: punto sin decisión. No se implementa sin confirmarlo.
+- Los números en texto usan coma decimal (`2,1`). En JSON y en la base de datos el decimal es punto (`2.1`).
+- Las horas se guardan en UTC (`timestamptz`) y se muestran en `America/Bogota`. Los ejemplos usan hora local.
+- Los identificadores (tablas, columnas, enums, endpoints, permisos) van en inglés y en `código`.
 
-## 1. Versiones de reglas
+## 1. Instituciones y aislamiento
 
-Las reglas de la Junta son una fila en `org.rule_sets` más sus tablas hijas: bandas (`rule_level_bands`), prioridad por sector (`rule_sector_settings`), orden de válvulas (`rule_valve_orders`) y horarios (`rule_operating_windows`). Una versión pasa por cuatro estados.
+Una **institución** es cliente de CAUDAL. Tiene un tanque, un sensor, líneas de servicio y válvulas. CAUDAL da de alta la institución y el administrador de la institución configura el resto.
 
-| Estado | Significado | Quién lo cambia | Se puede editar |
-|---|---|---|---|
-| `DRAFT` | Borrador. Es la única versión editable. | `BOARD_ADMIN` y `BOARD_MEMBER` lo crean y lo editan. | Sí, con `PATCH /rule-sets/{id}` |
-| `ACTIVE` | Vigente. Una sola por acueducto. | Pasa a `ACTIVE` con `POST /rule-sets/{id}/activate`. | No. Un trigger lo impide. |
-| `SUPERSEDED` | Reemplazada por una versión posterior. Se conserva para explicar decisiones pasadas. | El sistema, al activar otra versión. | No |
-| `DISCARDED` | Borrador descartado. | Por definir (no hay endpoint en la sección 13). | No |
+### 1.1 Alta desde plantilla
 
-Nota: `BOARD_MEMBER` crea y edita borradores (sección 9). Solo `BOARD_ADMIN` activa una versión.
+- `PLATFORM_ADMIN` crea la institución con `platform.create_institution(...)`, una función `SECURITY DEFINER`.
+- La creación copia una plantilla (patrón Prototype): tanque, líneas, válvulas y los parámetros de `org.institution_settings`.
+- En la misma operación se crea el primer `INSTITUTION_ADMIN` y se dan de alta sus dispositivos.
 
-### 1.1 Creación de un borrador (Prototype)
+### 1.2 Institución simulada
 
-`POST /rule-sets` copia la versión `ACTIVE` mediante `RuleSet.copyForNewVersion()` (patrón P05). La copia incluye:
+- Si `is_simulated = true`, todos sus datos son simulados. La UI lo marca "Datos simulados".
+- Solo una institución simulada admite importar historial simulado (permiso `IMPORT_SIMULATED`, que usa el superadmin).
+- Una institución no simulada no admite importación de historial.
 
-- Los escalares de la fila: `reserve_level`, `max_daily_service_hours`, `min_shift_hours`, `max_shift_hours`, `allocation_strategy`, `duplicate_window_minutes`, `max_level_change_per_hour`, `stale_reading_hours`, `max_backdate_days`, `forecast_horizon_days`, `forecast_context_days`, `trend_threshold_per_day`.
-- Todas las filas hijas: bandas, sectores, orden de válvulas y ventanas de operación.
+### 1.3 Institución de prueba `maqueta-caudal`
 
-La copia recibe `version = versión máxima + 1`, `status = DRAFT`, `based_on_rule_set_id` apuntando a la versión original, y `created_by` con el usuario que la pidió.
+- Es una institución no simulada. Sus datos vienen de la maqueta real.
+- Hardware: un Arduino UNO por USB, un HC-SR04 (sensor de nivel) y dos servos MG90S que pisan dos mangueras de suero.
+- Líneas: "Acueducto 1" (canal de servo 1) y "Acueducto 2" (canal de servo 2). Cada manguera simula un acueducto. Cada línea tiene una válvula motorizada.
+- El tanque tiene las medidas de la maqueta (secciones 2 y 3).
+- Usuarios locales: administrador, operador y lector. La contraseña la define el usuario y no se documenta aquí.
 
-Ejemplo: la versión 3 está `ACTIVE` con `reserve_level = 1,00`. La Junta pide subir la reserva a `1,20`. Se crea la versión 4 en `DRAFT` copiando todo. Solo cambia `reserve_level`. La versión 3 no se toca.
+### 1.4 Login y aislamiento
 
-### 1.2 Activación
+- El usuario elige primero la institución: la lista pública `GET /api/v1/public/institutions` devuelve solo `{slug, name}`, o bien la ruta `/i/{slug}/login`.
+- `POST /auth/login` recibe `{institution_slug, username, password, mfa_code?}`.
+- El usuario es único por institución `(institution_id, username)`. Dos instituciones pueden tener un usuario `admin`.
+- Cualquier fallo de login responde `INVALID_CREDENTIALS`. El error nunca dice si el usuario existe en otra institución.
+- El superadmin entra con la opción "CAUDAL (plataforma)", con `institution_slug` nulo.
+- Cada tabla de datos tiene RLS por `institution_id` (`audit.current_institution_id()`, con el claim `institution_id` del JWT). Un usuario que pide un recurso de otra institución recibe `404`.
+- El JWT del superadmin lleva `scope=platform` y no lleva `institution_id`. Para configurar una institución recibe un token de 15 minutos con `act_as=platform`, y ese acceso queda auditado.
 
-`POST /rule-sets/{id}/activate` (solo `BOARD_ADMIN`, permiso `RULESET_ACTIVATE`) hace lo siguiente en una sola transacción:
+## 2. Geometría del tanque: distancia, nivel y volumen
 
-1. Valida la versión (sección 2). Si falla, responde `422 RULE_SET_INVALID` y no cambia nada.
-2. Marca la versión anterior `ACTIVE` como `SUPERSEDED` y le pone `valid_to = valid_from` de la nueva.
-3. Pone la nueva en `ACTIVE`, con `valid_from = ahora` (salvo que se indique otra fecha, por definir), `activated_by` y `activated_at`.
-4. Escribe `RULESET_ACTIVATED` en `audit.audit_log`.
+El sensor mide una **distancia** en mm: desde el sensor hasta la superficie del agua. El backend la convierte en nivel y en volumen con la geometría de la institución. Cada forma tiene su clase (patrón Strategy: `CylinderGeometry` y `RectangularGeometry`).
 
-El motivo de la activación es obligatorio (`change_reason`, 10 a 500 caracteres, `FieldLimits.REASON`). Ver la sección 7.
+### 2.1 Campos de `org.tanks`
 
-### 1.3 Inmutabilidad
+| Campo | Significado |
+|---|---|
+| `shape` | `CYLINDER` o `RECTANGULAR` |
+| `height_mm` | Altura interior del tanque |
+| `diameter_mm` | Diámetro interior (solo cilindro) |
+| `length_mm`, `width_mm` | Medidas de la base (solo rectangular) |
+| `empty_distance_mm` | Distancia del sensor al fondo, con el tanque vacío |
+| `full_distance_mm` | Distancia del sensor a la superficie, con el tanque lleno |
+| `blind_zone_mm` | Zona ciega del sensor (sección 4) |
 
-Una versión `ACTIVE` o `SUPERSEDED` no se modifica, ni ella ni sus filas hijas. El trigger de inmutabilidad de reglas activas rechaza cualquier `UPDATE` o `DELETE` sobre ellas. Si la Junta necesita cambiar algo, se crea un borrador nuevo (sección 1.1). Un intento de editar una versión activa responde `409 RULE_SET_IMMUTABLE`.
+### 2.2 Fórmulas
 
-### 1.4 Vigencia
+```
+área_mm2    = π · (diameter_mm / 2)²           (cilindro)
+            = length_mm · width_mm             (rectangular)
 
-- Una lectura guarda `rule_set_id` con la versión vigente en el momento de validarla (`ops.readings.rule_set_id`). Si después cambian las reglas, la lectura conserva su versión.
-- Una propuesta guarda `rule_set_id` con la versión usada para `service_date`.
-- Un pronóstico guarda `rule_set_id` con la versión vigente al calcularlo.
+útil_mm     = empty_distance_mm - full_distance_mm
+level_mm    = clamp(empty_distance_mm - distance_mm, 0, útil_mm)
+level_pct   = level_mm / útil_mm × 100
+volume_l    = área_mm2 × level_mm / 10^6
+```
 
-Así cualquier decisión pasada se puede explicar con las reglas que estaban vigentes.
+Un litro son 10^6 mm³. Por eso se divide entre 10^6.
 
-## 2. Validación de una versión de reglas
+### 2.3 Ejemplo numérico: maqueta
 
-Antes de activar una versión se comprueba lo siguiente. Todos los límites de rango están en la base de datos o en `FieldLimits`.
+Datos:
 
-| Comprobación | Dónde se aplica | Resultado si falla |
-|---|---|---|
-| Bandas sin solapes | `EXCLUDE` con `numrange` sobre `rule_level_bands` | Error de base de datos traducido a `RULE_SET_INVALID` (422) |
-| Bandas cubren todo el rango del tanque | Validación de aplicación al activar | `RULE_SET_INVALID` (422) con los huecos en `details` |
-| `max_level > min_level` en cada banda | `CHECK` en `rule_level_bands` | `RULE_SET_INVALID` |
-| `max_shift_hours >= min_shift_hours` | `CHECK` en `rule_sets` | `RULE_SET_INVALID` |
-| `max_daily_service_hours` entre 0 y 24 | `CHECK` con `HOURS_PER_DAY` | `RULE_SET_INVALID` |
-| Cada sector incluido tiene su orden de válvulas (si tiene válvulas) | Validación de aplicación | `RULE_SET_INVALID` |
+- `empty_distance_mm = 350` y `full_distance_mm = 80` (medidas de la maqueta).
+- `height_mm = 300` (ejemplo).
+- `diameter_mm = 200` (ejemplo). El diámetro real de la maqueta está **por definir**.
 
-### 2.1 Cobertura y el extremo superior
+Cálculo con la lectura `distance_mm = 215`:
 
-Las bandas son intervalos `[min_level, max_level)`: `min_level` está incluido y `max_level` excluido. La banda superior incluye `gauge_max`: para la banda cuyo `max_level` es igual a `tanks.gauge_max`, la búsqueda usa `min_level <= nivel <= max_level`. Así una lectura de exactamente `5,00` cae en `HIGH`. Las demás bandas son semiabiertas.
+1. Rango útil: `350 - 80 = 270 mm`.
+2. Nivel sin límites: `350 - 215 = 135 mm`. Está entre 0 y 270, así que `level_mm = 135 mm`.
+3. `level_pct = 135 / 270 × 100 = 50,0 %`.
+4. Área de la base: `π · (200 / 2)² = π · 10000 ≈ 31416 mm²`.
+5. `volume_l = 31416 × 135 / 10^6 = 4,24 L`.
 
-Ejemplo de la semilla (regla 0 a 5):
+Otros casos con la misma maqueta:
 
-| Banda | `min_level` (incluido) | `max_level` (excluido) | Horas al día | `priority_only` |
+| `distance_mm` | `level_mm` | `level_pct` | `volume_l` | Nota |
 |---|---|---|---|---|
-| `HIGH` | 3,50 | 5,00 (incluye 5,00) | 16 | No |
-| `LOW` | 1,50 | 3,50 | 8 | No |
-| `CRITICAL` | 0,00 | 1,50 | 3 | Sí |
+| 80 | 270 | 100,0 % | 8,48 | Tanque lleno |
+| 215 | 135 | 50,0 % | 4,24 | Caso del ejemplo |
+| 350 | 0 | 0,0 % | 0,00 | Tanque vacío |
+| 400 | 0 | 0,0 % | 0,00 | Por debajo del fondo: `350 - 400 = -50`, que se limita a 0 |
 
-Cobertura: `0,00` a `1,50` (CRITICAL), `1,50` a `3,50` (LOW), `3,50` a `5,00` (HIGH). No hay huecos ni solapes.
+Sensibilidad: con esta área, cada 10 mm de nivel equivalen a `31416 × 10 / 10^6 = 0,31 L`.
 
-Ejemplos de versiones rechazadas:
+## 3. Calibración
 
-- `LOW` con `max_level = 3,60` se solapa con `HIGH` (desde `3,50`). La base de datos la rechaza con `EXCLUDE`.
-- `LOW` con `max_level = 3,00` deja libre `[3,00; 3,50)`. La validación de cobertura la rechaza y `details` indica `"gaps": [{"from": "3,00", "to": "3,50"}]`.
+### 3.1 Cómo se calibra
 
-## 3. Cálculo de horas disponibles
+- En la vista del tanque, el administrador tiene dos botones: "usar lectura actual como vacío" y "usar lectura actual como lleno".
+- Cada botón toma `distance_mm` de la lectura en vivo y lo guarda en `empty_distance_mm` o en `full_distance_mm` (`PATCH /api/v1/tanks/{id}`).
+- Solo se calibra con una lectura cuyo `sensor_status` sea `OK` (sección 5). Con `NO_ECHO` o `STALE` el botón queda desactivado.
+- Un cambio de calibración se aplica sin reiniciar nada. El puente recibe la calibración en `GET /api/v1/devices/config`.
 
-Las horas disponibles de un día son el máximo de servicio que el tanque permite repartir. Se guardan en `ops.schedule_proposals.available_hours` con estatus `ESTIMATED`.
+### 3.2 Validaciones
 
-### 3.1 Banda
-
-La banda sale del último nivel observado (`tank_level_snapshot`), no del pronóstico. Así la decisión se apoya en un dato que alguien midió. El pronóstico solo interviene en la guarda de reserva (sección 3.3).
-
-Ejemplo: último nivel `2,10`. Está en `[1,50; 3,50)`, así que la banda es `LOW` con 8 horas (`rule_level_bands.daily_service_hours`).
-
-### 3.2 Ventana de operación y tope diario
-
-Horas máximas del día:
-
-```
-horas = min(
-    banda.daily_service_hours,              -- rule_level_bands
-    duracion(ventana de operación del día), -- rule_operating_windows
-    max_daily_service_hours                 -- rule_sets
-)
-```
-
-Ejemplo: ventana `05:00` a `21:00` (16 h, `rule_operating_windows` con `day_of_week` nulo, es decir, todos los días). `max_daily_service_hours = 16,00` (ejemplo, verificar). Entonces `min(8, 16, 16) = 8,00`. La banda es la que limita.
-
-### 3.3 Guarda de reserva con el p10
-
-La reserva es el nivel mínimo que la Junta quiere conservar (`rule_sets.reserve_level`, semilla `1,0`).
-
-Se compara el cuantil bajo del pronóstico del día de servicio (`forecast_points.p10`) con la reserva:
-
-- Si `p10 >= reserve_level`: no se recortan horas. Se explica con `RESERVE_GUARD`.
-- Si `p10 < reserve_level`: se aplica la política `rule_sets.reserve_policy`:
-  - `NONE`: no recorta horas.
-  - `REDUCE_TO_CRITICAL_BAND` (por defecto): las horas del día se limitan a las de la banda `CRITICAL` de la misma versión.
-  - `PRIORITY_ONLY`: solo se asignan turnos a los sectores prioritarios.
-
-Ejemplo: `p10 = 1,80` y `reserve_level = 1,00`. `1,80 >= 1,00`, así que no hay recorte. Horas disponibles: `8,00`.
-
-Ejemplo con recorte: `p10 = 0,90` está por debajo de la reserva. Con `REDUCE_TO_CRITICAL_BAND` y la banda `CRITICAL` de la semilla (3 h), las horas bajan de `8,00` a `min(8,00; 3,00) = 3,00`.
-
-### 3.4 Explicación del nivel y del pronóstico
-
-Los números de la guarda y de la banda se guardan como parámetros del código `TANK_BAND`, `FORECAST_RANGE` y `RESERVE_GUARD` (sección 6).
-
-## 4. Horas sin servicio
-
-Horas sin servicio de un sector: tiempo entre el fin de su último turno y la referencia de la propuesta.
-
-**Referencia (propuesta, verificar):** el inicio de la ventana de operación del día de servicio. Así dos propuestas del mismo día calculan lo mismo.
-
-**Último fin:**
-
-1. El `actual_end` del último registro de `ops.shift_executions` con estatus `COMPLETED` o `PARTIAL` y que no esté reemplazado (`supersedes_id` no lo apunta). Este dato es `CONFIRMED`.
-2. Si no hay ninguno, el `end_at` del último turno publicado (`ops.schedule_items` de una propuesta `PUBLISHED` o `CLOSED`). Este dato es `ESTIMATED`.
-3. Si tampoco hay, por definir (propuesta: fecha de alta del sector).
-
-`NOT_EXECUTED` no reinicia el contador. Un sector que no recibió agua no ganó nada.
-
-Ejemplo, referencia `2026-10-09 05:00`:
-
-| Sector | Último fin usado | Origen | Horas sin servicio |
-|---|---|---|---|
-| Escuela | 2026-10-08 19:00 (turno publicado de 17:00 a 19:00) | `ESTIMATED` | 10 |
-| Sector Alto | 2026-10-08 13:00 (`COMPLETED`) | `CONFIRMED` | 16 |
-| Sector Centro | 2026-10-07 21:00 (`PARTIAL`). Su turno `NOT_EXECUTED` del 8 de octubre no cuenta. | `CONFIRMED` | 32 |
-| Sector Sur | 2026-10-08 07:00 (`COMPLETED`) | `CONFIRMED` | 22 |
-
-Cálculo de Centro: de 21:00 a 24:00 son 3 h, el 8 de octubre son 24 h, y de 00:00 a 05:00 son 5 h. Total 32 h.
-
-## 5. Asignación de turnos
-
-### 5.1 Estrategia `PRIORITY_THEN_LONGEST_WAIT` (por defecto)
-
-Valor de `rule_sets.allocation_strategy`. Orden:
-
-1. Sectores prioritarios (`rule_sector_settings.is_priority = true`), en orden de `priority_rank` ascendente.
-2. Resto de sectores incluidos (`is_included = true`), por horas sin servicio de mayor a menor. Desempate: código del sector, en orden alfabético (propuesta).
-
-Si la banda tiene `priority_only = true`, solo se asignan los prioritarios.
-
-Reglas de tamaño:
-
-- Cada turno dura `min(max_shift_hours, presupuesto restante)`.
-- Un turno solo se crea si su duración es `>= min_shift_hours`. No se fragmenta lo que sobra.
-- El presupuesto nunca baja de cero. Como cada turno solo consume presupuesto, si un sector no cabe, los siguientes tampoco caben.
-- Los turnos son consecutivos desde la hora de inicio de la ventana. No se solapan.
-- Un sobrante menor que `min_shift_hours` queda sin usar y se registra en la propuesta.
-
-Pseudocódigo:
-
-```
-entrada: ruleSet, tanque, nivel, pronostico, fechaServicio
-
- 1  banda <- bandaQueContiene(ruleSet, nivel)           // sección 2.1 para el extremo superior
- 2  horas <- min(banda.daily_service_hours,
-               duracionVentana(ruleSet, fechaServicio),
-               ruleSet.max_daily_service_hours)
- 3  si pronostico != null y pronostico.p10 < ruleSet.reserve_level:
-        horas <- aplicarRecorteReserva(horas, ruleSet.reserve_policy)
- 4  presupuesto <- horas
- 5  cursor <- inicioVentana(fechaServicio)
- 6  incluidos <- sectores con is_included = true
- 7  si banda.priority_only: candidatos <- incluidos con is_priority = true
-    si no:
-        prioritarios <- incluidos con is_priority = true, orden por priority_rank
-        resto <- incluidos sin is_priority, orden por horasSinServicio desc
-        candidatos <- prioritarios + resto
- 8  para cada s en candidatos:
-        si presupuesto < min_shift_hours:
-            registrar(s, NO_BUDGET); continuar
-        duracion <- min(max_shift_hours, presupuesto)
-        crear turno(s, cursor, cursor + duracion, origen = PROPOSED)
-        explicar(s)                                     // sección 6
-        cursor <- cursor + duracion
-        presupuesto <- presupuesto - duracion
- 9  devolver turnos, presupuesto sobrante, sectores sin turno con motivo
-```
-
-Nota: en el paso 8 la prioridad del sector y su orden de llegada son los mismos en las dos fases. Para los prioritarios, la duración es `min(max_shift_hours, presupuesto)`, es decir, no se les da menos que a los demás.
-
-### 5.2 Ejemplo completo
-
-Datos del ejemplo (todos son ejemplo, verificar, salvo la semilla indicada):
-
-| Dato | Valor | Gobernado por |
+| Regla | Ejemplo que pasa | Ejemplo que falla |
 |---|---|---|
-| Regla | Versión 3, `ACTIVE` | `org.rule_sets` |
-| Rango del tanque | `0,00` a `5,00` | `org.tanks.gauge_min`, `gauge_max` (semilla) |
-| Último nivel | `2,10` (2026-10-08 18:00, `OBSERVED`) | `ops.readings`, vista de lecturas efectivas |
-| Hora de cálculo | 2026-10-09 04:30 | Reloj del servidor |
-| Pronóstico del día (`p10`, `p50`, `p90`) | `1,80`, `2,10`, `2,40` | `ops.forecast_points` |
-| `reserve_level` | `1,00` (semilla) | `org.rule_sets` |
-| Banda `LOW` | `[1,50; 3,50)`, 8 h, `priority_only = false` | `org.rule_level_bands` |
-| Ventana de operación | 05:00 a 21:00 | `org.rule_operating_windows` |
-| `max_daily_service_hours` | `16,00` | `org.rule_sets` |
-| `min_shift_hours` | `1,00` | `org.rule_sets` |
-| `max_shift_hours` | `3,00` | `org.rule_sets` |
-| `stale_reading_hours` | `12` | `org.rule_sets` |
-| `allocation_strategy` | `PRIORITY_THEN_LONGEST_WAIT` | `org.rule_sets` |
+| `full_distance_mm < empty_distance_mm` | `80 < 350` | `full = 400` con `empty = 350` (400 no es menor que 350) |
+| `empty_distance_mm <= height_mm + margen_de_montaje` | `350 <= 300 + 50` (margen de ejemplo 50 mm) | `empty = 360` (360 > 350) |
 
-Sectores incluidos:
+El margen de montaje (lo que sobresale el sensor sobre el borde del tanque) está **por definir**. Su valor de ejemplo es 50 mm.
 
-| Sector | `is_priority` | `priority_rank` | Horas sin servicio |
+Si una validación falla, la API responde `422` y no cambia nada.
+
+### 3.3 Zona ciega
+
+- `blind_zone_mm` es la distancia mínima que el sensor mide de forma confiable. Para la maqueta se usa 20 mm como ejemplo, a confirmar con la hoja de datos del HC-SR04.
+- Una distancia menor que `blind_zone_mm` no produce nivel (sección 4).
+
+## 4. Telemetría y lectura efectiva
+
+### 4.1 Del sensor a la base
+
+- El puente `maqueta-usb` envía la métrica `DISTANCE` en mm crudos cada ~2 s. Cada envío va firmado con Ed25519.
+- El límite es de 60 peticiones firmadas por minuto por dispositivo (`RATE_LIMIT_TELEMETRY_PER_MINUTE`). A 2 s hay 30 por minuto, así que el límite se cumple.
+- Cada punto crudo se guarda en `devices.telemetry_points`.
+- La cadena de validación (sección 4.2) decide si el punto produce una lectura efectiva.
+- La lectura efectiva se guarda en `ops.readings` cada `persist_interval_seconds`. También se guarda antes si el nivel cambia más de un umbral, que está **por definir** porque aún no existe en `institution_settings`.
+
+Cálculo de volumen de filas: a 1 s habría 86400 puntos crudos al día; a 2 s, 43200. Con `persist_interval_seconds = 60` (ejemplo), la regla por tiempo guarda 1440 lecturas al día (`86400 / 60`). Los cambios por umbral suman filas adicionales.
+
+### 4.2 Cadena de validación
+
+Cada punto pasa por los validadores en este orden (patrón Chain of Responsibility).
+
+| Orden | Validador | Condición | Efecto |
 |---|---|---|---|
-| Escuela | Sí | 1 | 10 (`ESTIMATED`) |
-| Sector Centro | No | | 32 (`CONFIRMED`) |
-| Sector Sur | No | | 22 (`CONFIRMED`) |
-| Sector Alto | No | | 16 (`CONFIRMED`) |
+| 1 | Sin eco | `distance_mm = -1` | No produce nivel. Cuenta para `SENSOR_FAULT`. |
+| 2 | Zona ciega | `distance_mm < blind_zone_mm` | No produce nivel. Cuenta para `SENSOR_FAULT`. |
+| 3 | Fuera de rango físico | `distance_mm` menor que 0 (distinto de -1) o mayor que el alcance del sensor (4000 mm en el HC-SR04) | Rechazo. No se guarda. |
+| 4 | Futuro | `observed_at > ahora + 5 min` (constante de `FieldLimits`) | Rechazo. No se guarda. |
+| 5 | Duplicado por nonce | El `nonce` de la firma ya se usó dentro de `DEVICE_NONCE_TTL_SECONDS` (600 s) | Rechazo. Es una repetición del mismo envío. |
 
-Paso a paso:
+Ejemplos con `blind_zone_mm = 20`:
 
-1. Banda: `2,10` cae en `LOW`. Horas de la banda: `8,00`.
-2. Horas: `min(8,00; 16,00; 16,00) = 8,00`. Horas disponibles: `8,00` (`ESTIMATED`).
-3. Reserva: `p10 = 1,80 >= 1,00`. No hay recorte. Explicación `RESERVE_GUARD`.
-4. Presupuesto `8,00`, cursor `05:00`.
-5. Prioritarios: Escuela. Duración `min(3,00; 8,00) = 3,00`. Turno `05:00` a `08:00`. Presupuesto `5,00`, cursor `08:00`.
-6. Resto por horas sin servicio: Centro (32), Sur (22), Alto (16).
-7. Centro: `min(3,00; 5,00) = 3,00`. Turno `08:00` a `11:00`. Presupuesto `2,00`, cursor `11:00`.
-8. Sur: `min(3,00; 2,00) = 2,00`, que es `>= 1,00`. Turno `11:00` a `13:00`. Presupuesto `0,00`, cursor `13:00`.
-9. Alto: presupuesto `0,00 < 1,00`. Sin turno hoy. Motivo `NO_BUDGET`.
+- `distance_mm = -1`: sin nivel, cuenta para `SENSOR_FAULT`.
+- `distance_mm = 12`: sin nivel, cuenta para `SENSOR_FAULT`.
+- `distance_mm = 215`: pasa todos los validadores y produce `level_mm = 135`.
+- `distance_mm = 4200`: rechazo por fuera de rango.
+- `observed_at` 10 minutos en el futuro: rechazo.
+- El mismo `nonce` enviado dos veces: la segunda vez se rechaza.
 
-Comprobación: `3 + 3 + 2 = 8` horas, igual al presupuesto. Turnos `05:00-08:00`, `08:00-11:00`, `11:00-13:00`: consecutivos, sin solapes, todos dentro de `05:00-21:00`.
+## 5. Estado del tanque en vivo
 
-Resultado:
+`GET /api/v1/tanks/{id}/live` devuelve el estado a partir de la última lectura cruda válida.
 
-| Orden | Sector | Inicio | Fin | Duración | Origen | Explicaciones (en orden) |
-|---|---|---|---|---|---|---|
-| 1 | Escuela | 05:00 | 08:00 | 3 h | `PROPOSED` | `PRIORITY_SECTOR`, `HOURS_WITHOUT_SERVICE`, `TANK_BAND`, `RESERVE_GUARD` |
-| 2 | Sector Centro | 08:00 | 11:00 | 3 h | `PROPOSED` | `HOURS_WITHOUT_SERVICE`, `TANK_BAND` |
-| 3 | Sector Sur | 11:00 | 13:00 | 2 h | `PROPOSED` | `HOURS_WITHOUT_SERVICE` |
+| Campo | Significado |
+|---|---|
+| `distance_mm` | Distancia cruda del sensor |
+| `level_mm`, `level_pct` | Nivel (sección 2) |
+| `volume_l` | Litros (sección 2) |
+| `observed_at` | Momento de la medida (UTC) |
+| `age_seconds` | Segundos desde `observed_at` |
+| `sensor_status` | `OK`, `NO_ECHO` o `STALE` |
 
-Sin turno: Sector Alto. Su explicación no se guarda en `schedule_item_reasons` porque no tiene turno. Ver la sección 6.3.
+Reglas de `sensor_status`, en este orden:
 
-Textos (en español, ver sección 6):
+1. `STALE` si `age_seconds > stale_after_seconds` (ejemplo: 30 s).
+2. `NO_ECHO` si el último punto fue `-1`. Una distancia en zona ciega tampoco produce nivel y se reporta como `NO_ECHO` (por confirmar).
+3. `OK` en los demás casos.
 
-- Escuela: "Escuela es prioritario y recibe turno antes que los demás." / "Escuela lleva 10 horas sin servicio (dato estimado, según el último turno publicado)." / "Nivel del tanque 2,10 (banda LOW): hay 8 horas de servicio hoy." / "El nivel posible más bajo (1,80) está por encima de la reserva (1,00); no se recortan horas."
-- Centro: "Sector Centro lleva 32 horas sin servicio." / "Nivel del tanque 2,10 (banda LOW): hay 8 horas de servicio hoy."
-- Sur: "Sector Sur lleva 22 horas sin servicio."
+Ejemplo de respuesta, con la lectura del ejemplo de la sección 2 (15:30 en Bogotá son las 20:30 UTC):
 
-Si hoy el tanque estuviera en `CRITICAL` (menos de `1,50`), la banda sería `priority_only`. Entonces solo Escuela recibiría turno, con `min(3; 3) = 3` horas, y los demás no aparecerían.
+```json
+{
+  "distance_mm": 215,
+  "level_mm": 135.0,
+  "level_pct": 50.0,
+  "volume_l": 4.24,
+  "observed_at": "2026-11-20T20:30:00Z",
+  "age_seconds": 2,
+  "sensor_status": "OK"
+}
+```
 
-### 5.3 Estrategia `EQUAL_SPLIT`
+La UI consulta este endpoint cada 2 s.
 
-Valor alternativo de `rule_sets.allocation_strategy`. Reparte el presupuesto en partes iguales entre los sectores incluidos (propuesta de diseño, verificar con el equipo).
+### 5.1 Tendencia
+
+La tendencia es la pendiente, por mínimos cuadrados, de las lecturas efectivas de los últimos `trend_window_minutes` (ejemplo: 10 min). El eje X son minutos, con cero en la última lectura. La pendiente sale en mm/min.
+
+Ejemplo, con tres lecturas efectivas:
+
+| Minuto `x` | Nivel `y` (mm) |
+|---|---|
+| -4 | 143 |
+| -2 | 139 |
+| 0 | 135 |
 
 ```
-cuota <- min(max_shift_hours, presupuesto / N)     // N = sectores incluidos
-si cuota < min_shift_hours: ningún sector recibe turno; motivo CUOTA_INSUFICIENTE
-si no: asignar cuota a cada sector en el orden de la estrategia (prioritarios primero, luego horas sin servicio)
+x̄ = (-4 - 2 + 0) / 3 = -2
+ȳ = (143 + 139 + 135) / 3 = 139
+
+Σ (x - x̄)(y - ȳ) = (-2)(4) + (0)(0) + (2)(-4) = -16
+Σ (x - x̄)²       = 4 + 0 + 4 = 8
+
+pendiente = -16 / 8 = -2 mm/min
 ```
 
-Ejemplo con el mismo día: `8,00 / 4 = 2,00` por sector, que es mayor que `min_shift_hours = 1,00` y menor que `max_shift_hours = 3,00`.
+Lectura: el nivel baja 2 mm/min, es decir, unos 0,06 L/min (`2 × 0,0314`). Si la pendiente es negativa, el tanque baja. Si es positiva, sube. Si está cerca de cero, está estable. El umbral de "estable" está **por definir**.
 
-| Orden | Sector | Inicio | Fin |
-|---|---|---|---|
-| 1 | Escuela | 05:00 | 07:00 |
-| 2 | Sector Centro | 07:00 | 09:00 |
-| 3 | Sector Sur | 09:00 | 11:00 |
-| 4 | Sector Alto | 11:00 | 13:00 |
+## 6. Pronóstico: tres salidas separadas
 
-Con `EQUAL_SPLIT` todos reciben turno, pero cada uno recibe menos horas. El código `PRIORITY_SECTOR` sigue explicando el orden.
+`GET /api/v1/tanks/{id}/outlook` devuelve tres salidas separadas. Cada una tiene su origen (`OBSERVED` o `ESTIMATED`). Si `sensor_status` no es `OK`, las salidas se calculan con el último dato válido y muestran su `age_seconds`.
 
-## 6. Explicaciones estructuradas
+### 6.1 Agua que queda (`OBSERVED`)
 
-Cada turno guarda una o más filas en `ops.schedule_item_reasons` con `reason_code`, `params` (JSON) y `sort_order`. El texto se arma en el backend con plantillas en español (patrón P22, `{sector}`, `{horas}`, coma decimal). El frontend no construye texto a partir de los códigos.
+Litros y porcentaje, calculados con la geometría (sección 2) a partir de la última lectura válida. No hay predicción.
 
-### 6.1 Códigos y parámetros
+Ejemplo: `4,24 L` y `50,0 %`.
 
-| `reason_code` | Cuándo se usa | `params` | Plantilla en español |
-|---|---|---|---|
-| `PRIORITY_SECTOR` | El sector es prioritario | `sector`, `priority_rank` | `{sector} es prioritario y recibe turno antes que los demás.` |
-| `HOURS_WITHOUT_SERVICE` | Se explica el orden por espera | `sector`, `horas`, `origen` (`CONFIRMED` o `ESTIMATED`) | `{sector} lleva {horas} {unidad_horas} sin servicio.` |
-| `TANK_BAND` | Se explica la banda y las horas del día | `nivel`, `banda`, `horas` | `Nivel del tanque {nivel} (banda {banda}): hay {horas} {unidad_horas} de servicio hoy.` |
-| `FORECAST_RANGE` | Se explica el pronóstico (si existe) | `p10`, `p50`, `p90`, `dia` | `Para {dia} se espera un nivel de {p50} (entre {p10} y {p90}).` |
-| `RESERVE_GUARD` | Se explica que la reserva fue revisada | `p10`, `reserve_level`, `recortado` | Sin recorte: `El nivel posible más bajo ({p10}) está por encima de la reserva ({reserve_level}); no se recortan horas.` Con recorte: texto por definir. |
-| `BOARD_CHANGE` | La Junta cambió el turno | `motivo` (del `proposal_decisions`) | `La Junta cambió este turno: {motivo}` |
+### 6.2 Tiempo hasta la reserva y hasta vaciarse (`ESTIMATED`, determinista)
 
-Formato:
+Usa la pendiente de la sección 5.1 y se calcula sin modelo. Parámetros:
 
-- `{horas}` y `{nivel}` se muestran con coma decimal. Si el número es entero no se muestran decimales: `8` y `10`. Si no es entero: `2,5`. Los niveles siempre con dos decimales: `2,10`.
-- `{unidad_horas}`: `hora` si el valor es `1`, `horas` en otro caso. Así `1 hora` y `2 horas`.
-- Los valores `{dia}` se muestran como "mañana", "hoy" o la fecha, según la diferencia con la fecha de emisión.
+- `reserve_level_pct` (ejemplo: 20 %). Se convierte en mm: `reserve_mm = reserve_level_pct / 100 × útil_mm`.
+- Si la pendiente es cero o positiva, la salida dice "no se vacía al ritmo actual".
+- Si `level_mm <= reserve_mm`, la salida dice "ya está en reserva".
+- En otro caso:
 
-### 6.2 Reglas de redacción
+```
+tiempo_a_reserva = (level_mm - reserve_mm) / |pendiente|
+tiempo_a_vaciarse = level_mm / |pendiente|
+```
 
-- Una explicación por hecho. No se mezclan dos hechos en una sola plantilla.
-- Las explicaciones se muestran en el orden de `sort_order`. Primero la prioridad, después las horas sin servicio, después la banda y el pronóstico.
-- El texto no incluye nombres de personas ni teléfonos (la página pública hereda este texto).
+Ejemplo con `level_mm = 135`, `útil_mm = 270`, `reserve_level_pct = 20` (ejemplo) y pendiente `-2 mm/min`:
 
-### 6.3 Sectores sin turno
+- `reserve_mm = 20 / 100 × 270 = 54 mm` (`54 × 0,0314 = 1,70 L`).
+- `tiempo_a_reserva = (135 - 54) / 2 = 40,5 min`.
+- `tiempo_a_vaciarse = 135 / 2 = 67,5 min`.
 
-Un sector sin turno no tiene fila en `schedule_items`, así que no puede tener fila en `schedule_item_reasons`. Su motivo (`NO_BUDGET`, `CUOTA_INSUFICIENTE` o `NO_INCLUIDO`) se guarda en `ops.schedule_proposals.unserved_sectors` (jsonb) y se devuelve en la respuesta de `GET /schedule-proposals/{id}`.
+La reserva del pronóstico (`reserve_level_pct`) no es el piso del piloto (`reserve_floor_pct`, sección 10). Son parámetros distintos.
 
-Plantilla propuesta: `{sector} no tiene turno hoy: el agua disponible se usó en los sectores anteriores de la lista.`
+Limitación: la salida supone que el ritmo de bajada se mantiene. No considera válvulas que se abrirán o cerrarán después.
 
-## 7. Versiones de la columna `change_reason`
+### 6.3 Banda del modelo Chronos (`ESTIMATED`)
 
-`org.rule_sets.change_reason` tiene `FieldLimits.REASON` (10 a 500 caracteres). El motivo se exige al activar; en el borrador puede estar vacío.
+- El servicio de pronóstico (`caudal-ia`) recibe la serie remuestreada cada `forecast_step_seconds` (ejemplo: 300 s) y devuelve la banda p10, p50 y p90 para cada paso.
+- La historia enviada son `forecast_context_steps` pasos (ejemplo: 288, que son 24 h).
+- El horizonte son `forecast_horizon_steps` pasos (ejemplo: 12, que es 1 h).
+- La banda se expresa en nivel. La unidad (`level_pct` o mm) está **por definir**.
+- Si `caudal-ia` no responde dentro de `IA_READ_TIMEOUT_MS` (10 s), la salida usa una estimación simple (la misma pendiente de la sección 5.1). Se marca con `is_fallback = true` y se indica el motivo.
 
-- `POST /rule-sets` crea el borrador; el motivo puede venir vacío.
-- `POST /rule-sets/{id}/activate` exige `change_reason` y lo audita en `audit.audit_log.after_state`.
-- Los hechos exigen el motivo al activar; el borrador puede no tenerlo.
+Los eventos (sección 7) y las recomendaciones del piloto (sección 10) se muestran aparte de estas tres salidas.
 
-## 8. Validación de lecturas
+## 7. Anomalías y eventos
 
-La cadena de validación (patrón P12, `ReadingValidationHandler`) se ejecuta en este orden: rango, fecha, duplicado, salto brusco y antigüedad. Se detiene en el primer error. Las advertencias se acumulan.
+Todos los tiempos de esta sección están en segundos, porque el sensor envía cada ~2 s. Las anomalías son sospechas inferidas por reglas. Empiezan en `OPEN`.
 
-Severidades permitidas por el esquema: `INFO`, `WARNING`. Estados guardados de la lectura: `ACCEPTED` y `FLAGGED`. Una lectura inválida no se guarda: la API responde `422`.
-
-### 8.1 Tabla de validadores
-
-| Orden | Código | Condición exacta | Tipo | Efecto | Estado resultante |
-|---|---|---|---|---|---|
-| 1 | `GAUGE_OUT_OF_RANGE` (API) | `value < tanks.gauge_min` o `value > tanks.gauge_max`, o tiene más de 2 decimales | Rechazo | Respuesta 422. No se guarda la lectura. | Ninguno (no persiste). |
-| 2a | `MISSING_TIMESTAMP` (API) | `observed_at` no existe o no es una fecha ISO-8601 con zona | Rechazo | Respuesta 422. No se guarda. | Ninguno |
-| 2b | `FUTURE_TIMESTAMP` | `observed_at > ahora + 5 minutos` | Rechazo | Respuesta 422. No se guarda. | Ninguno |
-| 3 | `DUPLICATE` | Existe otra lectura del mismo tanque con el mismo `gauge_value` y `\|observed_at - observed_at_otra\| <= duplicate_window_minutes` | Marca | Se guarda y se marca. | `FLAGGED` |
-| 4 | `SUDDEN_JUMP` | `\|valor - valor_anterior\| / horas_entre > max_level_change_per_hour`, donde `valor_anterior` es la última lectura efectiva anterior a `observed_at` y `horas_entre > 0` | Marca | Se guarda y se marca. El dato se acepta marcado. | `FLAGGED` |
-| 5 | `TOO_OLD` | `ahora - observed_at > max_backdate_days * 24 horas` (excepto importación en acueducto demo) | Rechazo | Respuesta 422. No se guarda. | Ninguno |
-
-Notas:
-
-1. La API responde 422 `GAUGE_OUT_OF_RANGE` con `details` (`gauge_min`, `gauge_max`, `value`), y la app pide corregir antes de reenviar. El trigger de rango de `ops.readings.gauge_value` es la defensa final en la BD.
-2. Las lecturas rechazadas por los errores 1, 2 y 5 no se guardan y no generan issue. Las lecturas guardadas quedan solo `ACCEPTED` o `FLAGGED`.
-3. `MISSING_TIMESTAMP` no genera fila en `reading_issues` porque `observed_at` es `NOT NULL`. Es un rechazo de la API.
-4. `STALE` no es un validador de lectura. Es un aviso del estado del tanque (sección 10) y una anomalía `STALE_DATA`.
-
-### 8.2 Reglas de identidad
-
-- Si llega un `id` (UUID del cliente) que ya existe con el mismo contenido, es un reintento idempotente. Se responde 200 con la lectura original y `idempotent_replay: true`. No es un error.
-- Si llega un `id` que existe con contenido distinto, se responde 409 `DUPLICATE_READING`.
-- Un valor repetido con otro `id` dentro de la ventana no es error: queda `FLAGGED` por `DUPLICATE`.
-
-### 8.3 Ejemplos
-
-Con `gauge_min = 0,00`, `gauge_max = 5,00`, `duplicate_window_minutes = 30` (ejemplo, verificar), `max_level_change_per_hour = 0,30` (ejemplo, verificar) y `max_backdate_days = 2` (ejemplo, verificar):
-
-| Caso | Entrada | Resultado |
+| `kind` | Condición | Parámetro |
 |---|---|---|
-| Dato 8 en regla de 0 a 5 | `gauge_value = 8,00` | 422 `GAUGE_OUT_OF_RANGE`, `details: {"gauge_min": "0,00", "gauge_max": "5,00", "value": "8,00"}`. No se guarda. |
-| Fecha en el futuro | `observed_at` = ahora + 10 min | 422 `FUTURE_TIMESTAMP` |
-| Lectura de hace 3 días | `observed_at` = ahora - 72 h | 422 `TOO_OLD` |
-| Repetido | Lectura `2,10` a las 18:00 y otra `2,10` a las 18:20 | Se guarda `FLAGGED`, issue `DUPLICATE` (`window: 30`, `matched_reading_id`) |
-| Salto | `2,10` a las 18:00 y `1,20` a las 19:00: caída de `0,90` en 1 h | Se guarda `FLAGGED`, issue `SUDDEN_JUMP` (`rate: 0,90`, `max: 0,30`) |
-| Normal | `2,10` a las 18:00 y `2,05` a las 18:30 | `ACCEPTED`, sin issues |
+| `SENSOR_FAULT` | Sin eco o valor pegado durante la ventana, con alguna válvula abierta. Con todas las válvulas cerradas, un valor estable es normal. | `sensor_stuck_window_seconds` (ejemplo: 120 s, 60 lecturas a 2 s) |
+| `STALE_DATA` | Sin telemetría durante más de `stale_after_seconds` | `stale_after_seconds` (ejemplo: 30 s) |
+| `ABNORMAL_DROP` | El nivel baja más rápido que `max_level_change_per_minute`, en mm/min | `max_level_change_per_minute` (ejemplo: 2 mm/min) |
+| `POSSIBLE_LEAK` | El nivel baja con todas las válvulas cerradas, más que la tolerancia | Tolerancia de caída, **por definir** (ejemplo: 3 mm) |
 
-## 9. Correcciones
+Ejemplos:
 
-- Una corrección nunca borra la lectura original. Se guarda una fila nueva en `ops.reading_corrections`.
-- El valor efectivo de una lectura es el de su última corrección (vista `effective_readings`).
-- `corrected_gauge_value` debe estar en el rango del tanque, igual que una lectura (`422 GAUGE_OUT_OF_RANGE` si no lo está).
-- `reason` es obligatorio, de 10 a 500 caracteres. Si falta: `422 REASON_REQUIRED`.
-- Quién puede corregir: `BOARD_ADMIN` y `BOARD_MEMBER` cualquier lectura; `OPERATOR` solo las suyas. El límite de tiempo para corregir las propias es por definir.
-- Las issues de la lectura original no se recalculan al corregir (verificar). El estado `FLAGGED` sigue visible en el historial.
+- `ABNORMAL_DROP`: con tendencia de `-3 mm/min` y límite de 2 mm/min, `3 > 2`, así que se crea la anomalía. Con `-2 mm/min` no se crea, porque no supera el límite.
+- `POSSIBLE_LEAK`: todas las válvulas están cerradas y el nivel baja 5 mm entre dos lecturas. Como 5 mm supera la tolerancia de ejemplo (3 mm), se crea la anomalía.
 
-## 10. Estado del tanque
+Ciclo de vida: `OPEN` pasa a `CONFIRMED` (el operador confirma en campo, con su nombre y una nota) o a `DISMISSED`. La nota es opcional y su regla está **por definir**.
 
-### 10.1 Último nivel y antigüedad
+Eventos (no son anomalías):
 
-- Nivel: valor efectivo de la última lectura válida.
-- Hace cuántas horas: `ahora - observed_at` de esa lectura. En el ejemplo, `2026-10-09 04:30 - 2026-10-08 18:00 = 10,5 horas`.
+| Evento | Condición | Parámetro |
+|---|---|---|
+| Alerta de nivel bajo | `level_pct < low_level_pct` | `low_level_pct` (ejemplo: 30 %) |
+| Alerta de nivel crítico | `level_pct < critical_level_pct` | `critical_level_pct` (ejemplo: 10 %) |
+| Comando fallido | Un comando de válvula termina en `FAILED` o `EXPIRED` (sección 9) | Sin parámetro |
+| Observación manual | Un operador registra una observación (sección 8) | Sin parámetro |
 
-### 10.2 Tendencia
+## 8. Observaciones manuales
 
-Se calcula la pendiente por mínimos cuadrados de las últimas lecturas efectivas dentro de la ventana de tendencia. La ventana es por definir; en el ejemplo se usan las lecturas de las 18:00 de los últimos tres días.
+El operador anota lo que ve en campo. Una observación no es una medida del sensor.
 
-Eje X en días, con cero en la última lectura: `-2`, `-1`, `0`. Valores de la semilla de ejemplo: `2,60`, `2,35`, `2,10`.
+- Tipos: `WATER_DIRTY` (agua sucia), `WATER_MUDDY` (agua turbia), `VISIBLE_DAMAGE` (daño visible) y `OTHER` (otro).
+- Quién: quien tenga el permiso `OBSERVATION_CREATE` (por defecto, `OPERATOR`). El `VIEWER` solo lee.
+- Texto: de 10 a 500 caracteres (`FieldLimits`).
+- Se crea con `POST /api/v1/observations`. La fecha la asigna el servidor al recibirla. Si se acepta la hora del cliente, está **por definir**.
+- Queda como evento `OBSERVED`. Aparece en la línea de tiempo del tanque, en el cierre del día (sección 11) y en las actas como dato observado (sección 12).
 
-```
-x̄ = (-2 - 1 + 0) / 3 = -1
-ȳ = (2,60 + 2,35 + 2,10) / 3 = 2,35
-pendiente = Σ (x - x̄)(y - ȳ) / Σ (x - x̄)²
-          = [(-1)(0,25) + (0)(0) + (1)(-0,25)] / [1 + 0 + 1]
-          = -0,50 / 2
-          = -0,25 unidades por día
-```
+## 9. Válvulas y comandos
 
-Clasificación con `trend_threshold_per_day = 0,10` (ejemplo, verificar):
+### 9.1 Origen
 
-| Condición | Resultado |
-|---|---|
-| `pendiente < -trend_threshold_per_day` | Viene bajando |
-| `-trend_threshold_per_day <= pendiente <= trend_threshold_per_day` | Estable |
-| `pendiente > trend_threshold_per_day` | Sube |
+Cada comando tiene un solo origen:
 
-Ejemplo: `-0,25 < -0,10`. El estado dice "viene bajando".
+- **Manual**: `POST /api/v1/valve-commands/manual`, con el permiso `VALVE_COMMAND_MANUAL` (`OPERATOR` e `INSTITUTION_ADMIN`). El motivo (`manual_reason`) es opcional. Si falta, se guarda un texto por defecto, así que todo comando manual tiene motivo.
+- **Piloto**: el comando lleva `autopilot_decision_id` (sección 10).
 
-### 10.3 Dato viejo
+La restricción de la base de datos es `manual_reason XOR autopilot_decision_id`: exactamente uno de los dos no es nulo.
 
-`ahora - observed_at_ultima > stale_reading_hours` marca el estado como viejo (`STALE`) y crea la anomalía `STALE_DATA`. Ejemplo: `stale_reading_hours = 12` (ejemplo, verificar). Con 10,5 horas, no está viejo. Si pasan 13 horas sin lectura, sí.
+### 9.2 Vigencia
 
-### 10.4 Pronóstico en el estado
+- `not_before`: el comando no se entrega antes de este momento.
+- `expires_at`: si llega este momento sin entregarse, el comando pasa a `EXPIRED`. Ejemplo: `expires_at` es la creación más 60 s. El valor real está **por definir**.
 
-El estado muestra el pronóstico de la IA (o de la estimación simple si la IA no respondió) para el horizonte `forecast_horizon_days` (1 a 3, semilla). Si la IA no respondió, el estado indica `is_fallback = true` y el motivo.
+### 9.3 Un solo comando activo por válvula
 
-## 11. Anomalías
+Un comando está activo si está en `PENDING` o `DELIVERED`. Si llega un segundo comando para la misma válvula mientras hay uno activo, la API lo rechaza o reemplaza el anterior. Cuál de las dos es **por definir**.
 
-Las anomalías son sospechas inferidas por reglas (`ops.anomalies`). Su estatus epistémico es `INFERRED` hasta que alguien las confirme en campo.
+### 9.4 Máquina de estados
 
-| `kind` | Condición | Parámetro | Estado inicial |
+Estados: `PENDING`, `DELIVERED`, `ACKED`, `FAILED`, `EXPIRED` y `CANCELLED`. `ACKED`, `FAILED`, `EXPIRED` y `CANCELLED` son finales.
+
+| Desde | Hacia | Qué lo provoca |
+|---|---|---|
+| `PENDING` | `DELIVERED` | El puente lo recoge con `GET /api/v1/devices/commands` (sondeo cada 2 s) |
+| `PENDING` | `EXPIRED` | Pasa `expires_at` sin entrega |
+| `PENDING` | `CANCELLED` | Se anula antes de entregarse. El disparador está **por definir** |
+| `DELIVERED` | `ACKED` | El Arduino responde `DONE` y el puente confirma con `POST /api/v1/devices/commands/{id}/ack` |
+| `DELIVERED` | `FAILED` | El puente o el Arduino informan un error. La forma de reportarlo está **por definir** |
+| `DELIVERED` | `EXPIRED` | No llega el ack antes de `expires_at`. Por confirmar |
+
+Ejemplo: abrir "Acueducto 1" (canal 1, ángulo abierto de ejemplo 90°).
+
+| Hora | Paso | Estado | Dato |
 |---|---|---|---|
-| `POSSIBLE_LEAK` | El nivel baja entre dos lecturas válidas consecutivas y en ese intervalo no hubo válvula abierta (ningún turno ejecutado ni comando `ACKED` de apertura). La caída supera la tolerancia. | `leak_tolerance` (por definir; ejemplo `0,05`) | `OPEN` |
-| `ABNORMAL_DROP` | Durante un turno, el nivel baja más rápido que `max_level_change_per_hour` por hora | `max_level_change_per_hour` (ejemplo `0,30`) | `OPEN` |
-| `SENSOR_FAULT` | Un sensor reporta el mismo valor en `N` lecturas seguidas (valor pegado) | `N` (por definir; ejemplo 6) | `OPEN` |
-| `STALE_DATA` | `ahora - última lectura válida > stale_reading_hours` | `stale_reading_hours` (ejemplo `12`) | `OPEN` |
-| `SUSPECTED_DUPLICATE` | Varias lecturas `FLAGGED` por `DUPLICATE` del mismo tanque en el mismo día | `duplicate_window_minutes` | `OPEN` |
+| 10:00:00 | El operador pulsa Abrir | `PENDING` | `origin = manual`, `expires_at` a las 10:01:00 |
+| 10:00:02 | El puente recoge el comando y envía `S1 90` por serie | `DELIVERED` | |
+| 10:00:03 | El Arduino responde `DONE` y el puente hace el ack | `ACKED` | `GET /api/v1/valves/live` muestra `OPEN` |
 
-Ejemplo de fuga: el 9 de octubre a las 02:00, el nivel baja de `2,10` a `1,95` (caída de `0,15`), sin turnos ni comandos de apertura entre las 18:00 y las 06:00. Como `0,15 > 0,05`, se crea `POSSIBLE_LEAK` con `evidence` que contiene las dos lecturas.
+El ack llega en 3 s, dentro del objetivo de unos 5 s.
 
-Ciclo de vida: `OPEN` pasa a `CONFIRMED` (con `resolved_by` y nota) o a `DISMISSED`. Una anomalía confirmada puede vincularse a un incidente (`related_incident_id`).
+### 9.5 Posición de seguridad y ángulos
 
-Limitación del modelo: el simulador asume que no sale agua con la válvula cerrada (hechos, sección 15). Si esa suposición cambia en campo, la regla de fuga cambia con ella (verificar).
+Cada válvula está en `org.valves` con:
 
-## 12. Máquina de estados de la propuesta
+- `is_motorized` y `servo_channel` (canal del servo en el Arduino; en la maqueta, 1 y 2).
+- `open_angle_deg` y `closed_angle_deg`. En el ejemplo, 90° y 0°. Los ángulos reales de la maqueta están **por definir** con la prueba de banco.
+- `fail_safe_position`: la posición a la que se lleva el actuador si el sistema pierde el control. Su valor (`OPEN` o `CLOSED`) y su disparador están **por definir**.
 
-![Estados de la propuesta](images/estados-propuesta.png)
+El puente recibe canal y ángulos en `GET /api/v1/devices/config`. El firmware recibe ángulos crudos y no conoce las palabras "abierto" o "cerrado".
 
-Estados (`ops.schedule_proposals.status`): `DRAFT`, `PENDING_REVIEW`, `APPROVED`, `APPROVED_WITH_CHANGES`, `REJECTED`, `PUBLISHED`, `CLOSED`. `DRAFT` es interno: la propuesta nace en `PENDING_REVIEW`.
+### 9.6 Estado en vivo
 
-| Desde | Hacia | Acción (endpoint) | Quién (matriz sección 9) | Motivo | Condición |
-|---|---|---|---|---|---|
-| (nada) | `PENDING_REVIEW` | `POST /schedule-proposals` (el cálculo es interno y `DRAFT` solo existe mientras se construye) | `BOARD_ADMIN`, `BOARD_MEMBER` | No | Horas disponibles calculadas. Los sectores sin turno quedan en `unserved_sectors`. |
-| `PENDING_REVIEW` | `APPROVED` | `POST /schedule-proposals/{id}/approve` | `BOARD_ADMIN`, `BOARD_MEMBER` | No | `lock_version` coincide |
-| `PENDING_REVIEW` | `APPROVED_WITH_CHANGES` | `POST /schedule-proposals/{id}/modify` | `BOARD_ADMIN`, `BOARD_MEMBER` | Sí, 10 a 500 caracteres | Se guarda `proposal_snapshots` antes del cambio; los turnos cambiados llevan `origin = MODIFIED` o `ADDED` |
-| `PENDING_REVIEW` | `REJECTED` | `POST /schedule-proposals/{id}/reject` | `BOARD_ADMIN`, `BOARD_MEMBER` | Sí, 10 a 500 caracteres | Estado final. Para el mismo día se genera una propuesta nueva. |
-| `APPROVED` o `APPROVED_WITH_CHANGES` | `PUBLISHED` | `POST /schedule-proposals/{id}/publish` | `BOARD_ADMIN`, `BOARD_MEMBER` | No | Crea una fila en `ops.publications` (única por propuesta) |
-| `PUBLISHED` | `CLOSED` | `POST /days/{date}/closure` | `BOARD_ADMIN`, `OPERATOR` | Notas opcionales | El día de servicio se cierra con `ops.day_closures` |
+`GET /api/v1/valves/live` devuelve `OPEN`, `CLOSED` o `UNKNOWN` para cada válvula. El estado sale del último comando `ACKED` de esa válvula:
 
-Transiciones prohibidas (todas responden `409 INVALID_STATE_TRANSITION`):
+- `OPEN` si fue un comando de apertura.
+- `CLOSED` si fue un comando de cierre.
+- `UNKNOWN` si la válvula no tiene ningún ack.
 
-- Publicar desde `PENDING_REVIEW`, `REJECTED` o `DRAFT`. Sin aprobación no se publica nada.
-- Aprobar o modificar una propuesta que ya no está en `PENDING_REVIEW`.
-- Cualquier cambio desde `CLOSED` o `REJECTED`.
-- Un `OPERATOR` que intente aprobar, modificar, rechazar o publicar recibe `403 FORBIDDEN`, no `409`.
+Un comando `FAILED` o `EXPIRED` no cambia el estado.
 
-Concurrencia: cada transición compara `lock_version`. Si no coincide, responde `409 CONFLICT`.
+`ACKED` confirma que el actuador respondió. No confirma que el agua haya fluido.
 
-Nota: los hechos no definen si se puede modificar una propuesta ya publicada. Propuesta: no se modifica. Si cambia el plan del día, se crea una propuesta nueva (verificar).
+## 10. Piloto automático y asistente
 
-## 13. Publicación
+### 10.1 Modos
 
-Al publicar, el sistema escribe una fila en `ops.publications`, que es append-only.
+El modo está en `institution_settings.autopilot_mode`:
 
-| Se publica | No se publica |
-|---|---|
-| Sector, hora de inicio y hora de fin de cada turno aprobado | Nombres de la Junta (`decided_by`) ni de quien publicó (`published_by`) |
-| Fecha de servicio | Nivel del tanque, pronósticos, horas disponibles |
-| Mensaje de WhatsApp (`whatsapp_text`, sin datos personales) | Anomalías, motivos internos y `schedule_item_reasons` (verificar) |
-| Cartel PDF (su hash SHA-256 queda en `poster_sha256`) | Datos de reportes de daño de otras personas |
-| Aviso "Datos simulados" si el acueducto es demo | Teléfonos o nombres de familias (no se guardan) |
+- `MANUAL`: el piloto no envía comandos. Solo opera el personal.
+- `ASSISTED`: el piloto propone una recomendación y un operador confirma el comando.
+- `AUTOMATIC`: el piloto envía los comandos que decide, respetando las guardas de la sección 10.2.
+
+Las recomendaciones son `OPEN`, `CLOSE`, `WAIT` e `INSPECT`. Cada decisión se guarda en `ops.autopilot_decisions` con sus entradas (nivel, tendencia, anomalías abiertas, modo) y el comando que generó, si lo hubo.
+
+### 10.2 Guardas
+
+1. **Piso de reserva** (`reserve_floor_pct`, ejemplo 15 %). Si `level_pct` está por debajo del piso, el piloto no recomienda ni envía `OPEN` en ninguna línea. Ejemplo: nivel de 12 %, por debajo de 15 %, no permite `OPEN`. Si una válvula ya está abierta, la recomendación es `CLOSE`.
+2. **Prioridad humana** (`operator_absence_minutes`, ejemplo 30 min). Mientras una persona haya enviado un comando a una válvula hace menos de este tiempo, el piloto no cambia esa válvula y recomienda `WAIT`. Ejemplo: el operador abre "Acueducto 1" a las 10:00. A las 10:20 el piloto recomienda `WAIT` (20 min < 30 min). A partir de las 10:30 puede actuar (30 min cumplidos).
+
+Las demás reglas que eligen entre `OPEN`, `WAIT` e `INSPECT` están **por definir** en el backend.
+
+### 10.3 Asistente (modelo de lenguaje)
+
+- Responde preguntas en lenguaje natural y redacta reportes. Permiso: `ASSISTANT_USE`.
+- No decide, no envía comandos y no inventa cifras. Recibe `outlook`, eventos y estado de las válvulas, y sus respuestas usan esos datos.
+- Preguntas sugeridas: "¿cuánta agua queda?", "¿cuándo llega a la reserva?" y "¿qué pasó hoy?".
+- Ejemplo: "¿cuánta agua queda?" responde "Quedan 4,24 L (50,0 %)", que son los datos de la salida 6.1.
+- Si el modelo de lenguaje falla o supera `INSIGHTS_READ_TIMEOUT_MS` (20 s), el asistente responde con un texto de respaldo por reglas, con los mismos datos.
+
+## 11. Cierre del día
+
+- Un cierre por día y por tanque. Una vez cerrado, no se vuelve a cerrar.
+- El sistema genera un resumen automático del día con:
+  - aperturas y cierres por válvula, con su origen (manual o piloto);
+  - nivel mínimo y máximo, en mm y en %;
+  - litros entregados estimados (el método de cálculo está **por definir**);
+  - eventos (sección 7) y observaciones (sección 8).
+- El operador agrega sus novedades y cierra el día.
+- El cierre alimenta las actas (sección 12).
+
+Ejemplo: "Acueducto 1" se abrió a las 10:00 con comando manual y se cerró a las 10:40. El resumen dice "abierta 40 min, origen manual".
+
+## 12. Actas
+
+### 12.1 Estatus epistémico
+
+Cada registro cae en una sola sección del acta.
+
+| Sección | Qué datos van | Por qué |
+|---|---|---|
+| **Observado** | Lecturas efectivas, agua que queda (salida 6.1), observaciones manuales, novedades del operador | Lo que alguien midió o vio |
+| **Estimado** | Banda Chronos (salida 6.3), tiempos hasta la reserva y hasta vaciarse (salida 6.2), litros entregados estimados del cierre | Lo que se calculó |
+| **Inferido** | Anomalías en `OPEN` o `DISMISSED`, recomendaciones del piloto | Lo que se sospecha |
+| **Confirmado** | Comandos `ACKED`, anomalías `CONFIRMED` por el operador en campo | Lo que se verificó |
 
 Reglas:
 
-- La página pública usa `PublicScheduleProxy`, que quita los datos personales antes de responder (patrón P11).
-- Una publicación no se reemplaza. Si el horario cambia, se genera otra propuesta para el mismo día.
-- Si el acueducto tiene `public_page_enabled = false`, la página pública responde `404` y el WhatsApp y el cartel no se generan (verificar).
+- Un registro con dos interpretaciones va a la sección más conservadora.
+- `ACKED` confirma que el actuador respondió. El acta lo describe así, sin afirmar que el agua fluyó.
 
-## 14. Cierre del día
+### 12.2 Estados del acta
 
-`POST /days/{date}/closure` registra el cierre de un día de servicio. Reglas:
+- `DRAFT`: se puede regenerar. Se actualizan `generated_by` y `generated_at`.
+- `FINAL`: inmutable. Al cerrarla se guardan `finalized_by`, `finalized_at`, `pdf_sha256` y `audit_head_hash` (ancla de la cadena de auditoría).
+- La generación requiere el permiso `MINUTES_GENERATE`. Los roles que lo tienen están **por definir**.
+- El periodo y el alcance de cada acta (por institución, por día o por semana) están **por definir**.
 
-- Solo se cierra un día que tenga una propuesta `PUBLISHED`.
-- Un día tiene un solo cierre (`UNIQUE` sobre `aqueduct_id` y `service_date`).
-- Antes de cerrar, cada turno debería tener un registro de ejecución. Por definir si el cierre se bloquea o solo avisa.
-- Para cada turno, `POST /schedule-items/{id}/execution` registra `COMPLETED`, `PARTIAL` o `NOT_EXECUTED`.
-  - `PARTIAL` y `COMPLETED` pueden llevar `actual_start` y `actual_end`. Si faltan, se usan los del turno (propuesta). `actual_end > actual_start` (CHECK).
-  - `NOT_EXECUTED` no lleva horas. Por definir si `note` es obligatorio en `PARTIAL` y `NOT_EXECUTED`.
-- Una ejecución no se edita. Para corregirla se crea otra fila con `supersedes_id` apuntando a la anterior.
+## 13. Parámetros que gobiernan cada número
 
-Las ejecuciones son el origen del dato `CONFIRMED` de la sección 4.
-
-## 15. Incidentes
-
-Estados (`ops.incidents.status`): `REPORTED`, `VERIFYING`, `CONFIRMED`, `RESOLVED`, `DISMISSED`.
-
-| Desde | Hacia | Quién (propuesta, verificar) | Nota obligatoria |
+| Número del documento | Parámetro | Dónde vive | Valor de la maqueta o de ejemplo |
 |---|---|---|---|
-| (nada) | `REPORTED` | Público (`POST /public/{slug}/damage-reports`), fontanero o anomalía | No |
-| `REPORTED` | `VERIFYING` | `OPERATOR`, `BOARD_ADMIN`, `BOARD_MEMBER` | No |
-| `VERIFYING` | `CONFIRMED` | `OPERATOR` (en campo), `BOARD_ADMIN`, `BOARD_MEMBER` | Recomendada |
-| `CONFIRMED` | `RESOLVED` | `OPERATOR`, `BOARD_ADMIN`, `BOARD_MEMBER` | Recomendada |
-| `REPORTED` o `VERIFYING` | `DISMISSED` | `BOARD_ADMIN`, `BOARD_MEMBER` | Sí, 10 a 500 caracteres |
+| Distancias del sensor | `empty_distance_mm`, `full_distance_mm` | `org.tanks` | 350 y 80 (maqueta) |
+| Zona ciega | `blind_zone_mm` | `org.tanks` | 20 mm (ejemplo) |
+| Altura y diámetro | `height_mm`, `diameter_mm`, `length_mm`, `width_mm`, `shape` | `org.tanks` | 300 mm y 200 mm (ejemplo); diámetro real por definir |
+| Margen de montaje | Margen de la validación de calibración | Por definir | 50 mm (ejemplo) |
+| Canal, ángulos y posición de seguridad | `servo_channel`, `open_angle_deg`, `closed_angle_deg`, `fail_safe_position` | `org.valves` | Canales 1 y 2; ángulos 90° y 0° (ejemplo) |
+| Líneas de servicio | `name` y su válvula | `org.service_lines` | "Acueducto 1" y "Acueducto 2" |
+| Reserva del pronóstico | `reserve_level_pct` | `org.institution_settings` | 20 % (ejemplo) |
+| Alertas de nivel | `low_level_pct`, `critical_level_pct` | `org.institution_settings` | 30 % y 10 % (ejemplo) |
+| Dato viejo | `stale_after_seconds` | `org.institution_settings` | 30 s (ejemplo) |
+| Persistencia de lecturas | `persist_interval_seconds` | `org.institution_settings` | 60 s (ejemplo) |
+| Umbral de cambio para persistir | Por definir | Por definir | Por definir |
+| Caída anormal | `max_level_change_per_minute` | `org.institution_settings` | 2 mm/min (ejemplo) |
+| Sensor pegado | `sensor_stuck_window_seconds` | `org.institution_settings` | 120 s (ejemplo) |
+| Tendencia | `trend_window_minutes` | `org.institution_settings` | 10 min (ejemplo) |
+| Umbral de "estable" | Por definir | Por definir | Por definir |
+| Paso del pronóstico | `forecast_step_seconds` | `org.institution_settings` | 300 s (ejemplo) |
+| Horizonte del pronóstico | `forecast_horizon_steps` | `org.institution_settings` | 12 pasos, es decir 1 h (ejemplo) |
+| Historia enviada al pronóstico | `forecast_context_steps` | `org.institution_settings` | 288 pasos, es decir 24 h (ejemplo) |
+| Tolerancia de fuga | Por definir | Por definir | 3 mm (ejemplo) |
+| Piso de reserva del piloto | `reserve_floor_pct` | `org.institution_settings` | 15 % (ejemplo) |
+| Prioridad humana | `operator_absence_minutes` | `org.institution_settings` | 30 min (ejemplo) |
+| Modo del piloto | `autopilot_mode` | `org.institution_settings` | `MANUAL`, `ASSISTED` o `AUTOMATIC` |
+| Vigencia de comandos | `expires_at` | `devices.valve_commands` | 60 s desde la creación (ejemplo); valor por definir |
+| Tolerancia de 5 minutos de futuro | Constante de la regla de telemetría | `FieldLimits` (constante) | 5 min |
+| Alcance del sensor | Constante física del HC-SR04 | Constante con nombre en `co.caudal.shared` (por definir) | 4000 mm |
+| Textos de observaciones (10 a 500) | Límites de texto | `FieldLimits` | 10 a 500 caracteres |
+| Límite de telemetría | `RATE_LIMIT_TELEMETRY_PER_MINUTE` | Variable de entorno | 60 por minuto por dispositivo |
+| Ventana de nonces | `DEVICE_NONCE_TTL_SECONDS` | Variable de entorno | 600 s |
+| Tiempo de espera de la IA | `IA_READ_TIMEOUT_MS`, `INSIGHTS_READ_TIMEOUT_MS` | Variables de entorno | 10000 ms y 20000 ms |
 
-Cada cambio escribe una fila en `ops.incident_status_history` (append-only). El reportante consulta el estado con su código de seguimiento de 8 caracteres (`GET /public/damage-reports/{trackingCode}`). En la base solo se guarda el hash del código.
+Lo que no está en esta tabla se define antes de implementarlo: el margen de montaje, el umbral de persistencia, el umbral de estable, la tolerancia de fuga, la regla de cada recomendación del piloto y el método de litros entregados.
 
-Categorías del catálogo `DAMAGE_CATEGORY`: fuga, tubo roto, sin agua, agua sucia, falla de válvula, otro.
-
-## 16. Actas y resúmenes
-
-### 16.1 Estatus epistémico
-
-Cada registro cae en una sola sección del acta. La clasificación la hace `MinutesSectionVisitor` (patrón P21).
-
-| Sección | Registros | Razón |
-|---|---|---|
-| **Observado** | `ops.readings` válidas (efectivas), reportes de daño en estado `REPORTED`, correcciones con su motivo | Lo que alguien vio o midió |
-| **Estimado** | `ops.forecast_runs` y `ops.forecast_points`, horas disponibles de propuestas, evaluaciones (`forecast_evaluations`) | Lo que se calculó |
-| **Inferido** | `ops.anomalies` en `OPEN` o `DISMISSED`, lecturas `FLAGGED` por duplicado o salto | Lo que se sospecha |
-| **Confirmado** | `ops.shift_executions` (no reemplazadas), `ops.incidents` en `CONFIRMED` o `RESOLVED`, anomalías `CONFIRMED` con incidente vinculado confirmado en campo | Lo que se verificó en campo |
-
-Regla: un registro que tiene dos interpretaciones se muestra en la sección más conservadora. Una anomalía `CONFIRMED` sin incidente confirmado en campo queda como inferida (verificar).
-
-### 16.2 Estados del acta
-
-- `DRAFT`: se puede regenerar. `generated_by` y `generated_at` se actualizan.
-- `FINAL`: inmutable. Al cerrarla se guardan `finalized_by`, `finalized_at`, `pdf_sha256` y `audit_head_hash` (ancla de la cadena de auditoría del día).
-- Solo `BOARD_ADMIN` y `BOARD_MEMBER` generan actas (`POST /minutes`).
-
-### 16.3 Autorización de resúmenes
-
-Un `SUPPORT_ENTITY` ve un resumen solo si todas estas condiciones son ciertas en el momento de la consulta:
-
-1. `summary_shares.grantee_user_id` es su usuario.
-2. `revoked_at IS NULL`.
-3. `now() < expires_at` (vencimiento obligatorio).
-4. El periodo pedido cae dentro de `period_from` y `period_to`.
-5. Su membresía de `SUPPORT_ENTITY` está vigente (`memberships.valid_from <= now() < valid_to`, o `valid_to` nulo).
-6. Si el alcance es `MINUTES`, el acta está en `FINAL`.
-
-Cada consulta exitosa escribe una fila en `audit.data_access_log` con `summary_share_id`.
-
-## 17. Parámetros que gobiernan cada número
-
-| Número del documento | Parámetro | Dónde vive | Valor |
-|---|---|---|---|
-| Rango de la regla | `tanks.gauge_min`, `gauge_max`, `gauge_step` | `org.tanks` | Semilla: 0 a 5 |
-| Bandas y horas (16, 8, 3) | `rule_level_bands.min_level`, `max_level`, `daily_service_hours`, `priority_only` | `org.rule_level_bands` | Semilla |
-| Reserva 1,0 | `rule_sets.reserve_level` | `org.rule_sets` | Semilla: 1,00 |
-| Horas máximas por día | `rule_sets.max_daily_service_hours` | `org.rule_sets` | Ejemplo: 16,00 |
-| Duración de turnos | `rule_sets.min_shift_hours`, `max_shift_hours` | `org.rule_sets` | Ejemplo: 1,00 y 3,00 |
-| Horario de operación | `rule_operating_windows` | `org.rule_operating_windows` | Ejemplo: 05:00 a 21:00 |
-| Prioridad | `rule_sector_settings.is_priority`, `priority_rank` | `org.rule_sector_settings` | Ejemplo: Escuela, rango 1 |
-| Estrategia | `rule_sets.allocation_strategy` | `org.rule_sets` | `PRIORITY_THEN_LONGEST_WAIT` |
-| Ventana de duplicados | `rule_sets.duplicate_window_minutes` | `org.rule_sets` | Ejemplo: 30 |
-| Salto brusco | `rule_sets.max_level_change_per_hour` | `org.rule_sets` | Ejemplo: 0,30 |
-| Dato viejo | `rule_sets.stale_reading_hours` | `org.rule_sets` | Ejemplo: 12 |
-| Antigüedad máxima | `rule_sets.max_backdate_days` | `org.rule_sets` | Ejemplo: 2 |
-| Horizonte del pronóstico (1 a 3) | `rule_sets.forecast_horizon_days` | `org.rule_sets` | Semilla: 1 a 3 |
-| Historia enviada a la IA | `rule_sets.forecast_context_days` | `org.rule_sets` | Ejemplo, verificar |
-| Umbral de tendencia | `rule_sets.trend_threshold_per_day` | `org.rule_sets` | Ejemplo: 0,10 |
-| Tolerancia de fuga | Por definir | Por definir | Ejemplo: 0,05 |
-| Tolerancia de 5 minutos de futuro | Hechos, sección 11 | `FieldLimits` (constante) | 5 minutos |
-| Límites de texto (motivos 10 a 500) | `FieldLimits.REASON` | Clase Java | 10 a 500 |
-
-Lo que no está en esta tabla (ventana de tendencia, regla de recorte por reserva, tolerancia de fuga, número de lecturas para sensor pegado, tope de turnos por fragmento) se define en la Junta o en el equipo antes de implementarlo.
-
-Relacionados: [API.md](API.md), [Contrato-IA.md](Contrato-IA.md), [Protocolo-de-dispositivos.md](Protocolo-de-dispositivos.md), [Diccionario-de-datos.md](Diccionario-de-datos.md)
+Relacionados: [API.md](API.md), [Configuracion-sin-valores-quemados.md](Configuracion-sin-valores-quemados.md), [Contrato-IA.md](Contrato-IA.md), [Protocolo-de-dispositivos.md](Protocolo-de-dispositivos.md), [Modelo-de-datos.md](Modelo-de-datos.md), [Diccionario-de-datos.md](Diccionario-de-datos.md)
