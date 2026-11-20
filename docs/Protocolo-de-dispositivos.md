@@ -32,7 +32,7 @@ Validación al registrar: la cadena decodifica a exactamente 32 bytes. Si no, `4
 
 Clave privada: nunca llega al servidor, ni se guarda en git ni en logs.
 
-- **Maqueta.** El Arduino UNO no firma nada: no tiene red ni criptografía en el firmware. La firma la hace el puente en el equipo local, y la clave privada vive en disco local con permisos `600`. [Actores-y-permisos.md](Actores-y-permisos.md) describe al puente con una sola clave; los tres dispositivos de la maqueta necesitan una clave cada uno. Por confirmar si el puente guarda tres claves o si el puente tiene una clave propia y el backend lo reconoce como gateway.
+- **Maqueta.** El Arduino UNO no firma nada: no tiene red ni criptografía en el firmware. La firma la hace el puente en el equipo local, y las tres claves privadas (una por dispositivo: un `LEVEL_SENSOR` y dos `VALVE_ACTUATOR`) viven en disco local con permisos `600`. No hay una clave del puente: cada dispositivo firma con la suya.
 - **Simulador.** La clave vive en `.env` o en un directorio de claves que `.gitignore` excluye.
 - **Hardware de campo.** En memoria protegida del microcontrolador (por definir según la placa elegida).
 
@@ -160,7 +160,7 @@ Cada fallo de validación de dispositivos se registra en `iam.security_events` c
 | Firma inválida o clave ausente | `INVALID_SIGNATURE` | `MEDIUM` | `BAD_SIGNATURE` o `NO_ACTIVE_KEY` |
 | Ventana de tiempo fuera de rango | `INVALID_SIGNATURE` | `LOW` | `TIMESTAMP_OUT_OF_WINDOW` |
 | Nonce repetido | `NONCE_REPLAY` | `HIGH` | Sin detalle adicional |
-| Dispositivo suspendido o retirado | `PERMISSION_DENIED` | `MEDIUM` | `DEVICE_INACTIVE` (propuesta: el catálogo de tipos no tiene uno propio) |
+| Dispositivo suspendido o retirado | `FORBIDDEN` | `MEDIUM` | `DEVICE_INACTIVE` (propuesta: el catálogo de tipos no tiene uno propio) |
 | Límite de tasa | `RATE_LIMITED` | `LOW` | `device` |
 | Diez o más firmas inválidas del mismo dispositivo en 10 minutos | `INVALID_SIGNATURE` | `HIGH` | `REPEATED` (propuesta) |
 
@@ -226,10 +226,11 @@ Cada punto `DISTANCE` pasa por la cadena de validación (patrón Chain of Respon
 
 | Orden | Validador | Efecto |
 |---|---|---|
-| 1 | Sin eco (`value = -1`) | Se guarda el punto. No produce nivel. Cuenta para `SENSOR_FAULT`. |
+| 1 | Sin eco (`value = -1`) | Se guarda el punto. No crea lectura en `ops.readings` ni produce nivel. Cuenta para `SENSOR_FAULT`. |
 | 2 | Zona ciega (`value < blind_zone_mm`) | Se guarda el punto. No produce nivel. Cuenta para `SENSOR_FAULT`. |
 | 3 | Fuera de rango físico (menor que 0 distinto de `-1`, o mayor que 4000) | `DISTANCE_OUT_OF_RANGE`. No se guarda. |
 | 4 | Futuro (`observed_at > ahora + 5 min`) | `FUTURE_TIMESTAMP`. No se guarda. |
+| 5 | Antigüedad (`observed_at < ahora - max_backdate_hours`) | `TIMESTAMP_TOO_OLD`. No se guarda. |
 
 Si el punto pasa todos los validadores, el backend calcula `level_mm`, `level_pct` y `volume_l` con la geometría de la institución (patrón Strategy: `CylinderGeometry` o `RectangularGeometry`). Luego decide si guarda una lectura efectiva en `ops.readings`:
 
@@ -262,7 +263,7 @@ Respuesta para un actuador:
   "config_version": 7,
   "device_id": "0190f3a2-9999-7000-8000-000000000002",
   "kind": "VALVE_ACTUATOR",
-  "actuator": { "valve_id": "0190f3a2-e002-7000-8000-000000000001", "servo_channel": 1, "open_angle_deg": 90, "closed_angle_deg": 0, "fail_safe_position": "KEEP" }
+  "actuator": { "valve_id": "0190f3a2-e002-7000-8000-000000000001", "servo_channel": 1, "open_angle_deg": 90, "closed_angle_deg": 0, "hold_torque_after_move": true, "fail_safe_position": "KEEP" }
 }
 ```
 
@@ -300,7 +301,8 @@ El ciclo se implementa con el patrón State (`ValveCommandState`).
 | `DELIVERED` | `FAILED` | El puente no recibe `DONE` dentro de `max_travel_seconds`, o el Arduino responde `ERR`. Se confirma con `POST .../ack` con `FAILED`. |
 | `PENDING` | `EXPIRED` | Pasa `expires_at` sin entrega |
 | `DELIVERED` | `EXPIRED` | No llega el ack antes de `expires_at`. Por confirmar. |
-| `PENDING` | `CANCELLED` | Se anula antes de entregarse. El disparador está por definir. |
+| `PENDING` | `CANCELLED` | Llega un comando nuevo para la misma válvula. El anterior queda con motivo `SUPERSEDED`. |
+| `DELIVERED` | `CANCELLED` | Llega un comando nuevo para la misma válvula. El anterior queda con motivo `SUPERSEDED`. |
 
 Cada transición escribe una fila en `devices.valve_command_events` (`event`, `detail`, `occurred_at`).
 
@@ -320,7 +322,7 @@ Un comando vencido nunca se ejecuta, aunque llegue tarde. El servidor lo marca `
 
 ### 5.5 Reglas de seguridad de las válvulas
 
-- Un solo comando activo (`PENDING` o `DELIVERED`) por válvula. Si llega otro, la API lo rechaza o reemplaza el anterior. Cuál de las dos es por definir ([API.md](API.md), sección 10.1).
+- Un solo comando activo (`PENDING` o `DELIVERED`) por válvula. Si llega otro, reemplaza al anterior, que pasa a `CANCELLED` con motivo `SUPERSEDED` ([API.md](API.md), sección 10.1).
 - Si llegan comandos contradictorios para la misma válvula, el puente ejecuta el de `not_before` más reciente y descarta el anterior.
 - El comando manual queda en la auditoría con el usuario que lo creó.
 - Un comando de piloto nunca abre una válvula con el nivel en o por debajo del piso de reserva (ver [API.md](API.md), sección 11).
@@ -350,7 +352,7 @@ Velocidad de 115200 baudios. Cada comando es una línea terminada en `\n`. Cada 
 | `INFO` | `INFO caudal-uno <versión> s1=<grados\|-1> s2=<grados\|-1>` | Versión y última posición de cada servo (`-1` si nunca se movió) |
 | `D` | `D <mm>` | Distancia en mm, mediana de los últimos pings válidos. `D -1` si ningún ping volvió. |
 | `S<n> <grados>` | `OK S<n> <grados>` y después `DONE S<n> <grados>` | Inicia un movimiento suave del servo `n` (1 o 2) hasta `grados` (0 a 180). `DONE` llega cuando el servo alcanza el ángulo. |
-| `R<n>` | `OK R<n>` | Libera el servo `n` (sin par de sostén). |
+| `R<n>` | `OK R<n>` | Libera el servo `n` (sin par de sostén). El puente lo envía tras `DONE` cuando `hold_torque_after_move` es `false`. |
 | Cualquier otra línea | `ERR <motivo>` | Por ejemplo: `ERR servo desconocido, usa S1 <grados> o S2 <grados>`, `ERR angulo fuera de 0..180`, `ERR comando desconocido`, `ERR linea demasiado larga` |
 
 Notas:
@@ -365,7 +367,7 @@ Notas:
 2. El puente llama a `GET /devices/commands` (cada 2 s). Recibe el comando, que pasa a `DELIVERED`.
 3. El puente traduce `OPEN` al ángulo abierto de la configuración de esa válvula (`open_angle_deg`) y envía `S<canal> <grados>` por serie.
 4. La placa responde `OK S<canal> <grados>` y, al terminar el movimiento, `DONE S<canal> <grados>`.
-5. El puente confirma con `POST /devices/commands/{id}/ack` y `result = ACKED`, con `detail` de la respuesta de la placa. El comando pasa a `ACKED`.
+5. Si `hold_torque_after_move` es `false`, el puente envía `R<canal>` tras el `DONE`. Luego confirma con `POST /devices/commands/{id}/ack` y `result = ACKED`, con `detail` de la respuesta de la placa. El comando pasa a `ACKED`.
 6. Si no llega `DONE` dentro de `max_travel_seconds`, o la placa responde `ERR`, el puente confirma `FAILED`.
 
 El firmware no sabe qué es un comando de válvula, solo mueve servos a ángulos crudos.
@@ -375,7 +377,7 @@ Objetivo de latencia: `ACKED` en menos de unos 5 segundos con el puente conectad
 ### 6.4 Lo que el puente no hace
 
 - No abre ni cierra válvulas por su cuenta. Solo ejecuta comandos firmados que vienen del backend.
-- No guarda puntos para enviarlos después. No hay cola sin conexión en el alcance B2B. Si el backend no responde, el punto se pierde y el siguiente punto reemplaza el dato.
+- Guarda en disco los puntos que no pudo enviar y los reenvía en lote cuando vuelve la conexión. Un punto con `observed_at` más viejo que `max_backdate_hours` se rechaza (`TIMESTAMP_TOO_OLD`). La aplicación web no tiene cola sin conexión.
 - No calibra. La calibración se hace desde la aplicación con las lecturas en vivo. El comando `calibrar` de `caudal-sim` queda para banco de pruebas.
 
 ## 7. Comportamiento ante fallas
