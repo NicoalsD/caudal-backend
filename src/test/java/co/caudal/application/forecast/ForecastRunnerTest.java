@@ -30,4 +30,19 @@ class ForecastRunnerTest {
             new DailyLevel(LocalDate.of(2026, 10, 1), new BigDecimal("2.80")),
             new DailyLevel(LocalDate.of(2026, 10, 2), new BigDecimal("2.70")));
   }
+
+  @Test
+  void eachHourKeepsItsLastLevel() {
+    List<LevelPoint> hourly =
+        ForecastRunner.hourly(
+            List.of(
+                new LevelPoint(new BigDecimal("3.00"), Instant.parse("2026-10-01T12:00:10Z")),
+                new LevelPoint(new BigDecimal("2.99"), Instant.parse("2026-10-01T12:59:50Z")),
+                new LevelPoint(new BigDecimal("2.98"), Instant.parse("2026-10-01T13:00:00Z"))));
+
+    assertThat(hourly)
+        .containsExactly(
+            new LevelPoint(new BigDecimal("2.99"), Instant.parse("2026-10-01T12:59:50Z")),
+            new LevelPoint(new BigDecimal("2.98"), Instant.parse("2026-10-01T13:00:00Z")));
+  }
 }
