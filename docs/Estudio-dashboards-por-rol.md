@@ -56,7 +56,7 @@ El administrador (`INSTITUTION_ADMIN`) entra a la misma pantalla y encuentra, en
 | `/admin/tanque` | Forma, medidas y calibración del sensor. Botones "usar lectura actual como vacío/lleno". | `PATCH /tanks/{id}`, `POST /tanks/{id}/calibration` (B2B) |
 | `/admin/lineas` | Líneas de servicio, cuántas hay, su válvula, su canal de servo y sus ángulos abierto y cerrado. | `GET/POST/PATCH /service-lines`, `PATCH /valves/{id}` (B2B) |
 | `/admin/usuarios` | Usuarios de la institución y sus roles. | `GET/POST /users` |
-| `/admin/piloto` | Modo del piloto (`MANUAL`, `ASSISTED`, `AUTOMATIC`), piso de reserva y tiempo de ausencia. | `PUT /autopilot/mode` (ruta por definir), `GET/PATCH /institution/settings` (B2B) |
+| `/admin/piloto` | Modo del piloto (`MANUAL`, `ASSISTED`, `AUTOMATIC`), piso de reserva y tiempo de ausencia. | `PATCH /institution/settings` (con `AUTOPILOT_CONFIGURE` para los campos del piloto) |
 | `/admin/dispositivos` | Sensor y actuadores registrados, su última telemetría y su estado. | `GET /devices` |
 | Parámetros | Umbrales de nivel, tiempos de dato viejo, ventanas de tendencia y pronóstico. | `GET/PATCH /institution/settings` (B2B) |
 | Calidad del pronóstico | Error de la banda Chronos contra la estimación simple (MAE) y cobertura del rango. | `GET /forecast-evaluation` |
