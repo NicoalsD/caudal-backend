@@ -50,11 +50,11 @@ Cada tabla indica su propósito, si es append-only (solo se insertan filas, sin 
 
 | Tabla | Propósito | Append-only | RLS | Relaciones principales (FK) |
 |---|---|---|---|---|
-| `users` | Cuentas de personas. Usuario único por institución: `UNIQUE (institution_id, username)`. `institution_id` nulo solo para cuentas de plataforma (por definir cómo se indexan). | No | Sí | `institution_id` → `org.institutions`; `created_by` → `iam.users` |
+| `users` | Cuentas de personas. Usuario único por institución: `UNIQUE (institution_id, username)`. `institution_id` nulo solo para el `PLATFORM_ADMIN`, que no tiene membresía. | No | Sí | `institution_id` → `org.institutions`; `created_by` → `iam.users` |
 | `roles` | Catálogo de roles: `PLATFORM_ADMIN`, `INSTITUTION_ADMIN`, `OPERATOR`, `VIEWER`. | No | No | Ninguna |
 | `permissions` | Permisos finos que el código verifica (por ejemplo `INSTITUTION_CONFIGURE`, `OBSERVATION_CREATE`). | No | No | Ninguna |
 | `role_permissions` | Matriz rol-permiso guardada en datos (sin quemar en código). | No | No | `role_code` → `iam.roles`; `permission_code` → `iam.permissions` |
-| `memberships` | Pertenencia de un usuario a una institución con un rol y una vigencia. | No | Sí | `user_id` → `iam.users`; `institution_id` → `org.institutions`; `role_code` → `iam.roles`; `granted_by` → `iam.users` |
+| `memberships` | Pertenencia de un usuario a una institución con un rol y una vigencia. Una sola membresía activa por usuario. | No | Sí | `user_id` → `iam.users`; `institution_id` → `org.institutions`; `role_code` → `iam.roles`; `granted_by` → `iam.users` |
 | `refresh_tokens` | Sesiones (refresh tokens opacos con rotación y detección de reutilización). | No | No | `user_id` → `iam.users`; `replaced_by_id` → `iam.refresh_tokens` |
 | `login_attempts` | Intentos de inicio de sesión para bloqueo y monitoreo, por (IP, institución). Retención limitada. | Sí | No | `user_id` → `iam.users` |
 | `password_history` | Hashes anteriores para impedir reutilizar contraseñas. | Sí | No | `user_id` → `iam.users` |
@@ -75,7 +75,7 @@ Cada tabla indica su propósito, si es append-only (solo se insertan filas, sin 
 | `institution_settings` | Parámetros de negocio de cada institución: una fila por institución, editable por el administrador, auditada y sin versiones. Ver sección 3.2. | No | Sí | `institution_id` → `org.institutions` |
 | `tanks` | Tanque de la institución: `shape` (`CYLINDER` o `RECTANGULAR`), medidas (`height_mm`, `diameter_mm` o `length_mm` y `width_mm`) y calibración (`empty_distance_mm`, `full_distance_mm`, `blind_zone_mm`). | No | Sí | `institution_id` → `org.institutions` |
 | `service_lines` | Líneas de servicio que salen del tanque (antes `org.sectors`). En la UI se llaman "Acueducto N" y el nombre es editable. Sin jerarquía: se quitan `is_region` y `parent_sector_id`. Se desactivan con `is_active`; no se borran. | No | Sí | `institution_id` → `org.institutions`; `tank_id` → `org.tanks` |
-| `valves` | Válvula de cada línea de servicio, con `is_motorized`, `servo_channel`, `open_angle_deg`, `closed_angle_deg` y `fail_safe_position`. | No | Sí | `institution_id` → `org.institutions`; `service_line_id` → `org.service_lines` |
+| `valves` | Válvula de cada línea de servicio, con `is_motorized`, `servo_channel`, `open_angle_deg`, `closed_angle_deg`, `hold_torque_after_move` y `fail_safe_position`. | No | Sí | `institution_id` → `org.institutions`; `service_line_id` → `org.service_lines` |
 | `catalog_items` | Opciones de listas con etiqueta en español. Por definir si se conserva: las observaciones usan un enum fijo y los catálogos de aspecto del agua y de daño se retiran. | No | Por definir | `institution_id` → `org.institutions` (nulo = catálogo global) |
 
 ### Esquema `ops`
@@ -89,7 +89,7 @@ Cada tabla indica su propósito, si es append-only (solo se insertan filas, sin 
 | `forecast_evaluations` | Error de cada punto cuando llega el dato real (IA y respaldo simple). | Sí | Sí | `institution_id` → `org.institutions`; `forecast_run_id` → `ops.forecast_runs`; `actual_reading_id` → `ops.readings` |
 | `observations` | Observaciones manuales del operador: `WATER_DIRTY`, `WATER_MUDDY`, `VISIBLE_DAMAGE`, `OTHER`. La fecha la asigna el servidor. | Sí (por definir si se permite anularlas) | Sí | `institution_id` → `org.institutions`; `recorded_by` → `iam.users` |
 | `day_closures` | Cierre del día de una institución. Una sola vez por día (`UNIQUE (institution_id, service_date)`). El sistema guarda el resumen automático y el operador agrega las novedades. | No | Sí | `institution_id` → `org.institutions`; `closed_by` → `iam.users` |
-| `autopilot_decisions` | Decisiones del piloto automático: acción (`OPEN`, `CLOSE`, `WAIT`, `INSPECT`), motivo, confianza, origen (`LLM` o `RULES`), estado y quién la resolvió. `inputs` guarda el resumen del estado que la originó. | No (solo cambian `status`, `status_detail`, `decided_by` y `decided_at`) | Sí | `institution_id` → `org.institutions`; `valve_id` → `org.valves`; `decided_by` → `iam.users` |
+| `autopilot_decisions` | Decisiones del piloto automático: acción (`OPEN`, `CLOSE`, `WAIT`, `INSPECT`), motivo, confianza, origen (siempre `RULES`), estado y quién la resolvió. `inputs` guarda el resumen del estado que la originó. | No (solo cambian `status`, `status_detail`, `decided_by` y `decided_at`) | Sí | `institution_id` → `org.institutions`; `valve_id` → `org.valves`; `decided_by` → `iam.users` |
 
 Se retira `ops.sync_batches` (cola sin conexión), `ops.reading_issues` (ver sección 4) y `ops.reading_corrections` (ver sección 4).
 
@@ -156,7 +156,7 @@ org.institutions
 
 ### 3.2 Configuración
 
-- `org.institution_settings` tiene una fila por institución con los parámetros de negocio: alertas de nivel (`reserve_level_pct`, `low_level_pct`, `critical_level_pct`), datos viejos y tendencia (`stale_after_seconds`, `max_level_change_per_minute`, `sensor_stuck_window_seconds`, `trend_window_minutes`), persistencia (`persist_interval_seconds`), pronóstico (`forecast_step_seconds`, `forecast_horizon_steps`, `forecast_context_steps`), piloto (`autopilot_mode`, `reserve_floor_pct`, `operator_absence_minutes`). Cambiarlos es una operación auditada del administrador, no una versión nueva.
+- `org.institution_settings` tiene una fila por institución con los parámetros de negocio: alertas de nivel (`reserve_level_pct`, `low_level_pct`, `critical_level_pct`), datos viejos y tendencia (`stale_after_seconds`, `max_level_change_per_minute`, `sensor_stuck_window_seconds`, `trend_window_minutes`), persistencia (`persist_interval_seconds`, `max_backdate_hours`), pronóstico (`forecast_step_seconds`, `forecast_horizon_steps`, `forecast_context_steps`), piloto (`autopilot_mode`, `reserve_floor_pct`, `operator_absence_minutes`). Cambiarlos es una operación auditada del administrador, no una versión nueva.
 - `org.tanks` guarda la geometría y la calibración. La conversión `distancia → nivel → volumen` la hace la estrategia de geometría (`TankGeometry`) a partir de estos campos. Los valores de la maqueta están en la sección 8.
 - `org.valves` guarda el canal del servo y los ángulos. El firmware no cambia: recibe ángulos crudos.
 
