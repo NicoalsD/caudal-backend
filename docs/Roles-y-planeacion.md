@@ -8,9 +8,9 @@ Este documento define quién hace qué, cómo se trabaja (ramas, PR y commits), 
 
 | Integrante | Cuenta de GitHub | Rol principal | Responsabilidad transversal | Repos principales |
 |---|---|---|---|---|
-| Nicolas Diaz | `NicoalsD` | Frontend, UX y publicación (página pública, WhatsApp, cartel). | Documentación global y DevOps: dueño de los repos, reglas de GitHub, CI, releases. | `caudal-frontend`, `caudal-backend` (docs), todos (configuración). |
-| Drako Salazar | `Drako2305` | Backend Java: base de datos, seguridad, reglas, red y turnos. | Líder de seguridad y de patrones de diseño. | `caudal-backend`. |
-| Nicolas Mora | `nicomora70` | IA, datos simulados, simulador y hardware. En el backend: lecturas, importación, cliente de la IA, evaluación y dispositivos; en el frontend: cola offline, pronóstico, cierre, actas, evaluación y dispositivos. | Detalle operativo de `caudal-ia` y `caudal-simulador` (`.agents/*`) y su código. | `caudal-ia`, `caudal-simulador`, `caudal-backend`, `caudal-frontend`. |
+| Nicolas Diaz | `NicoalsD` | Frontend, UX, DevOps, cierre del día, actas y documentación. | Documentación global y DevOps: dueño de los repos, reglas de GitHub, CI, releases. | `caudal-frontend`, `caudal-backend` (docs), todos (configuración). |
+| Drako Salazar | `Drako2305` | Backend Java: dominio, base de datos, seguridad, instituciones, configuración, válvulas y patrones. | Líder de seguridad y de patrones de diseño. | `caudal-backend`. |
+| Nicolas Mora | `nicomora70` | Telemetría, dispositivos, IA, simulador y maqueta. | Detalle operativo de `caudal-ia` y `caudal-simulador` (`.agents/*`) y su código. | `caudal-ia`, `caudal-simulador`, `caudal-backend`, `caudal-frontend`. |
 
 ### 1.1 Situación de nicomora70
 
@@ -48,6 +48,8 @@ Reglas:
 | **nicomora70** | Esqueleto de `caudal-ia` y `caudal-simulador`, cuando se una. | Simulador: escenarios, generación de datos, modo `backfill`. | `caudal-ia` completo: contrato, preprocesado, Chronos, pruebas. Simulador: modo `live`. | Simulador en vivo y dispositivos. Backtest. Pruebas de integración del guion `demo`. |
 
 Las tareas de IA y simulador siguen asignadas a nicomora70. Su disponibilidad es por definir.
+
+**Reparto a partir de la fase 14 (B2B, 2026-11-20).** Drako2305: dominio, base de datos, seguridad, roles, plataforma, configuración y válvulas. nicomora70: telemetría, dispositivos, outlook, pronóstico, IA, simulador y maqueta. NicoalsD: frontend, DevOps, cierre del día, actas, documentación y diagramas. Las columnas de las fases 0 a 12 describen el plan anterior y no se reescriben.
 
 ## 3. Metodología
 
@@ -136,6 +138,7 @@ Las fases van en orden de dependencia. Las columnas indican qué se puede empeza
 | **10** | Evaluación IA vs estimación simple: M10 con MAE, WQL, cobertura y skill. | 6 y 9 | `caudal-backend`, `caudal-frontend`, `caudal-ia` (backtest) | Drako (cálculo), NicoalsD (vista), nicomora70 (backtest). |
 | **11** | Simulador en vivo y dispositivos: modo `live`, tablero, firma Ed25519, telemetría, comandos de válvula. | 1, 3 y 5. El simulador en vivo depende de la API estable de las fases 5 y 7. | `caudal-simulador`, `caudal-backend` | nicomora70 (simulador), Drako (dispositivos en el backend). |
 | **12** | Endurecimiento, despliegue y `v1.0.0`: pruebas de seguridad, despliegue en Render (backend e IA) y Vercel, etiqueta `v1.0.0`. | 1 a 11 | Los cuatro. | NicoalsD (DevOps y release), Drako (seguridad). |
+| **14** | B2B: renombre, migraciones, roles, login, plataforma, configuración, sensor en vivo, pronóstico en tres salidas, cierre y actas, IA, simulador, maqueta y frontend (ver 4.2). | Renombre primero (fase 2, paso 1). La subfase 0 no depende de nada. | `caudal-backend`, `caudal-frontend`, `caudal-ia`, `caudal-simulador`, `caudal-maqueta` | Drako2305, NicoalsD y nicomora70 (ver 4.2). |
 
 ### 4.1 Trabajo en paralelo
 
@@ -144,6 +147,25 @@ Las fases van en orden de dependencia. Las columnas indican qué se puede empeza
 - **Fase 6 y fase 7:** la fase 7 puede empezar con la estimación simple mientras la IA se termina.
 - **Fase 8 y fase 9:** pueden avanzar en paralelo una vez cerrada la fase 7, porque comparten la base de la propuesta publicada.
 - **Ruta crítica:** 0, 1, 2, 3, 4, 5, 7, 8. La fase 6 puede ir por debajo si la IA llega después, porque el respaldo funciona sin ella.
+
+### 4.2 Fase 14: B2B (2026-11-20)
+
+Cambio de alcance: CAUDAL pasa a ser un producto B2B. Cada institución tiene su tanque, sensor y válvulas, y sus datos aislados. Subfases:
+
+| Subfase | Qué se hace | Depende de | Responsable |
+|---|---|---|---|
+| **0** | Prueba de banco del lazo de válvulas con la maqueta (`POST /valve-commands/manual`, `GET /devices/commands`, serie, `DONE` y ack). Resultado del 2026-11-20: 4 órdenes ACKED en 2 a 5 s. | Nada. Se hace antes de tocar código. | nicomora70 (maqueta y puente), Drako2305 (lazo de comandos) |
+| **1** | Documentación B2B: `wt/back-v2/docs`, diagramas, `AGENTS.md`, README, `PRODUCT.md`, `Version-2.0.0.md` y `sim-v2/docs`. | 0 | NicoalsD |
+| **2** | Backend en este orden: 1) renombre `aqueduct` a `institution`; 2) migraciones que retiran reglas, turnos, publicación, correcciones, público y resúmenes, y el CHECK de origen; 3) roles y permisos; 4) login por institución y directorio público; 5) plataforma (`platform.*` y act-as); 6) `institution_settings`, tanque con geometría y calibración, líneas y válvulas con canal, ángulos y `hold_torque_after_move`; 7) telemetría `DISTANCE`, lectura efectiva, `/tanks/{id}/live` y anomalías en segundos; 8) `GET /devices/config`; 9) outlook y recomendaciones por reglas; 10) observaciones, cierre sin turnos y actas; 11) semilla `maqueta-caudal`; 12) diccionario y diagramas. | 1 (y el paso 1 antes que cualquier otro paso) | Drako2305 (pasos 1 a 6), nicomora70 (7 a 9 y 11), NicoalsD (10 y 12) |
+| **3** | `caudal-ia` (pasos en segundos y contexto del asistente con outlook), `caudal-simulador` (`DISTANCE`, `/devices/config`, telemetría cada 2 s y `R<n>` si `hold_torque_after_move` es `false`). El firmware no cambia. | Contratos del paso 7 y del paso 8 del backend | nicomora70 |
+| **4** | `caudal-frontend`: login en dos pasos, inicio con tanque en vivo y válvulas, pronóstico en tres salidas, eventos, administración de tanque, líneas, válvulas, calibración y parámetros, plataforma, y borrado de pantallas retiradas. | 2 (pasos 4, 6 y 9, y OpenAPI) y 3 para el asistente | NicoalsD |
+
+Dependencias:
+- El renombre va primero: nada nuevo puede nacer con `aqueduct_id`.
+- El login en dos pasos necesita `GET /public/institutions` (paso 4 del backend).
+- El tanque en vivo necesita `DISTANCE` y `GET /tanks/{id}/live` (paso 7).
+- El puente necesita `GET /devices/config` con `hold_torque_after_move` (paso 8) para releer la configuración sin reiniciarse.
+- La prueba de banco de la subfase 0 se repite al final, como verificación de la fase.
 
 ## 5. Corte del MVP
 
