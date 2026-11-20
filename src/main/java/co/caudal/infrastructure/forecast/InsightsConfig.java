@@ -23,6 +23,9 @@ class InsightsConfig {
       IaProperties properties, InsightsProperties insights, JsonMapper json) {
     HttpClient http =
         HttpClient.newBuilder()
+            // HTTP/1.1 only: on plain http the default HTTP/2 client sends an h2c upgrade that
+            // uvicorn refuses, and the request body is then counted as too large (413).
+            .version(HttpClient.Version.HTTP_1_1)
             .connectTimeout(properties.connectTimeout())
             .followRedirects(HttpClient.Redirect.NEVER)
             .build();
