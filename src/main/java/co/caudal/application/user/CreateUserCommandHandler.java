@@ -102,7 +102,12 @@ public class CreateUserCommandHandler implements CommandHandler<CreateUserComman
     }
     UUID userId =
         accounts
-            .insertIfAbsent(username.value(), fullName.value(), unusableHash, administrator)
+            .insertIfAbsent(
+                username.value(),
+                fullName.value(),
+                unusableHash,
+                administrator,
+                command.aqueductId())
             .orElseThrow(() -> new DomainException(ErrorCode.CONFLICT));
     UUID membershipId =
         memberships.insert(userId, command.aqueductId(), command.role(), now, null, administrator);

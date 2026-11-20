@@ -17,6 +17,16 @@ public interface LoginAccountPort {
   Optional<LoginAccount> findByUsername(String username);
 
   /**
+   * Finds an account by the slug of its institution and its normalized username. The username is
+   * unique only inside an institution, so this is the lookup of the two-step login.
+   *
+   * @param institutionSlug slug of the institution
+   * @param username the normalized username
+   * @return the account, or empty if the institution or the username does not exist
+   */
+  Optional<LoginAccount> findByInstitutionAndUsername(String institutionSlug, String username);
+
+  /**
    * Stores the failure counter and the lock of an account.
    *
    * @param userId the account

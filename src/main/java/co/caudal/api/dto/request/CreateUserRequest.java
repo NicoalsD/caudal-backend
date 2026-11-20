@@ -37,7 +37,7 @@ public record CreateUserRequest(
         UUID aqueductId,
     @Schema(
             description =
-                "Rol: BOARD_ADMIN, BOARD_MEMBER, OPERATOR, PROJECT_TEAM o SUPPORT_ENTITY.",
+                "Rol: INSTITUTION_ADMIN, OPERATOR o VIEWER (los roles de la Junta, BOARD_ADMIN, BOARD_MEMBER, PROJECT_TEAM y SUPPORT_ENTITY, siguen existiendo para las membresías heredadas).",
             example = "OPERATOR")
         @NotNull
         @Size(min = FieldLimits.CATALOG_CODE_MIN, max = FieldLimits.CATALOG_CODE_MAX)

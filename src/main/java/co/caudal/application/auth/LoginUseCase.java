@@ -122,15 +122,24 @@ public class LoginUseCase {
 
     Step step =
         unitOfWork.execute(
-            () -> authenticate(username, password, input.mfaCode(), usernameHmac, ipHmac));
+            () ->
+                authenticate(
+                    username,
+                    input.institutionSlug(),
+                    password,
+                    input.mfaCode(),
+                    usernameHmac,
+                    ipHmac));
     if (step.failure() != null) {
       throw step.failure();
     }
     LoginAccount account = step.account();
+    // With an institution, the token is issued only for the membership in that institution.
+    UUID institution = input.institutionSlug() == null ? null : account.aqueductId();
     Step done =
         unitOfWork.executeAs(
             SessionScope.ofUser(account.id()),
-            () -> complete(account, password, usernameHmac, client));
+            () -> complete(account, institution, password, usernameHmac, client));
     if (done.failure() != null) {
       throw done.failure();
     }
@@ -139,6 +148,7 @@ public class LoginUseCase {
 
   private Step authenticate(
       Optional<Username> username,
+      String institutionSlug,
       NormalizedPassword password,
       String mfaCode,
       String usernameHmac,
@@ -149,7 +159,12 @@ public class LoginUseCase {
       rejectRateLimited(usernameHmac, ipHmac, "login_ip");
       return Step.fail(new DomainException(ErrorCode.RATE_LIMITED));
     }
-    Optional<LoginAccount> found = username.flatMap(name -> accounts.findByUsername(name.value()));
+    Optional<LoginAccount> found =
+        username.flatMap(
+            name ->
+                institutionSlug == null
+                    ? accounts.findByUsername(name.value())
+                    : accounts.findByInstitutionAndUsername(institutionSlug, name.value()));
     if (found.isEmpty()) {
       return rejectWithoutAccount(
           password, usernameHmac, ipHmac, FailureReason.INVALID_CREDENTIALS, null);
@@ -231,11 +246,15 @@ public class LoginUseCase {
 
   private Step complete(
       LoginAccount account,
+      UUID institution,
       NormalizedPassword password,
       String usernameHmac,
       ClientContext client) {
     Instant now = clock.instant();
-    List<Membership> active = memberships.findActive(account.id(), now);
+    List<Membership> active =
+        memberships.findActive(account.id(), now).stream()
+            .filter(m -> institution == null || institution.equals(m.aqueductId()))
+            .toList();
     if (active.isEmpty()) {
       attempts.record(
           new LoginAttempt(
