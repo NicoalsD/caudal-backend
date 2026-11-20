@@ -1,26 +1,26 @@
 # Contrato entre el backend y caudal-ia
 
-Este documento define el contrato HTTP entre `caudal-backend` (cliente) y `caudal-ia` (servicio de pronóstico). Es la referencia para implementar cualquiera de los dos lados y para escribir las pruebas de contrato. Los hechos canónicos (secciones 6, 7, 11 y 14) son la fuente de las cifras.
+Este documento define el contrato HTTP entre `caudal-backend` (cliente) y `caudal-ia` (servicio). Es la referencia para implementar cualquiera de los dos lados y para escribir las pruebas de contrato. Las reglas de negocio que lo originan están en `Modulo-IA.md` y `Reglas-de-negocio.md`.
+
+> Cambio de alcance B2B (2026-11-20): el pronóstico ya no trabaja en días sino en pasos de `step_seconds` (la escala de cada institución). Eso cambia la forma de la petición y de la respuesta y es incompatible con el contrato diario actual. Cómo se publica el cambio (nueva versión o migración coordinada) está **por definir** (sección 8). El asistente recibe una foto de la institución, no de una Junta ni de turnos.
 
 Principios:
 
-- `caudal-ia` no tiene estado y no accede a la base de datos. Recibe una serie y devuelve cuantiles (pronóstico). Con los endpoints `/v1/insights/*` recibe una foto del estado y devuelve recomendaciones, reportes o respuestas en texto. Nunca abre ni cierra llaves.
+- `caudal-ia` no tiene estado y no accede a la base de datos. Recibe una serie y devuelve cuantiles (pronóstico). Con los endpoints `/v1/insights/*` recibe una foto de la institución y devuelve recomendaciones, reportes o respuestas en texto. Nunca abre ni cierra válvulas.
 - El backend decide cuándo pedir un pronóstico o una recomendación, guarda el resultado y, si la IA falla, responde con la estimación simple o con las reglas (respaldo). El piloto automático lo ejecuta el backend según su modo.
-
-> **Cambio de alcance v2 (2026-11-07):** antes solo existía el pronóstico. Se agregan los endpoints `/v1/insights/*` (sección 9) para el asistente de decisiones, con un LLM compatible con OpenAI (por defecto Nemotron de NVIDIA, gratis en OpenRouter).
 - Ningún lado confía en el otro: cada uno valida lo que recibe.
 
 ## 1. Endpoints
 
 | Método | Ruta | Autenticación | Uso |
 |---|---|---|---|
-| POST | `/v1/forecasts` | Token de servicio | Pronóstico de una serie diaria |
+| POST | `/v1/forecasts` | Token de servicio | Pronóstico de una serie en pasos de `step_seconds` |
 | GET | `/v1/health` | Ninguna | Vivo (liveness). No revela nada del modelo. |
 | GET | `/v1/ready` | Ninguna | Listo para atender (modelo cargado) |
 | GET | `/v1/models` | Token de servicio | Modelos disponibles y su estado |
-| POST | `/v1/insights/recommendations` | Token de servicio | Recomendaciones de llaves a partir de una foto del estado (sección 9) |
+| POST | `/v1/insights/recommendations` | Token de servicio | Propuestas de válvula para el piloto, a partir de la foto (sección 9) |
 | POST | `/v1/insights/report` | Token de servicio | Reporte narrativo de un periodo (sección 9) |
-| POST | `/v1/insights/ask` | Token de servicio | Respuesta en lenguaje natural sobre una foto del estado (sección 9) |
+| POST | `/v1/insights/ask` | Token de servicio | Respuesta en lenguaje natural sobre la foto (sección 9) |
 
 Documentación interactiva del servicio: Swagger en `/docs` (FastAPI). Se apaga con `API_DOCS_ENABLED=false`.
 
@@ -46,9 +46,11 @@ El servicio acepta dos tokens: el actual (`IA_SERVICE_TOKEN`) y el anterior (`IA
 
 Si el paso 2 se hace antes del paso 1, el backend recibe `401` y el circuito se abre. Por eso el orden es obligatorio. Cada rotación queda en el registro de auditoría de la operación (por definir dónde).
 
-Un token filtrado se rota de inmediato con el mismo procedimiento. Los hechos dicen "rotación documentada"; esta es la documentación.
+Un token filtrado se rota de inmediato con el mismo procedimiento.
 
 ## 3. `POST /v1/forecasts`
+
+> Estado: contrato objetivo. `step_seconds`, `null` en `values` y `step_seconds` en la respuesta **por implementar**. Hoy el servicio recibe la serie diaria.
 
 ### 3.1 Petición
 
@@ -58,22 +60,28 @@ Esquema (JSON Schema 2020-12, resumido):
 {
   "type": "object",
   "additionalProperties": false,
-  "required": ["series_id", "timestamps", "values", "prediction_length", "quantile_levels"],
+  "required": ["series_id", "step_seconds", "timestamps", "values", "prediction_length", "quantile_levels"],
   "properties": {
     "series_id": { "type": "string", "format": "uuid" },
+    "step_seconds": { "type": "integer", "minimum": 1, "maximum": 86400 },
     "timestamps": {
       "type": "array", "minItems": 1, "maxItems": 2000,
       "items": { "type": "string", "format": "date-time" }
     },
     "values": {
       "type": "array", "minItems": 1, "maxItems": 2000,
-      "items": { "type": "number" }
+      "items": { "type": ["number", "null"] }
     },
     "prediction_length": { "type": "integer", "minimum": 1, "maximum": 30 },
     "quantile_levels": { "type": "array", "const": [0.1, 0.5, 0.9] }
   }
 }
 ```
+
+- `series_id` es el `tank_id`.
+- `step_seconds` viene de `org.institution_settings.forecast_step_seconds`. Los límites exactos del paso (mínimo y máximo) son **por definir**; el esquema solo fija un rango técnico provisional.
+- `values` acepta `null` para una lectura faltante. Es la única excepción a "valores finitos": un `null` significa "sin lectura en ese tramo", no un valor.
+- `prediction_length` es el horizonte técnico (1 a 30). El horizonte de la institución (`forecast_horizon_steps`) lo valida el backend.
 
 Reglas que el esquema no expresa (las valida la IA con código):
 
@@ -82,33 +90,36 @@ Reglas que el esquema no expresa (las valida la IA con código):
 | Misma longitud en `timestamps` y `values` | Igual | `422 INVALID_SERIES` (`reason = LENGTH_MISMATCH`) |
 | `timestamps` estrictamente crecientes | Sin repetidos | `422 INVALID_SERIES` (`reason = TIMESTAMPS_NOT_INCREASING`) |
 | `timestamps` parseables con zona | ISO-8601 con offset | `422 INVALID_SERIES` (`reason = TIMESTAMP_PARSE_ERROR`) |
-| `values` finitos | Sin `NaN`, `Infinity` ni `-Infinity` (JSON estándar no los admite, pero Python sí los parsea: se rechazan explícitamente) | `422 INVALID_SERIES` (`reason = NOT_FINITE_VALUE`) |
-| Historia mínima | Días con lectura después de remuestrear: al menos `FORECAST_MIN_POINTS` (variable del servicio; por defecto: 7). Varias lecturas el mismo día cuentan como uno. Se responde aunque el modelo todavía esté cargando. | `422 INSUFFICIENT_HISTORY` |
-| Valores dentro del rango de float32 | `abs(valor)` no mayor que el máximo finito de float32 (unos 3,4028235e38). Un valor mayor se convertiría en infinito dentro del modelo. | `422 INVALID_SERIES` (`reason = VALUE_OUT_OF_RANGE`) |
-| Serie máxima | 2.000 puntos (hechos, sección 11) | `422 INVALID_SERIES` (`reason = TOO_MANY_POINTS`) |
-| `prediction_length` | 1 a 30 (técnico, hechos, sección 11). El horizonte de negocio es 1 a 3 y lo valida el backend. | `400 VALIDATION_ERROR` |
-| `quantile_levels` | Exactamente `[0.1, 0.5, 0.9]` en v1 | `400 VALIDATION_ERROR` |
+| `values` finitos o `null` | Sin `NaN`, `Infinity` ni `-Infinity` (JSON estándar no los admite, pero Python sí los parsea: se rechazan explícitamente) | `422 INVALID_SERIES` (`reason = NOT_FINITE_VALUE`) |
+| Historia mínima | Pasos con lectura después del remuestreo: al menos `FORECAST_MIN_POINTS` (variable del servicio; el valor por defecto está **por definir**). Varias lecturas en el mismo paso cuentan como una. Se responde aunque el modelo todavía esté cargando. | `422 INSUFFICIENT_HISTORY` |
+| Valores dentro del rango de float32 | `abs(valor)` no mayor que el máximo finito de float32 (unos 3,4028235e38). | `422 INVALID_SERIES` (`reason = VALUE_OUT_OF_RANGE`) |
+| Serie máxima | 2.000 puntos | `422 INVALID_SERIES` (`reason = TOO_MANY_POINTS`) |
+| `prediction_length` | 1 a 30 (técnico) | `400 VALIDATION_ERROR` |
+| `quantile_levels` | Exactamente `[0.1, 0.5, 0.9]` | `400 VALIDATION_ERROR` |
+| `step_seconds` | Entero dentro del rango de la sección 3.1 | `400 VALIDATION_ERROR` |
 | Campos desconocidos | Se rechazan | `400 VALIDATION_ERROR` |
 | Tamaño del cuerpo | 256 KiB (`MAX_BODY_BYTES`) | `413 PAYLOAD_TOO_LARGE` |
 
-Remuestreo: antes de agrupar, el servicio convierte cada marca de tiempo a la zona `SERIES_TIMEZONE` (`America/Bogota` por defecto) y después agrupa las lecturas por día local. `RESAMPLE_AGGREGATION` elige el valor del día: `last` (por defecto, la última lectura) o `mean` (el promedio). Los días sin lectura no se interpolan: se envían a Chronos como `NaN`, que `chronos-forecasting` 2.3.2 acepta en Chronos-2 y en Chronos-Bolt como valores faltantes. La cantidad de días enviados así se informa en `model.notes`.
+Remuestreo: el servicio agrupa las lecturas por tramos de `step_seconds` (`RESAMPLE_AGGREGATION`: `last`, el último valor del tramo por defecto, o `mean`). Los tramos sin lectura no se interpolan: se envían a Chronos como `NaN`, que `chronos-forecasting` 2.3.2 acepta como valor faltante. La cantidad de tramos así enviados se informa en `model.notes`.
 
-Ejemplo de petición (valores ficticios, 7 días de lecturas efectivas de las 18:00, pronóstico de 1 día):
+Ejemplo de petición (valores ilustrativos, paso de 5 minutos, pronóstico de 12 pasos, nivel en porcentaje):
 
 ```json
 {
   "series_id": "0190f3a2-8888-7000-8000-000000000001",
+  "step_seconds": 300,
   "timestamps": [
-    "2026-10-02T18:00:00-05:00",
-    "2026-10-03T18:00:00-05:00",
-    "2026-10-04T18:00:00-05:00",
-    "2026-10-05T18:00:00-05:00",
-    "2026-10-06T18:00:00-05:00",
-    "2026-10-07T18:00:00-05:00",
-    "2026-10-08T18:00:00-05:00"
+    "2026-11-20T10:00:00-05:00",
+    "2026-11-20T10:05:00-05:00",
+    "2026-11-20T10:10:00-05:00",
+    "2026-11-20T10:15:00-05:00",
+    "2026-11-20T10:20:00-05:00",
+    "2026-11-20T10:25:00-05:00",
+    "2026-11-20T10:30:00-05:00",
+    "2026-11-20T10:35:00-05:00"
   ],
-  "values": [3.10, 3.02, 2.90, 2.75, 2.60, 2.35, 2.10],
-  "prediction_length": 1,
+  "values": [51.4, 51.1, 51.1, 50.8, null, 50.2, 50.1, 50.0],
+  "prediction_length": 12,
   "quantile_levels": [0.1, 0.5, 0.9]
 }
 ```
@@ -120,7 +131,7 @@ Esquema:
 ```json
 {
   "type": "object",
-  "required": ["model", "generated_at", "frequency", "points"],
+  "required": ["model", "generated_at", "step_seconds", "points"],
   "properties": {
     "model": {
       "type": "object", "required": ["name", "version"],
@@ -131,7 +142,7 @@ Esquema:
       }
     },
     "generated_at": { "type": "string", "format": "date-time" },
-    "frequency": { "const": "D" },
+    "step_seconds": { "type": "integer" },
     "points": {
       "type": "array", "minItems": 1, "maxItems": 30,
       "items": {
@@ -148,27 +159,27 @@ Esquema:
 }
 ```
 
-Ejemplo (valores ficticios):
+Ejemplo (valores ilustrativos):
 
 ```json
 {
   "model": { "name": "autogluon/chronos-2-small", "version": "2.3.2+last" },
-  "generated_at": "2026-10-09T09:30:00Z",
-  "frequency": "D",
+  "generated_at": "2026-11-20T10:35:02-05:00",
+  "step_seconds": 300,
   "points": [
-    { "timestamp": "2026-10-09T00:00:00-05:00", "p10": 1.80, "p50": 2.10, "p90": 2.40 }
+    { "timestamp": "2026-11-20T10:40:00-05:00", "p10": 48.6, "p50": 49.4, "p90": 50.1 }
   ]
 }
 ```
 
-`model.version` tiene el formato `<versión de chronos-forecasting>+<agregación>`, por ejemplo `2.3.2+last`. Cambia si cambia la versión de la librería o `RESAMPLE_AGGREGATION`. `model.notes` se omite cuando no hay nada que informar (por ejemplo, cuando no hubo días sin lectura).
+`model.version` tiene el formato `<versión de chronos-forecasting>+<agregación>`, por ejemplo `2.3.2+last`. Cambia si cambia la versión de la librería o la agregación. `model.notes` se omite cuando no hay nada que informar.
 
 Reglas de la respuesta (el servicio las garantiza y el backend las vuelve a verificar):
 
 - `len(points) == prediction_length`.
-- Los `timestamp` son días consecutivos, que empiezan el día siguiente al último día de la serie. Se expresan a medianoche en la zona `SERIES_TIMEZONE` (`America/Bogota`, `-05:00` por defecto).
+- Los `timestamp` son tramos consecutivos de `step_seconds`, que empiezan un paso después del último tramo de la serie, con zona `SERIES_TIMEZONE`.
 - `p10 <= p50 <= p90`, todos finitos.
-- `frequency` siempre es `D`.
+- `step_seconds` coincide con el de la petición.
 
 Si la respuesta no cumple estas reglas, el backend la trata como `IA_ERROR` y usa el respaldo.
 
@@ -178,10 +189,10 @@ Forma de error: igual que la de la API del backend (`error.code`, `error.message
 
 | HTTP | `code` | Cuándo | `details` |
 |---|---|---|---|
-| 400 | `VALIDATION_ERROR` | Esquema, campos desconocidos, `prediction_length` fuera de 1 a 30, `quantile_levels` distinto | `field`, `reason` |
+| 400 | `VALIDATION_ERROR` | Esquema, campos desconocidos, `prediction_length` fuera de 1 a 30, `step_seconds` fuera de rango, `quantile_levels` distinto | `field`, `reason` |
 | 401 | `UNAUTHORIZED` | Token faltante o no válido | Ninguno |
 | 413 | `PAYLOAD_TOO_LARGE` | Cuerpo mayor de 256 KiB | `limit_bytes` |
-| 422 | `INSUFFICIENT_HISTORY` | Menos de `FORECAST_MIN_POINTS` valores | `received`, `minimum` |
+| 422 | `INSUFFICIENT_HISTORY` | Menos de `FORECAST_MIN_POINTS` tramos con lectura | `received`, `minimum` |
 | 422 | `INVALID_SERIES` | Longitud, orden, parseo, valores no finitos, valores fuera del rango de float32, más de 2.000 puntos | `reason`, `index` (primera posición que falla) |
 | 500 | `INTERNAL_ERROR` | Error no controlado | Ninguno |
 | 503 | `MODEL_NOT_READY` | Modelo no cargado. Cabecera `Retry-After: 30`. | `model_name` |
@@ -218,15 +229,15 @@ Nota sobre el 422: como el backend arma la serie, un `INVALID_SERIES` es un defe
 
 ## 4. Timeouts y circuit breaker del backend
 
-### 4.1 Timeouts (semilla)
+### 4.1 Timeouts
 
 | Concepto | Valor | Fuente |
 |---|---|---|
-| Conexión | 2 segundos | Hechos, sección 11 |
-| Lectura | 10 segundos | Hechos, sección 11 |
+| Conexión | 2 segundos | `Modulo-IA.md`, sección 7 |
+| Lectura | 10 segundos | `Modulo-IA.md`, sección 7 |
 | Variables de configuración | `IA_CONNECT_TIMEOUT_MS=2000`, `IA_READ_TIMEOUT_MS=10000` | |
 
-Sin reintentos automáticos en el mismo ciclo de petición. El reintento lo hace el siguiente cálculo programado o la siguiente petición del usuario. Así una IA lenta no multiplica la espera del usuario.
+Sin reintentos automáticos en el mismo ciclo de petición. El reintento lo hace el siguiente cálculo programado o la siguiente petición del usuario.
 
 En el despliegue actual (Render free) el servicio se duerme cuando no recibe tráfico. La primera llamada después de dormir vence el timeout y el backend responde con la estimación simple y `fallback_reason = IA_TIMEOUT`.
 
@@ -243,16 +254,14 @@ Estados (`CircuitBreakerState`, patrón P18): `CLOSED` (cerrado, llama a la IA),
 
 Variables (`.env.example`): `CIRCUIT_BREAKER_FAILURE_THRESHOLD=5`, `CIRCUIT_BREAKER_OPEN_SECONDS=60`, `CIRCUIT_BREAKER_HALF_OPEN_CALLS=2`.
 
-El estado vive en memoria de cada instancia del backend (propuesta). Con varias instancias, cada una abre su circuito por separado. Aceptable mientras haya una sola instancia en Render; verificar si se escala.
-
-La columna "Cuenta para el circuit breaker" de la sección 3.4 indica qué respuestas suman fallos: timeouts, errores de red, 5xx, 401 y respuestas inválidas. Los 422 de datos no abren el circuito.
+El estado vive en memoria de cada instancia del backend. Con varias instancias, cada una abre su circuito por separado. Aceptable mientras haya una sola instancia en Render.
 
 ### 4.3 Respaldo: estimación simple
 
 Cuando la IA no responde o el circuito está abierto, el backend calcula:
 
-- Modelo `naive-persistence` (`forecast_runs.model_name`): el nivel de mañana es igual al último nivel efectivo ("seguirá igual que hoy").
-- Rango: cuantiles empíricos de los cambios diarios históricos del mismo tanque, aplicados al último nivel (`p10` y `p90` a partir de la distribución de cambios; `p50` es el último nivel más la mediana del cambio, que se asume cero si no hay historia suficiente).
+- Modelo `naive-persistence` (`forecast_runs.model_name`): el nivel del siguiente paso es igual al último nivel efectivo.
+- Rango: cuantiles empíricos de los cambios por paso del mismo tanque, aplicados al último nivel (`p10` y `p90` a partir de la distribución de cambios; `p50` es el último nivel más la mediana del cambio, que se asume cero si no hay historia suficiente).
 - `is_fallback = true` y `fallback_reason` según la sección 3.4.
 - Se guarda en `forecast_runs` con `model_version` igual a la versión del algoritmo de respaldo (propuesta: `1`).
 
@@ -292,7 +301,7 @@ El backend guarda siempre ambos pronósticos (IA y respaldo) para compararlos en
 ```
 
 - Modelos: `autogluon/chronos-2-small` (28 M, por defecto local), `amazon/chronos-bolt-small` (48 M) o `amazon/chronos-bolt-tiny` (9 M). Se elige con `CHRONOS_MODEL_ID`. Los tres corren en CPU.
-- La imagen desplegada en Render free (512 MB) usa `amazon/chronos-bolt-tiny`, porque `chronos-2-small` llegó al tope de 512 MiB en la prueba de memoria (ver `Modulo-IA.md`, sección 12). En ese despliegue `name` y `active` valen `amazon/chronos-bolt-tiny`; el ejemplo de arriba es el de la configuración local.
+- La imagen desplegada en Render free (512 MB) usa `amazon/chronos-bolt-tiny`, porque `chronos-2-small` llegó al tope de 512 MiB en la prueba de memoria (ver `Modulo-IA.md`, sección 12). En ese despliegue `name` y `active` valen `amazon/chronos-bolt-tiny`.
 
 ## 6. Variables de entorno
 
@@ -308,8 +317,9 @@ El backend guarda siempre ambos pronósticos (IA y respaldo) para compararlos en
 | `CIRCUIT_BREAKER_FAILURE_THRESHOLD` | No (por defecto 5) | `5` | Fallos seguidos para abrir el circuito |
 | `CIRCUIT_BREAKER_OPEN_SECONDS` | No (por defecto 60) | `60` | Tiempo abierto antes de la prueba |
 | `CIRCUIT_BREAKER_HALF_OPEN_CALLS` | No (por defecto 2) | `2` | Llamadas de prueba en semiabierto |
+| `INSIGHTS_READ_TIMEOUT_MS` | No (por defecto 20000) | `20000` | Timeout de lectura para `/v1/insights/*` (`Reglas-de-negocio.md`, sección 10.3) |
 
-Los valores de negocio (horizonte, reserva, días de historia enviados a la IA) no van en variables de entorno. Vienen de `org.rule_sets` (`forecast_context_days`, `forecast_horizon_days`), según los hechos, sección 12.
+Los valores de negocio (paso del pronóstico, horizonte, contexto, reserva) no van en variables de entorno. Vienen de `org.institution_settings`: `forecast_step_seconds`, `forecast_horizon_steps` y `forecast_context_steps`.
 
 ### 6.2 Servicio de IA (`caudal-ia`)
 
@@ -319,13 +329,15 @@ Los valores de negocio (horizonte, reserva, días de historia enviados a la IA) 
 | `IA_SERVICE_TOKEN_PREVIOUS` | No | `<secreto anterior>` | Segundo token aceptado durante la rotación |
 | `CHRONOS_MODEL_ID` | No | `autogluon/chronos-2-small` | Modelo activo. Alternativas: `amazon/chronos-bolt-small` y `amazon/chronos-bolt-tiny`. La imagen Docker lo fija al construir en `amazon/chronos-bolt-tiny` |
 | `CHRONOS_DEVICE` | No | `cpu` | Dispositivo de inferencia |
-| `SERIES_TIMEZONE` | No | `America/Bogota` | Zona en la que empieza cada día de la serie. Debe coincidir con la del backend (ver la advertencia de abajo). |
-| `FORECAST_MIN_POINTS` | No | `7` | Días con lectura mínimos después del remuestreo |
-| `RESAMPLE_AGGREGATION` | No | `last` | `last` (por defecto) o `mean` |
-| `LLM_BASE_URL` | No (asistente) | `https://<proveedor>/v1` | URL base de la API compatible con OpenAI del LLM. Por defecto, OpenRouter con Nemotron de NVIDIA (gratis); alternativas Gemini Flash o Groq. Solo cambia la configuración. |
-| `LLM_MODEL` | No (asistente) | `<modelo del proveedor>` | Modelo que responde las recomendaciones, reportes y preguntas |
-| `LLM_API_KEY` | Sí, si hay asistente | `<secreto, nunca en git>` | Clave del proveedor. Va en Render como secreto. |
-| `FORECAST_CACHE_SIZE` | No | `64` | Número máximo de entradas de la caché en memoria de pronósticos. `0` la apaga. La clave es un SHA-256 de la entrada del modelo (serie diaria ya remuestreada, horizonte y cuantiles). La serie no se guarda. |
+| `SERIES_TIMEZONE` | No | `America/Bogota` | Zona en la que se expresan las marcas de tiempo de la respuesta. Debe coincidir con la del backend. |
+| `FORECAST_MIN_POINTS` | No | `<por definir>` | Tramos con lectura mínimos después del remuestreo |
+| `RESAMPLE_AGGREGATION` | No | `last` | `last` (por defecto) o `mean`, por tramo de `step_seconds` |
+| `LLM_BASE_URL` | No (asistente) | `<URL base compatible con OpenAI>` | Por defecto, OpenRouter con Nemotron de NVIDIA (gratis); alternativas Gemini Flash o Groq. Solo cambia la configuración. |
+| `LLM_MODEL` | No (asistente) | `nvidia/nemotron-3.5-super-vl:free` | Modelo que responde las preguntas, reportes y recomendaciones |
+| `LLM_API_KEY` | Sí, si hay asistente | `<secreto, nunca en git>` | Clave del proveedor. Va en Render como secreto. Sin ella siempre se usa RULES. |
+| `LLM_TIMEOUT_S` | No | `<por definir>` | Tiempo máximo de cada llamada al LLM |
+| `LLM_MAX_RETRIES` | No | `<por definir>` | Reintentos del LLM antes del respaldo |
+| `FORECAST_CACHE_SIZE` | No | `64` | Número máximo de entradas de la caché en memoria de pronósticos. `0` la apaga. La clave es un SHA-256 de la entrada del modelo (serie ya remuestreada, horizonte y cuantiles). La serie no se guarda. |
 | `FORECAST_CACHE_TTL_SECONDS` | No | `300` | Segundos que una entrada de la caché sigue válida. Solo guarda el pronóstico. |
 | `MAX_SERIES_POINTS` | No | `2000` | Límite de la serie |
 | `MAX_PREDICTION_LENGTH` | No | `30` | Límite técnico del horizonte |
@@ -335,7 +347,7 @@ Los valores de negocio (horizonte, reserva, días de historia enviados a la IA) 
 
 Los nombres de la tabla 6.1 son los de `caudal-backend/.env.example`. Los de la tabla 6.2 se documentan en `.env.example` de `caudal-ia`, con marcadores, sin valores reales. Además, la imagen Docker fija `OMP_NUM_THREADS=1` y `MKL_NUM_THREADS=1`: con los hilos por defecto, un pronóstico de 2.000 puntos tardó 11,2 s con 0,1 CPU y superó `IA_READ_TIMEOUT_MS`.
 
-> **Advertencia:** `SERIES_TIMEZONE` del servicio debe coincidir con la zona que usa el backend para calcular el primer día de la serie. Las fechas de la respuesta salen a medianoche de la zona del servicio; si el backend espera otra, descarta las respuestas como `IA_ERROR` y abre el circuito.
+> **Advertencia:** `SERIES_TIMEZONE` del servicio debe coincidir con la zona que usa el backend. Si el backend espera otra, descarta las respuestas como `IA_ERROR` y abre el circuito.
 
 ## 7. Pruebas de contrato
 
@@ -343,7 +355,7 @@ Ambos lados ejecutan el mismo conjunto de casos. Cada caso tiene su fixture (pet
 
 | ID | Caso | Entrada | Resultado esperado | Lado |
 |---|---|---|---|---|
-| CT-01 | Pronóstico válido de 1 día | Ejemplo de la sección 3.1 | 200, un punto, `p10 <= p50 <= p90` | IA y backend |
+| CT-01 | Pronóstico válido de 12 pasos | Ejemplo de la sección 3.1 | 200, 12 puntos, `p10 <= p50 <= p90`, `step_seconds` eco | IA y backend |
 | CT-02 | Horizonte máximo | `prediction_length = 30` | 200, 30 puntos consecutivos | IA y backend |
 | CT-03 | Horizonte por encima del límite | `prediction_length = 31` | 400 `VALIDATION_ERROR` | IA |
 | CT-04 | Horizonte cero | `prediction_length = 0` | 400 `VALIDATION_ERROR` | IA |
@@ -352,7 +364,7 @@ Ambos lados ejecutan el mismo conjunto de casos. Cada caso tiene su fixture (pet
 | CT-07 | Longitudes distintas | 7 timestamps, 6 values | 422 `INVALID_SERIES`, `LENGTH_MISMATCH` | IA |
 | CT-08 | Fechas no crecientes | Dos timestamps iguales | 422 `INVALID_SERIES`, `TIMESTAMPS_NOT_INCREASING` | IA |
 | CT-09 | Valor no finito | `NaN` en `values` | 422 `INVALID_SERIES`, `NOT_FINITE_VALUE` | IA |
-| CT-10 | Historia insuficiente | Menos de `FORECAST_MIN_POINTS` | 422 `INSUFFICIENT_HISTORY` | IA y backend |
+| CT-10 | Historia insuficiente | Menos de `FORECAST_MIN_POINTS` tramos con lectura | 422 `INSUFFICIENT_HISTORY` | IA y backend |
 | CT-11 | Serie demasiado grande | 2.001 puntos | 422 `INVALID_SERIES`, `TOO_MANY_POINTS` | IA |
 | CT-12 | Token faltante o incorrecto | Sin cabecera, o token distinto | 401 `UNAUTHORIZED` con `WWW-Authenticate` | IA y backend |
 | CT-13 | Rotación | Token previo aceptado mientras `IA_SERVICE_TOKEN_PREVIOUS` esté definido | 200 con el token previo; 401 después de quitarlo | IA |
@@ -365,6 +377,8 @@ Ambos lados ejecutan el mismo conjunto de casos. Cada caso tiene su fixture (pet
 | CT-20 | Error no contable | 422 `INVALID_SERIES` desde la IA | Respaldo `IA_ERROR` sin abrir el circuito | Backend |
 | CT-21 | Salud sin autenticación | `GET /v1/health` sin token | 200 `{"status": "ok"}` | IA |
 | CT-22 | Respuesta tolerante | La IA agrega un campo nuevo en la respuesta | El backend lo ignora y guarda los puntos | Backend |
+| CT-23 | Paso fuera de rango | `step_seconds = 0` | 400 `VALIDATION_ERROR` | IA |
+| CT-24 | Lectura faltante | `null` en `values` | 200; `model.notes` informa los tramos sin lectura | IA |
 
 Reglas de las pruebas:
 
@@ -374,70 +388,121 @@ Reglas de las pruebas:
 
 ## 8. Versionado del contrato
 
-- La versión está en la ruta: `/v1`. Un cambio incompatible (quitar campos, cambiar tipos o significados, cambiar la frecuencia) pasa a `/v2`, y el backend migra en un cambio coordinado.
-- Cambios aditivos (campos nuevos en la respuesta) no cambian la versión. El backend ignora campos desconocidos en las respuestas. El servicio rechaza campos desconocidos en las peticiones: así el backend no puede enviar algo que la IA no entiende.
+- La versión está en la ruta (`/v1`). Un cambio incompatible (quitar campos, cambiar tipos o significados, cambiar la escala) se publica como versión nueva o como migración coordinada (**por definir**). El backend migra en un cambio coordinado.
+- Cambios aditivos (campos nuevos en la respuesta) no cambian la versión. El backend ignora campos desconocidos en las respuestas. El servicio rechaza campos desconocidos en las peticiones.
 - `model.version` cambia cada vez que cambia el modelo o su configuración. No es la versión del contrato.
-- Cada cambio al contrato se registra en el changelog del repositorio `caudal-ia` y en este documento, en la sección de cambios.
+- Cada cambio al contrato se registra en el changelog del repositorio `caudal-ia` y en este documento.
+- Convivencia: el servicio mantiene los endpoints actuales mientras el backend migra al nuevo esquema de escala. Cómo y cuándo se retiran está **por definir**.
 
 ### 8.1 Historial de cambios
 
 | Versión del contrato | Fecha | Cambio |
 |---|---|---|
-| `v1` | `2026-10-19` | Primera versión, implementada en `caudal-ia` (PR #6, #7 y #8): pronóstico diario con cuantiles p10, p50 y p90. Los ajustes posteriores descritos en este documento (motivo `VALUE_OUT_OF_RANGE`, `model.notes` opcional, formato de `model.version`, caché y `SERIES_TIMEZONE`) son aditivos y no cambian la versión del contrato. |
+| `v1` | `2026-10-19` | Primera versión, implementada en `caudal-ia` (PR #6, #7 y #8): pronóstico diario con cuantiles p10, p50 y p90. Ajustes aditivos posteriores: motivo `VALUE_OUT_OF_RANGE`, `model.notes` opcional, formato de `model.version`, caché y `SERIES_TIMEZONE`. |
+| `v1` (insights) | `2026-11-07` | Endpoints `/v1/insights/*` para el asistente, con la foto del estado del acueducto (turnos y reglas de la Junta incluidos). Versión previa al alcance B2B. |
+| Propuesta B2B | `2026-11-20` | Cambio de alcance B2B. `/v1/forecasts` usa `step_seconds` en lugar de `frequency` diaria, acepta `null` como lectura faltante y responde con `step_seconds`. `/v1/insights/*` recibe la foto de la institución (`institution_id`, `outlook`, eventos y válvulas por línea de servicio), sin turnos ni reglas de Junta. |
 
 ## 9. Endpoints del asistente (`/v1/insights/*`)
 
-Cambio de alcance v2 (2026-11-07). Estos endpoints usan un LLM compatible con OpenAI. Por defecto es Nemotron de NVIDIA (`nvidia/nemotron-3.5-super-vl:free`), gratis en OpenRouter; como alternativas, Gemini Flash o Groq. Ver [Modulo-IA.md](Modulo-IA.md), sección "Asistente de decisiones".
+Estos endpoints usan un LLM compatible con OpenAI. Por defecto es Nemotron de NVIDIA (`nvidia/nemotron-3.5-super-vl:free`) por OpenRouter, gratis. Ver [Modulo-IA.md](Modulo-IA.md), sección 15.
 
 Reglas comunes:
 
 - **Autenticación:** `Authorization: Bearer <IA_SERVICE_TOKEN>`, igual que `POST /v1/forecasts`.
 - **Sin estado:** `caudal-ia` no guarda la foto del estado, ni las preguntas, ni las respuestas. El backend guarda cada decisión en `ops.autopilot_decisions`.
+- **Sin acciones:** ningún endpoint abre ni cierra válvulas. `recommendations` devuelve propuestas que el piloto del backend evalúa.
 - **Respaldo:** si el LLM falla, da timeout, responde 429 o devuelve un JSON que no valida, `caudal-ia` responde `200` con `source = RULES` usando reglas y plantillas deterministas. Una falla del LLM nunca llega al backend como `5xx`.
 - **Validación:** la salida del LLM se valida con Pydantic antes de responder.
-- **Errores:** un campo desconocido o inválido responde `400 VALIDATION_ERROR` (con `details.reason`, por ejemplo `UNKNOWN_FIELD`), igual que `POST /v1/forecasts`. Un token inválido responde `401 UNAUTHORIZED`. Ambos usan la forma de la sección 3.3.
+- **Errores:** un campo desconocido o inválido responde `400 VALIDATION_ERROR` (con `details.reason`, por ejemplo `UNKNOWN_FIELD`). Un token inválido responde `401 UNAUTHORIZED`.
 
+### 9.1 Foto del estado (`Snapshot`)
 
-### 9.1 Foto del estado (`Snapshot`) (estado del acueducto que envía el backend)
+> Estado: los campos `institution_id`, `outlook`, `events`, `service_line_name` y `last_command` **por implementar**. Hoy la foto usa `aqueduct_id`, turnos y reglas de Junta.
+
+Estado de la institución que envía el backend en cada petición:
+
 ```json
 {
-  "aqueduct_id": "uuid", "aqueduct_name": "Vereda demo", "generated_at": "2026-11-07T10:00:00-05:00",
+  "institution_id": "uuid",
+  "institution_name": "Maqueta CAUDAL",
+  "generated_at": "2026-11-20T10:00:00-05:00",
   "mode": "MANUAL|ASSISTED|AUTOMATIC",
-  "reserve_floor_pct": 25.0, "operator_last_action_at": "ISO|null",
-  "tank": { "id": "uuid", "name": "Tanque principal", "level_m": 1.8, "max_level_m": 2.5,
-            "level_pct": 72.0, "band": "HIGH|MEDIUM|LOW|CRITICAL|null", "observed_at": "ISO", "trend": "RISING|FALLING|STABLE|null" },
-  "forecast": [ { "timestamp": "ISO", "p10": 1.6, "p50": 1.8, "p90": 2.0 } ],
-  "valves": [ { "id": "uuid", "sector_id": "uuid", "sector_name": "Alto", "region_name": "Norte|null",
-                "state": "OPEN|CLOSED|UNKNOWN", "is_motorized": true, "priority": 1 } ],
-  "schedule": [ { "sector_id": "uuid", "starts_at": "ISO", "ends_at": "ISO", "status": "PLANNED|DONE|PARTIAL|SKIPPED" } ],
-  "anomalies": [ { "kind": "STALE_READING|...", "severity": "LOW|MEDIUM|HIGH" } ]
+  "reserve_level_pct": 20.0,
+  "reserve_floor_pct": 15.0,
+  "operator_last_action_at": "ISO|null",
+  "tank": {
+    "id": "uuid",
+    "name": "Tanque principal",
+    "level_pct": 50.0,
+    "level_mm": 135,
+    "volume_l": 4.24,
+    "sensor_status": "OK|NO_ECHO|STALE",
+    "observed_at": "ISO",
+    "age_seconds": 2,
+    "trend": "RISING|FALLING|STABLE|null"
+  },
+  "outlook": {
+    "water_left": { "liters": 4.24, "pct": 50.0, "origin": "OBSERVED" },
+    "time_to_reserve_min": 40.5,
+    "time_to_empty_min": 67.5,
+    "chronos_band": [
+      { "timestamp": "ISO", "p10": 48.6, "p50": 49.4, "p90": 50.1 }
+    ],
+    "chronos_is_fallback": false
+  },
+  "valves": [
+    {
+      "id": "uuid",
+      "service_line_id": "uuid",
+      "service_line_name": "Acueducto 1",
+      "state": "OPEN|CLOSED|UNKNOWN",
+      "last_command": { "id": "uuid", "action": "OPEN|CLOSE", "status": "PENDING|DELIVERED|ACKED|FAILED|EXPIRED|CANCELLED", "at": "ISO" },
+      "priority": 1
+    }
+  ],
+  "events": [
+    { "kind": "POSSIBLE_LEAK|ABNORMAL_DROP|SENSOR_FAULT|STALE_DATA|LEVEL_LOW|LEVEL_CRITICAL|COMMAND_FAILED|OBSERVATION", "severity": "LOW|MEDIUM|HIGH", "status": "OPEN|CONFIRMED|DISMISSED", "at": "ISO" }
+  ]
 }
 ```
-Límites: 200 valves, 200 schedule, 100 anomalies, 400 forecast. Los campos desconocidos se rechazan (`extra="forbid"`).
+
+- `level_pct` es la unidad de referencia de la banda. Si la unidad final es `level_mm`, el campo cambia con la decisión de `Modulo-IA.md`, sección 2.4.
+- `time_to_reserve_min` y `time_to_empty_min` son `null` si el nivel no baja (se muestra "no se vacía al ritmo actual").
+- Límites: 200 válvulas, 100 eventos, 30 puntos en `chronos_band`. Los campos desconocidos se rechazan (`extra="forbid"`).
+- Los nombres de los `kind` de eventos (`LEVEL_LOW`, `LEVEL_CRITICAL`, `COMMAND_FAILED`, `OBSERVATION`) y el campo `priority` de cada vÃ¡lvula son propuestas: `Reglas-de-negocio.md`, secciÃ³n 7, describe las alertas sin cÃ³digo, y la prioridad saliÃ³ con la asignaciÃ³n de turnos (**por definir**).
+- La foto no incluye turnos, reglas, propuestas ni datos personales.
 
 ### 9.2 `POST /v1/insights/recommendations`
+
 - Request: `{ "snapshot": Snapshot }`
 - Response 200:
+
 ```json
-{ "source": "LLM|RULES", "model": "gemini-flash-...|rules-v1", "generated_at": "ISO",
+{ "source": "LLM|RULES", "model": "nemotron-3.5-super-vl|rules-v1", "generated_at": "ISO",
   "summary": "texto corto en español",
   "recommendations": [ { "action": "OPEN|CLOSE|WAIT|INSPECT", "valve_id": "uuid|null",
                           "reason": "español, <= 280 caracteres", "confidence": 0.0 } ] }
 ```
+
 - Como máximo 5 recomendaciones.
-- Los valve_id que no vengan en el snapshot se descartan.
-- Ninguna recomendación OPEN puede bajar el tanque del piso de reserva. La regla dura: con level_pct <= reserve_floor_pct solo se permiten CLOSE, WAIT o INSPECT, y esa guarda también se aplica a la salida del LLM.
+- Los `valve_id` que no vengan en el snapshot se descartan.
+- Ninguna recomendación `OPEN` puede bajar el tanque del piso de reserva. Regla dura: con `level_pct <= reserve_floor_pct` solo se permiten `CLOSE`, `WAIT` o `INSPECT`, y esa guarda también se aplica a la salida del LLM.
 
 ### 9.3 `POST /v1/insights/report`
-- Request: `{ "aqueduct_name": "...", "from": "ISO", "to": "ISO", "aggregates": { ...objeto libre, como máximo 32 KB } }`
+
+- Request: `{ "institution_name": "...", "from": "ISO", "to": "ISO", "aggregates": { ...objeto libre, como máximo 32 KB } }`
 - Response: `{ "source", "model", "generated_at", "title", "summary", "findings": [str], "recommendations": [str], "markdown": "..." }`
 
 ### 9.4 `POST /v1/insights/ask`
+
 - Request: `{ "question": "<= 500 caracteres", "snapshot": Snapshot }`
 - Response: `{ "source", "model", "generated_at", "answer": "español" }`
 
 ### 9.5 Configuración (variables de entorno)
-- LLM: `LLM_BASE_URL` (por defecto `https://generativelanguage.googleapis.com/v1beta/openai/`), `LLM_MODEL` y `LLM_API_KEY` (opcional; sin ella siempre se usa RULES).
-- Tiempos y reintentos: `LLM_TIMEOUT_S` y `LLM_MAX_RETRIES`.
+
+- LLM: `LLM_BASE_URL`, `LLM_MODEL` y `LLM_API_KEY` (opcional; sin ella siempre se usa RULES). Por defecto, OpenRouter con Nemotron (sección 6.2).
+- Tiempos y reintentos: `LLM_TIMEOUT_S` y `LLM_MAX_RETRIES` (valores **por definir**).
 - El LLM se llama por el endpoint compatible con OpenAI `/chat/completions`, con `response_format` `json_object`.
 - Si falla, da timeout, responde 429 o devuelve un JSON inválido, se usa el respaldo de reglas con `source: "RULES"`.
+
+Relacionados: [Modulo-IA.md](Modulo-IA.md), [Configuracion-sin-valores-quemados.md](Configuracion-sin-valores-quemados.md), [Reglas-de-negocio.md](Reglas-de-negocio.md), [API.md](API.md)
