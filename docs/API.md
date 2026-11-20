@@ -129,7 +129,7 @@ Toda respuesta de error tiene esta forma:
 | `NO_LEVEL_DATA` | 422 | No hay una lectura válida del sensor. | Sin lectura válida para calibrar, pronosticar o preguntar al asistente |
 | `MISSING_TIMESTAMP` | 422 | Falta la fecha y hora de la medida. | `observed_at` ausente o no válido |
 | `FUTURE_TIMESTAMP` | 422 | La fecha de la medida está en el futuro. | `observed_at` mayor que ahora + 5 minutos |
-| `TOO_OLD` | 422 | La medida es demasiado antigua para registrarla. | Solo en importación: fecha anterior al límite de antigüedad `max_backdate_days` (parámetro por definir; sin fuente desde que se quitaron `rule_sets`) |
+| `TIMESTAMP_TOO_OLD` | 422 | La medida es demasiado antigua para registrarla. | `observed_at` anterior a `max_backdate_hours` de la institución (`org.institution_settings`, ejemplo 48 h). Aplica a telemetría por lotes del puente e importaciones. |
 | `REASON_REQUIRED` | 422 | Escribe el motivo (entre 10 y 500 caracteres). | Descarte de una anomalía sin nota, observación `OTHER` sin texto |
 | `PASSWORD_POLICY_VIOLATION` | 422 | La contraseña no cumple la política. | Menos de 12 caracteres, en la lista de comunes, contiene el usuario, repetida del historial |
 | `INVALID_KEY` | 422 | La clave pública no es válida. | No es Ed25519 de 32 bytes en base64url |
@@ -141,7 +141,7 @@ Notas del catálogo:
 
 - Los códigos del servicio de IA (`INSUFFICIENT_HISTORY`, `INVALID_SERIES`, `MODEL_NOT_READY`) no llegan al cliente. El backend los convierte en respaldo (ver [Contrato-IA.md](Contrato-IA.md)).
 - Los códigos de reglas versionadas, turnos, lecturas manuales, correcciones y público salen del catálogo (sección 21.2).
-- Actores-y-permisos.md usa `PERMISSION_DENIED` y `RESOURCE_NOT_FOUND`. Este documento usa `FORBIDDEN` y `NOT_FOUND`, que son los del catálogo. Por unificar en `Actores-y-permisos.md`.
+- Los códigos de permiso y de recurso son `FORBIDDEN` (403) y `NOT_FOUND` (404). No existen `PERMISSION_DENIED` ni `RESOURCE_NOT_FOUND`.
 
 ### 1.5 Paginación por cursor
 
@@ -167,7 +167,7 @@ Las colecciones son paginadas con cursor opaco firmado.
 |---|---|---|
 | `POST /devices/telemetry` | `id` de cada punto | Un punto repetido con el mismo contenido se cuenta en `duplicates` y no se guarda otra vez. Mismo `id` con contenido distinto: `CONFLICT`. |
 | `POST /imports/readings` | `file_sha256` del archivo | Un archivo ya importado responde `409 CONFLICT`. |
-| `POST /valve-commands/manual` | Por definir | No hay idempotencia por cabecera. Un segundo comando activo sobre la misma válvula se rechaza o reemplaza (por definir, ver sección 10). |
+| `POST /valve-commands/manual` | Sin cabecera | No hay idempotencia por cabecera. Un comando nuevo sobre una válvula con un comando activo la reemplaza (ver sección 10.1). |
 | Resto de `POST` | Por definir | No hay idempotencia por cabecera en esta versión. Usar `lock_version` donde aplique. |
 
 ### 1.7 Versionado
@@ -337,12 +337,6 @@ Todos los endpoints de institución (`/institution/*`, `/tanks/*`, `/service-lin
 - **`POST /auth/mfa/confirm`:** cuerpo `code` (6 dígitos). Activa el factor pendiente y responde `200` con `recovery_codes`: 10 códigos de respaldo de un solo uso, que se muestran una sola vez; solo se guarda su SHA-256 en `iam.mfa_recovery_codes`. Errores: `400 VALIDATION_ERROR` (código incorrecto), `404 NOT_FOUND` (no hay enrolamiento pendiente), `409 CONFLICT` (ya activo).
 - **Login:** con MFA activo, `POST /auth/login` pide `mfa_code` (sección 2.2).
 
-### 2.10 `POST /api/v1/auth/switch-institution` (por definir)
-
-- **Permiso:** `Autenticado`.
-- **Estado:** por definir. Un usuario pertenece a una sola institución (Actores-y-permisos.md, sección 1). Esta ruta solo tiene sentido si una misma persona necesita cuentas en varias. La versión anterior `switch-aqueduct` se renombra a `switch-institution` solo si se mantiene.
-- **Si se mantiene, cuerpo:** `institution_id` (UUID, obligatorio). **Respuesta 200:** `access_token` nuevo con el `institution_id` indicado y el rol de esa membresía. **Errores:** `403 FORBIDDEN` (no hay membresía vigente).
-
 ## 3. Plataforma: instituciones (`/platform`)
 
 Estos endpoints usan el token de `PLATFORM_ADMIN` (`scope = platform`, sin `institution_id`). Solo tienen el permiso `PLATFORM_MANAGE`. Las operaciones entre instituciones pasan por funciones `SECURITY DEFINER` de la base de datos (`platform.create_institution`, `platform.list_institutions`), ver [Seguridad-de-la-base-de-datos.md](Seguridad-de-la-base-de-datos.md), sección 5.4.
@@ -398,7 +392,7 @@ Estos endpoints usan el token de `PLATFORM_ADMIN` (`scope = platform`, sin `inst
 
 ## 4. Usuarios (`/users`)
 
-Un usuario pertenece a una sola institución. La institución sale del token, no del cuerpo. Las membresías (`/memberships`) se quitan de este documento: si una persona necesita cuentas en varias instituciones, está por definir ([Actores-y-permisos.md](Actores-y-permisos.md), sección 1).
+Un usuario pertenece a una sola institución. La institución sale del token, no del cuerpo. No hay ruta `/memberships`: cada usuario tiene una sola membresía activa en `iam.memberships`, que guarda su rol ([Actores-y-permisos.md](Actores-y-permisos.md), sección 1).
 
 ### 4.1 `GET /api/v1/users`
 
@@ -496,6 +490,7 @@ Los parámetros de negocio viven en `org.institution_settings`: una fila por ins
   "critical_level_pct": 10.00,
   "stale_after_seconds": 30,
   "persist_interval_seconds": 60,
+  "max_backdate_hours": 48,
   "max_level_change_per_minute": 2.00,
   "sensor_stuck_window_seconds": 120,
   "trend_window_minutes": 10,
@@ -511,7 +506,7 @@ Los parámetros de negocio viven en `org.institution_settings`: una fila por ins
 
 ### 6.2 `PATCH /api/v1/institution/settings`
 
-- **Permiso:** `INSTITUTION_CONFIGURE` para los campos generales. Los campos del piloto (`autopilot_mode`, `operator_absence_minutes`, `reserve_floor_pct`) exigen además `AUTOPILOT_CONFIGURE`. Cómo se combinan los dos permisos en una misma ruta está por definir: [Actores-y-permisos.md](Actores-y-permisos.md) lista `PATCH /institution/settings` bajo `INSTITUTION_CONFIGURE` y el modo del piloto bajo `AUTOPILOT_CONFIGURE` (ruta por definir).
+- **Permiso:** `INSTITUTION_CONFIGURE` para los campos generales. Los campos del piloto (`autopilot_mode`, `operator_absence_minutes`, `reserve_floor_pct`) exigen además `AUTOPILOT_CONFIGURE`. Es la única ruta para cambiar el modo del piloto: no existe `PUT /autopilot/mode`.
 - **Cuerpo (todos opcionales):**
 
 | Campo | Tipo | Límites |
@@ -519,6 +514,7 @@ Los parámetros de negocio viven en `org.institution_settings`: una fila por ins
 | `reserve_level_pct`, `low_level_pct`, `critical_level_pct` | decimal (2) | 0 a 100. `critical_level_pct < low_level_pct`. |
 | `stale_after_seconds` | entero | Mayor que 0 |
 | `persist_interval_seconds` | entero | Mayor que 0 |
+| `max_backdate_hours` | entero | Mayor que 0. Antigüedad máxima de un punto (`TIMESTAMP_TOO_OLD`). |
 | `max_level_change_per_minute` | decimal (2) | Mayor o igual a 0, en mm/min |
 | `sensor_stuck_window_seconds` | entero | Mayor que 0 |
 | `trend_window_minutes` | entero | Mayor que 0 |
@@ -600,7 +596,7 @@ El margen de montaje está por definir. Si una regla falla, la respuesta es `422
 ### 7.5 `GET /api/v1/service-lines`
 
 - **Permiso:** `NETWORK_VIEW`.
-- **Respuesta:** `items` con `id`, `tank_id`, `name`, `is_active` y `valve` (la válvula de la línea: `id`, `code`, `is_motorized`, `servo_channel`, `open_angle_deg`, `closed_angle_deg`, `fail_safe_position`, `is_active`; `null` si la línea aún no tiene válvula).
+- **Respuesta:** `items` con `id`, `tank_id`, `name`, `is_active` y `valve` (la válvula de la línea: `id`, `code`, `is_motorized`, `servo_channel`, `open_angle_deg`, `closed_angle_deg`, `hold_torque_after_move`, `fail_safe_position`, `is_active`; `null` si la línea aún no tiene válvula).
 - **Ejemplo de respuesta:**
 
 ```json
@@ -611,7 +607,7 @@ El margen de montaje está por definir. Si una regla falla, la respuesta es `422
       "tank_id": "0190f3a2-e000-7000-8000-000000000001",
       "name": "Acueducto 1",
       "is_active": true,
-      "valve": { "id": "0190f3a2-e002-7000-8000-000000000001", "code": "V1", "is_motorized": true, "servo_channel": 1, "open_angle_deg": 90, "closed_angle_deg": 0, "fail_safe_position": "KEEP", "is_active": true }
+      "valve": { "id": "0190f3a2-e002-7000-8000-000000000001", "code": "V1", "is_motorized": true, "servo_channel": 1, "open_angle_deg": 90, "closed_angle_deg": 0, "hold_torque_after_move": true, "fail_safe_position": "KEEP", "is_active": true }
     }
   ]
 }
@@ -644,6 +640,7 @@ El margen de montaje está por definir. Si una regla falla, la respuesta es `422
 | `is_motorized` | booleano | No | Por defecto `false`. Una válvula motorizada tiene actuador. |
 | `servo_channel` | entero | Si `is_motorized` | Canal del servo en el actuador. Único por actuador. Rango por definir. En la maqueta, 1 y 2. |
 | `open_angle_deg`, `closed_angle_deg` | entero | Si `is_motorized` | 0 a 180 (rango del servo). Deben ser distintos. |
+| `hold_torque_after_move` | booleano | No | Por defecto `true`. Si es `false`, el puente envía `R<n>` al recibir `DONE` y el servo queda suelto. |
 | `fail_safe_position` | texto | No | `KEEP`, `OPEN` o `CLOSED`. Por defecto `KEEP`. |
 
 - **Respuesta 201:** válvula creada.
@@ -651,13 +648,13 @@ El margen de montaje está por definir. Si una regla falla, la respuesta es `422
 - **Ejemplo:**
 
 ```json
-{ "code": "V1", "is_motorized": true, "servo_channel": 1, "open_angle_deg": 90, "closed_angle_deg": 0, "fail_safe_position": "KEEP" }
+{ "code": "V1", "is_motorized": true, "servo_channel": 1, "open_angle_deg": 90, "closed_angle_deg": 0, "hold_torque_after_move": true, "fail_safe_position": "KEEP" }
 ```
 
 ### 7.9 `PATCH /api/v1/valves/{id}`
 
 - **Permiso:** `INSTITUTION_CONFIGURE`.
-- **Cuerpo (todos opcionales):** `is_motorized`, `servo_channel`, `open_angle_deg`, `closed_angle_deg`, `fail_safe_position`, `is_active`. El `code` no cambia.
+- **Cuerpo (todos opcionales):** `is_motorized`, `servo_channel`, `open_angle_deg`, `closed_angle_deg`, `hold_torque_after_move`, `fail_safe_position`, `is_active`. El `code` no cambia.
 - **Efecto:** el puente aplica el nuevo canal o ángulo en su siguiente lectura de `GET /devices/config`, sin reiniciar.
 - **Respuesta 200:** válvula actualizada.
 - **Errores:** `400 VALIDATION_ERROR` (ángulos iguales o fuera de 0 a 180), `409 CONFLICT` (canal ocupado por otra válvula), `404 NOT_FOUND`.
@@ -665,7 +662,7 @@ El margen de montaje está por definir. Si una regla falla, la respuesta es `422
 ### 7.10 `GET /api/v1/valves`
 
 - **Permiso:** `NETWORK_VIEW`.
-- **Respuesta:** lista plana de válvulas de la institución, con `id`, `service_line_id`, `code`, `is_motorized`, `servo_channel`, `open_angle_deg`, `closed_angle_deg`, `fail_safe_position` e `is_active`. Para el estado en vivo, ver 10.3.
+- **Respuesta:** lista plana de válvulas de la institución, con `id`, `service_line_id`, `code`, `is_motorized`, `servo_channel`, `open_angle_deg`, `closed_angle_deg`, `hold_torque_after_move`, `fail_safe_position` e `is_active`. Para el estado en vivo, ver 10.3.
 
 ### 7.11 `GET /api/v1/network` (por definir)
 
@@ -691,8 +688,8 @@ El sensor ultrasónico HC-SR04 envía la distancia en mm. El backend la conviert
 | `sensor_status` | `OK`, `NO_ECHO` o `STALE`. |
 
 - **Regla de `sensor_status`**, en este orden:
-  1. `STALE` si `age_seconds > stale_after_seconds`.
-  2. `NO_ECHO` si el último punto fue `-1`, o si cae en la zona ciega (`distance_mm < blind_zone_mm`). En la zona ciega el punto se reporta como `NO_ECHO` (por confirmar).
+  1. `STALE` si no llegó ningún punto en `stale_after_seconds`.
+  2. `NO_ECHO` si el último punto fue `-1`, o si cae en la zona ciega (`distance_mm < blind_zone_mm`).
   3. `OK` en los demás casos.
 - **Sin ningún punto:** `sensor_status = STALE` y los campos de medida en `null` (propuesto).
 - **Errores:** `404 NOT_FOUND`.
@@ -734,7 +731,7 @@ El pronóstico tiene tres salidas separadas (ver [Reglas-de-negocio.md](Reglas-d
 | `water_left` | `OBSERVED` | Litros y porcentaje que quedan, por geometría. Sin predicción. |
 | `time_to_reserve` | `ESTIMATED` (determinista) | Minutos hasta la reserva, con la pendiente de `trend_window_minutes`. `status`: `FALLING`, `NOT_EMPTYING_AT_CURRENT_RATE` o `ALREADY_BELOW_RESERVE`. |
 | `time_to_empty` | `ESTIMATED` (determinista) | Minutos hasta vaciarse, con la misma pendiente. Mismos `status`. |
-| `chronos_band` | `ESTIMATED` (modelo Chronos) | Banda p10, p50 y p90 por paso de `forecast_step_seconds`, hasta `forecast_horizon_steps`. Con `is_fallback` y `fallback_reason` si se usó respaldo. La unidad (`level_pct` o mm) está por definir. |
+| `chronos_band` | `ESTIMATED` (modelo Chronos) | Banda p10, p50 y p90 por paso de `forecast_step_seconds`, hasta `forecast_horizon_steps`, en `level_mm` y en `level_pct`. Con `is_fallback` y `fallback_reason` si se usó respaldo. |
 
 - **Campos comunes:** `sensor_status` y `age_seconds`. Si el sensor no está en `OK`, las salidas usan el último dato válido y muestran su `age_seconds`.
 - **Sin lectura válida:** `200` con `water_left` nulo y `sensor_status` distinto de `OK` (propuesto), para que la pantalla lo muestre.
@@ -750,7 +747,7 @@ El pronóstico tiene tres salidas separadas (ver [Reglas-de-negocio.md](Reglas-d
     "is_fallback": false,
     "fallback_reason": null,
     "step_seconds": 300,
-    "points": [{ "offset_seconds": 300, "p10": 47.0, "p50": 49.5, "p90": 52.0 }]
+    "points": [{ "offset_seconds": 300, "level_mm": { "p10": 126.9, "p50": 133.7, "p90": 140.4 }, "level_pct": { "p10": 47.0, "p50": 49.5, "p90": 52.0 } }]
   },
   "sensor_status": "OK",
   "age_seconds": 2
@@ -793,8 +790,7 @@ El pronóstico tiene tres salidas separadas (ver [Reglas-de-negocio.md](Reglas-d
 
 ### 9.5 `PATCH /api/v1/anomalies/{id}`
 
-- **Permiso:** `ANOMALY_REVIEW` (`INSTITUTION_ADMIN`).
-- **Conflicto por resolver:** [Reglas-de-negocio.md](Reglas-de-negocio.md), sección 7, dice que el operador confirma la anomalía en campo. La matriz de [Actores-y-permisos.md](Actores-y-permisos.md) solo da `ANOMALY_REVIEW` al administrador. Por definir quién puede confirmar o descartar.
+- **Permiso:** `ANOMALY_REVIEW` (`INSTITUTION_ADMIN` y `OPERATOR`). `VIEWER` no lo tiene.
 - **Cuerpo:** `status` (`CONFIRMED` o `DISMISSED`) y `resolution_note` (texto, 0 a 500). Al descartar es obligatoria (10 a 500 caracteres; propuesta). Si la nota es opcional al confirmar, está por definir.
 - **Respuesta 200:** anomalía actualizada.
 - **Errores:** `409 INVALID_STATE_TRANSITION` (no está `OPEN`), `422 REASON_REQUIRED` (descarte sin nota).
@@ -815,13 +811,13 @@ Flujo de extremo a extremo: `POST /valve-commands/manual` crea el comando en `PE
 |---|---|---|---|
 | `valve_id` | UUID | Sí | Válvula motorizada de la institución, con actuador activo |
 | `command` | texto | Sí | `OPEN` o `CLOSE` |
-| `manual_reason` | texto | No | 10 a 500 si viene. Si falta, se guarda un texto por defecto (por definir). Así todo comando manual tiene motivo. |
+| `manual_reason` | texto | No | 10 a 500 si viene. Si falta, se guarda el texto por defecto "Operación manual desde la app". Así todo comando manual tiene motivo. |
 | `not_before` | fecha y hora | No | Por defecto, ahora. El comando no se entrega antes. |
-| `expires_at` | fecha y hora | No | Mayor que `not_before`. Por defecto, `not_before` más 60 segundos (valor por definir). Si llega ese momento sin entregarse, pasa a `EXPIRED`. |
+| `expires_at` | fecha y hora | No | Mayor que `not_before`. Por defecto, ahora más 2 minutos. Si llega ese momento sin entregarse, pasa a `EXPIRED`. |
 
 - **Respuesta 201:** comando en `PENDING`.
-- **Regla de un solo comando activo:** no se encolan dos comandos activos (`PENDING` o `DELIVERED`) para la misma válvula. Si llega otro, la regla (rechazar o reemplazar) está por definir. Propuesta: rechazar con `409 CONFLICT`.
-- **Errores:** `400 VALIDATION_ERROR` (`expires_at <= not_before`), `422 REASON_REQUIRED` (motivo de menos de 10 caracteres), `404 NOT_FOUND` (válvula inexistente, de otra institución o sin actuador activo), `409 CONFLICT` (comando activo sobre la misma válvula, propuesta).
+- **Un solo comando activo por válvula:** si la válvula ya tiene un comando `PENDING` o `DELIVERED`, el nuevo lo reemplaza. El anterior pasa a `CANCELLED` con motivo `SUPERSEDED` (`devices.valve_command_events`). No hay `409` por esta causa.
+- **Errores:** `400 VALIDATION_ERROR` (`expires_at <= not_before`), `422 REASON_REQUIRED` (motivo de menos de 10 caracteres), `404 NOT_FOUND` (válvula inexistente, de otra institución o sin actuador activo).
 - **Ejemplo:**
 
 ```json
@@ -861,9 +857,9 @@ Flujo de extremo a extremo: `POST /valve-commands/manual` crea el comando en `PE
 
 ![Secuencia de aceptar una recomendación](images/secuencia-aceptar-recomendacion.png)
 
-El piloto automático es el actor de sistema `AUTOPILOT` (sin cuenta). Cada `AUTOPILOT_INTERVAL_SECONDS` segundos (60 por defecto) toma una foto de la institución (nivel, pronóstico, tendencia, anomalías abiertas, estado de las válvulas y modo) y pide recomendaciones a `caudal-ia` (`POST /v1/insights/recommendations`, con el mismo cliente y circuit breaker del pronóstico, pero con un circuito propio). Si el servicio no responde, usa reglas deterministas (`source: "RULES"`, `model: "rules-v1"`).
+El piloto automático es el actor de sistema `AUTOPILOT` (sin cuenta). Cada `AUTOPILOT_INTERVAL_SECONDS` segundos (60 por defecto) toma una foto de la institución (nivel, pronóstico, tendencia, anomalías abiertas, estado de las válvulas y modo) y calcula las recomendaciones con reglas deterministas (`source: "RULES"`, `model: "rules-v1"`). El LLM no genera recomendaciones y el piloto no llama a `caudal-ia` para decidir.
 
-El backend vuelve a validar todo lo que recibe: descarta acciones desconocidas y válvulas que no están en la foto, exige una válvula motorizada con actuador para `OPEN` y `CLOSE`, recorta el motivo a 280 caracteres, limita la confianza a 0..1 y deja como máximo 5 recomendaciones. Cada una queda como una **decisión** en `ops.autopilot_decisions`.
+El backend valida cada recomendación antes de guardarla: descarta acciones desconocidas y válvulas que no están en la foto, exige una válvula motorizada con actuador para `OPEN` y `CLOSE`, recorta el motivo a 280 caracteres, limita la confianza a 0..1 y deja como máximo 5 recomendaciones. Cada una queda como una **decisión** en `ops.autopilot_decisions`.
 
 Acciones: `OPEN`, `CLOSE`, `WAIT` (no hacer nada por ahora) e `INSPECT` (revisar en campo). Las reglas que eligen entre ellas están en [Reglas-de-negocio.md](Reglas-de-negocio.md), sección 10.2.
 
@@ -883,14 +879,14 @@ Acciones: `OPEN`, `CLOSE`, `WAIT` (no hacer nada por ahora) e `INSPECT` (revisar
 - Un comando de una decisión lleva `autopilot_decision_id` como único origen. Si lo acepta una persona, `created_by` es esa persona. La decisión aceptada pasa a `EXECUTED` cuando el actuador confirma el comando (`ACKED`).
 - Todo queda en la auditoría: `AUTOPILOT_DECISION_ACCEPTED`, `AUTOPILOT_DECISION_REJECTED` y `AUTOPILOT_EXECUTED` (esta última con el actor `SYSTEM`). Los cambios de modo quedan como `INSTITUTION_SETTINGS_CHANGED` (sección 6.2).
 
-**Configuración del piloto.** El modo, la prioridad humana y el piso de reserva viven en `org.institution_settings`. La ruta `/autopilot/settings` de la versión anterior se quita. [Actores-y-permisos.md](Actores-y-permisos.md) lista el cambio de modo como `PUT /autopilot/mode`, con ruta por definir: ver la nota de la sección 6.2.
+**Configuración del piloto.** El modo, la prioridad humana y el piso de reserva viven en `org.institution_settings`. La ruta `/autopilot/settings` de la versión anterior se quita. El cambio de modo es `PATCH /institution/settings` (sección 6.2), con `AUTOPILOT_CONFIGURE`.
 
 **Esquema `Decision`:**
 
 | Campo | Significado |
 |---|---|
 | `id`, `created_at` | Identificador y momento de la decisión |
-| `source` | `LLM` o `RULES` |
+| `source` | Siempre `RULES` |
 | `model` | Modelo que la produjo (`rules-v1` o el del servicio) |
 | `action` | `OPEN`, `CLOSE`, `WAIT` o `INSPECT` |
 | `valve_id` | Válvula. Nulo en `WAIT` e `INSPECT`. |
@@ -1087,7 +1083,7 @@ Las actas usan los cuatro estatus epistémicos (ver [Reglas-de-negocio.md](Regla
 
 Solo para instituciones con `is_simulated = true`. Lo usa el superadmin con un token `act_as=platform` (permiso `IMPORT_SIMULATED`, que no tiene ningún rol de institución). En cualquier otra institución responde `403 SIMULATED_ONLY` y queda el evento `IMPORT_REJECTED` en `iam.security_events`. La base de datos lo rechaza también con `sim.guard_simulated_only` (propuesto; antes `sim.guard_demo_only`).
 
-Límites: cuerpo de 1 MiB o 5.000 filas por lote (lo que llegue primero). Más filas: `422 IMPORT_LIMIT_EXCEEDED`. La importación puede enviar fechas anteriores al límite de antigüedad (`max_backdate_days`, por definir), que es la excepción de la regla de antigüedad. Cada importación crea una fila en `sim.import_batches` antes que sus datos.
+Límites: cuerpo de 1 MiB o 5.000 filas por lote (lo que llegue primero). Más filas: `422 IMPORT_LIMIT_EXCEEDED`. La importación puede enviar fechas anteriores a `max_backdate_hours`: es la excepción de la regla de antigüedad, que aplica a los lotes del puente. Cada importación crea una fila en `sim.import_batches` antes que sus datos.
 
 ### 15.1 `POST /api/v1/imports/readings`
 
@@ -1102,7 +1098,7 @@ Límites: cuerpo de 1 MiB o 5.000 filas por lote (lo que llegue primero). Más f
 | `file_sha256` | texto | Sí | 64 caracteres hexadecimales. Repetido: `409 CONFLICT`. |
 | `rows` | lista | Sí | 1 a 5.000 |
 
-- **Cada fila:** `observed_at` (fecha y hora) y `distance_mm` (entero; `-1` sin eco, o de 0 a 4000). Si la importación envía distancia cruda o nivel está por definir. Las filas pasan por la misma cadena de validación del sensor (Reglas, sección 4.2). No aplica `TOO_OLD`, porque la importación puede enviar fechas antiguas.
+- **Cada fila:** `observed_at` (fecha y hora) y `distance_mm` (entero; `-1` sin eco, o de 0 a 4000). Si la importación envía distancia cruda o nivel está por definir. Las filas pasan por la misma cadena de validación del sensor (Reglas, sección 4.2). No aplica `TIMESTAMP_TOO_OLD`, porque la importación puede enviar fechas antiguas.
 - **Respuesta 201:** `import_batch_id`, `rows_received`, `rows_accepted`, `rows_rejected` y `rejections` (lista de `row`, la posición en el archivo desde 1, y `code`).
 
 ## 16. Dispositivos (firmados)
@@ -1131,7 +1127,7 @@ Las rutas de dispositivos no usan JWT. Cada petición lleva firma Ed25519. El pr
   "config_version": 7,
   "device_id": "0190f3a2-9999-7000-8000-000000000002",
   "kind": "VALVE_ACTUATOR",
-  "actuator": { "valve_id": "0190f3a2-e002-7000-8000-000000000001", "servo_channel": 1, "open_angle_deg": 90, "closed_angle_deg": 0, "fail_safe_position": "KEEP" }
+  "actuator": { "valve_id": "0190f3a2-e002-7000-8000-000000000001", "servo_channel": 1, "open_angle_deg": 90, "closed_angle_deg": 0, "hold_torque_after_move": true, "fail_safe_position": "KEEP" }
 }
 ```
 
@@ -1152,8 +1148,8 @@ Las rutas de dispositivos no usan JWT. Cada petición lleva firma Ed25519. El pr
 | `value` | entero | Sí | Para `DISTANCE`: `-1` (sin eco) o de 0 a 4000 mm. |
 | `observed_at` | fecha y hora | Sí | ISO-8601 con zona |
 
-- **Respuesta 200:** `accepted`, `duplicates`, `rejected` y `results` (por `id`: `ACCEPTED` o `DUPLICATE`, con `reading_id` si el punto produjo una lectura efectiva en ese momento). Un punto inválido no se guarda: su elemento trae `error` con `code` (`DISTANCE_OUT_OF_RANGE`, `FUTURE_TIMESTAMP` o `VALIDATION_ERROR`).
-- **Un `-1` se guarda.** No produce nivel y cuenta para `SENSOR_FAULT` (Reglas, sección 4.2). Por eso el puente envía `-1` cuando no hay eco, en lugar de callar.
+- **Respuesta 200:** `accepted`, `duplicates`, `rejected` y `results` (por `id`: `ACCEPTED` o `DUPLICATE`, con `reading_id` si el punto produjo una lectura efectiva en ese momento). Un punto inválido no se guarda: su elemento trae `error` con `code` (`DISTANCE_OUT_OF_RANGE`, `FUTURE_TIMESTAMP`, `TIMESTAMP_TOO_OLD` o `VALIDATION_ERROR`).
+- **Un `-1` se guarda como punto crudo.** No crea lectura en `ops.readings`, no produce nivel y cuenta para `SENSOR_FAULT` (Reglas, sección 4.2). Por eso el puente envía `-1` cuando no hay eco, en lugar de callar.
 - **Errores:** `401 INVALID_SIGNATURE`, `401 NONCE_REPLAY`, `401 TIMESTAMP_OUT_OF_WINDOW`, `403 DEVICE_INACTIVE`, `413 PAYLOAD_TOO_LARGE`, `400 VALIDATION_ERROR`, `429 RATE_LIMITED`.
 - **Ejemplo:**
 
@@ -1237,7 +1233,7 @@ Las rutas de dispositivos no usan JWT. Cada petición lleva firma Ed25519. El pr
 ### 17.2 `GET /api/v1/security-events`
 
 - **Permiso:** `AUDIT_VIEW`.
-- **Parámetros:** `type` (`ACCOUNT_LOCKED`, `TOKEN_REUSE_DETECTED`, `PERMISSION_DENIED`, `RATE_LIMITED`, `INVALID_SIGNATURE`, `NONCE_REPLAY`, `IMPORT_REJECTED`, `MFA_FAILED`), `severity`, `from`, `to`, `limit`, `cursor`.
+- **Parámetros:** `type` (`ACCOUNT_LOCKED`, `TOKEN_REUSE_DETECTED`, `FORBIDDEN`, `RATE_LIMITED`, `INVALID_SIGNATURE`, `NONCE_REPLAY`, `IMPORT_REJECTED`, `MFA_FAILED`), `severity`, `from`, `to`, `limit`, `cursor`.
 - **Respuesta:** lista de `id`, `type`, `severity`, `actor_user_id`, `device_id`, `request_id`, `created_at` y `details` (sin secretos).
 
 ### 17.3 `PUT /api/v1/retention-policies/{data_class}`
@@ -1280,7 +1276,6 @@ Los parámetros de negocio (reserva, prioridad humana, piso) no son variables de
 | 2.7 | POST | `/auth/reset-password` | Público (código) |
 | 2.8 | GET | `/auth/current-user` | Autenticado |
 | 2.9 | POST | `/auth/mfa/enroll`, `/auth/mfa/confirm` | Autenticado (roles con MFA) |
-| 2.10 | POST | `/auth/switch-institution` | Por definir |
 | 3.1 | GET | `/platform/institutions` | `PLATFORM_MANAGE` |
 | 3.2 | POST | `/platform/institutions` | `PLATFORM_MANAGE` |
 | 3.3 | PATCH | `/platform/institutions/{id}` | `PLATFORM_MANAGE` |
@@ -1313,7 +1308,7 @@ Los parámetros de negocio (reserva, prioridad humana, piso) no son variables de
 | 9.2 | POST | `/tanks/{id}/forecasts` | `FORECAST_RUN` |
 | 9.3 | GET | `/events` | `STATUS_VIEW` (propuesto) |
 | 9.4 | GET | `/anomalies` | `STATUS_VIEW` |
-| 9.5 | PATCH | `/anomalies/{id}` | `ANOMALY_REVIEW` (por confirmar) |
+| 9.5 | PATCH | `/anomalies/{id}` | `ANOMALY_REVIEW` |
 | 10.1 | POST | `/valve-commands/manual` | `VALVE_COMMAND_MANUAL` |
 | 10.2 | GET | `/valve-commands/{id}` | `VALVE_COMMAND_MANUAL` |
 | 10.3 | GET | `/valves/live` | `STATUS_VIEW` |
@@ -1362,9 +1357,9 @@ Los parámetros de negocio (reserva, prioridad humana, piso) no son variables de
 | `/incidents*` | Eliminadas. Las observaciones van en `/observations` (13.1). |
 | `/summary-shares*`, `GET /summaries` | Eliminadas. |
 | `/public/{slug}/schedule*`, `/public/{slug}/damage-reports`, `/public/damage-reports/{trackingCode}` | Eliminadas. Solo queda `GET /public/institutions` (2.1). |
-| `/memberships*` | Eliminadas (sección 4). Por definir si una persona necesita varias cuentas. |
+| `/memberships*` | Eliminadas (sección 4). Cada usuario tiene una sola membresía activa. |
 | `/autopilot/settings` (GET y PUT) | `GET/PATCH /institution/settings` (6). |
-| `POST /auth/switch-aqueduct` | `POST /auth/switch-institution`, por definir (2.10). |
+| `POST /auth/switch-aqueduct` | Eliminado. Un usuario pertenece a una sola institución. |
 | `GET /auth/me` | Alias de `GET /auth/current-user` mientras se publica el frontend nuevo. Se retira después. |
 | `POST /imports/shift-executions`, `POST /imports/incidents` | Eliminadas. Se mantiene `POST /imports/readings` (15.1). |
 | `POST /catalogs/{catalog}/items`, `PATCH /catalogs/{catalog}/items/{id}` | Por definir. La versión anterior los usaba `PROJECT_TEAM`, que se quita. |
