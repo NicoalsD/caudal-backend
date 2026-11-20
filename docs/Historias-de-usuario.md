@@ -291,7 +291,7 @@ Escenario: operador intenta administrar usuarios
   Dado un usuario OPERATOR
   Cuando llama a POST /api/v1/users
   Entonces recibe 403 con código FORBIDDEN
-  Y se registra PERMISSION_DENIED en iam.security_events
+  Y se registra FORBIDDEN en iam.security_events
 
 Escenario: usuario de otra institución
   Dado un usuario que pertenece a "otra-institucion"
@@ -402,6 +402,12 @@ Escenario: canal repetido (propuesto)
   Dado que el canal 1 ya está asignado a una válvula de la institución
   Cuando se intenta asignar el canal 1 a otra válvula
   Entonces recibe 409 con código CONFLICT (regla propuesta, por confirmar)
+
+Escenario: mantener o soltar el servo tras moverse
+  Dado la válvula de "Acueducto 1" con hold_torque_after_move en true (por defecto)
+  Cuando el administrador lo cambia a false con PATCH /api/v1/valves/{id}
+  Entonces el puente envía R1 por serie al recibir DONE y el servo queda suelto
+  Y el valor aparece en GET /api/v1/devices/config
 
 Escenario: ángulo fuera del rango del servo
   Cuando el administrador envía open_angle_deg 200
@@ -573,7 +579,7 @@ Escenario: dos toques
 
 ```gherkin
 Escenario: flujo normal
-  Dado un comando CLOSE creado a las 10:00:00 con expires_at a las 10:01:00 (valor por definir)
+  Dado un comando CLOSE creado a las 10:00:00 con expires_at a las 10:02:00 (creación más 2 minutos, por defecto)
   Cuando el puente lo recoge con GET /api/v1/devices/commands a las 10:00:02
   Entonces el comando pasa a DELIVERED
   Y el puente envía "S1 0" por serie
@@ -594,10 +600,10 @@ Escenario: ACKED no es agua que fluye
   Dado un comando ACKED
   Entonces la pantalla dice "El actuador respondió", sin afirmar que el agua fluyó
 
-Escenario: dos comandos activos para la misma válvula (por definir)
+Escenario: dos comandos activos para la misma válvula
   Dado un comando PENDING para una válvula
   Cuando llega otro comando para la misma válvula
-  Entonces la API rechaza el segundo o reemplaza el primero (decisión por definir)
+  Entonces el nuevo reemplaza al anterior, que pasa a CANCELLED con motivo SUPERSEDED
 ```
 
 - **Requisitos:** RF-15, RF-16; RNF-08, RNF-19, RNF-33.
@@ -676,7 +682,7 @@ Escenario: historial insuficiente
 
 ### HU-19: Detectar anomalías y revisarlas
 
-- **Actor:** sistema (detección). `INSTITUTION_ADMIN` confirma o descarta (`ANOMALY_REVIEW`).
+- **Actor:** sistema (detección). `INSTITUTION_ADMIN` u `OPERATOR` confirma o descarta (`ANOMALY_REVIEW`). `VIEWER` no.
 - **Historia:** Como administrador, quiero que el sistema avise de un sensor pegado, de una caída anormal o de una posible fuga, y poder confirmar o descartar cada aviso, para que las decisiones no se basen en sospechas no revisadas.
 - **Prioridad:** should
 
@@ -806,9 +812,11 @@ Escenario: piso de reserva y prioridad humana
   Entonces los nuevos valores rigen desde la siguiente ejecución del piloto
   Y un valor fuera de límites recibe 400 con código VALIDATION_ERROR
 
-Escenario: la ruta de configuración está por definir
-  Dado que la ruta exacta del cambio de modo (PUT /autopilot/mode o PATCH de settings) está por definir
-  Entonces el contrato se fija en API.md antes de implementarlo
+Escenario: el modo se cambia en la configuración de la institución
+  Dado que un usuario con AUTOPILOT_CONFIGURE cambia autopilot_mode
+  Cuando lo envía con PATCH /api/v1/institution/settings
+  Entonces institution_settings.autopilot_mode guarda el nuevo modo
+  Y un usuario sin AUTOPILOT_CONFIGURE recibe 403 FORBIDDEN
 
 Escenario: un rol sin permiso
   Dado un usuario OPERATOR o VIEWER
@@ -1165,6 +1173,7 @@ Escenario: ejecutar una orden
   Cuando el puente lo recibe en GET /api/v1/devices/commands
   Entonces envía "S1 0" por serie, el UNO responde DONE y el puente hace POST /api/v1/devices/commands/{id}/ack
   Y la manguera queda pisada o libre según el ángulo
+  Y si hold_torque_after_move es false, el puente envía R1 tras DONE
 
 Escenario: el firmware no cambia
   Dado que el firmware recibe ángulos crudos
