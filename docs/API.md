@@ -1,13 +1,29 @@
 # API REST de CAUDAL
 
-Este documento describe la API REST de `caudal-backend` para quien la implementa, la consume o la prueba. Cubre todos los endpoints de la sección 13 de los hechos canónicos. La especificación formal (OpenAPI) se genera desde el código y se consulta en Swagger UI.
+Este documento describe la API REST de `caudal-backend` en el modelo B2B para quien la implementa, la consume o la prueba. Cubre los endpoints de los módulos M1 a M10 de [Caudal.md](Caudal.md). La especificación formal (OpenAPI) se genera desde el código y se consulta en Swagger UI.
 
 Convenciones de lectura:
 
-- Los campos de tipo `texto` tienen límites tomados de `FieldLimits` (`org`, `ops` y `iam` en `schema.yaml`). Cuando un límite viene de la BD se indica el nombre de la constante.
+- Los campos de tipo `texto` tienen límites tomados de `FieldLimits`. Cuando el límite todavía no está decidido se indica "por definir".
 - Los códigos de error están en inglés. Los mensajes para el usuario están en español.
-- Los valores de ejemplo son ficticios. No son datos reales de Guaitarilla.
-- Los permisos son códigos de `iam.permissions`. Los nombres de esta página son propuesta de diseño, verificar contra la BD cuando exista la Fase 2.
+- Los valores de ejemplo son ficticios. Los valores de la maqueta (`maqueta-caudal`) se citan como ejemplo.
+- Un permiso marcado "(propuesto)" o "(por definir)" no existe todavía en `iam.permissions`. Los permisos vigentes y la matriz por rol están en [Actores-y-permisos.md](Actores-y-permisos.md), sección 3.
+- Un valor marcado "por definir" no se implementa hasta decidirlo.
+
+Correspondencia de módulos con las secciones de este documento:
+
+| Módulo (Caudal.md) | Secciones |
+|---|---|
+| M1 Login e instituciones | 2, 3, 4 |
+| M2 Configuración de la institución | 6, 7 |
+| M3 Sensor y tanque en vivo | 8 |
+| M4 Válvulas y comandos | 10 |
+| M5 Pronóstico y eventos | 9 |
+| M6 Piloto y asistente | 11, 12 |
+| M7 Observaciones, cierre del día y actas | 13 |
+| M8 Dispositivos y maqueta | 16 |
+| M9 Auditoría | 17 |
+| M10 Instituciones simuladas | 15 |
 
 ## 1. Convenciones
 
@@ -17,40 +33,49 @@ Convenciones de lectura:
 |---|---|
 | Prefijo | Todas las rutas empiezan con `/api/v1`. Excepciones: `/actuator/health` y la documentación (`/swagger-ui.html`, `/v3/api-docs`). |
 | Formato de datos | JSON en UTF-8. Content-Type `application/json`. |
-| Nombres de campos JSON | `snake_case`, igual que las columnas de la base de datos y que el resto de proyectos del equipo (por ejemplo, Insumap). El frontend en TypeScript usa `snake_case` en los DTO y `camelCase` solo en su capa de vista (`ApiDtoAdapter`). |
-| Códigos de error y enums | Inglés en `SCREAMING_SNAKE_CASE` (`VALIDATION_ERROR`, `HIGH`, `PRIORITY_THEN_LONGEST_WAIT`). |
-| Fechas y horas | ISO-8601 con zona, por ejemplo `2026-10-09T08:00:00-05:00`. El servidor guarda UTC y responde con offset `Z` o el que corresponda. Fechas sin hora (`service_date`) usan `YYYY-MM-DD`. |
-| Números decimales | En JSON, con punto (`2.10`). La UI muestra coma (`2,10`). Los valores de nivel tienen dos decimales. |
-| Identificadores | UUID en texto. Los generados por el cliente (lecturas, puntos de telemetría) son UUID versión 7 recomendados. |
+| Nombres de campos JSON | `snake_case`, igual que las columnas de la base de datos. El frontend en TypeScript usa `snake_case` en los DTO y `camelCase` solo en su capa de vista (`ApiDtoAdapter`). |
+| Códigos de error y enums | Inglés en `SCREAMING_SNAKE_CASE` (`VALIDATION_ERROR`, `RECTANGULAR`, `INSTITUTION_ADMIN`). |
+| Fechas y horas | ISO-8601 con zona, por ejemplo `2026-11-20T10:00:00-05:00`. El servidor guarda UTC y responde con `Z` o con el offset que corresponda. Fechas sin hora (`date`) usan `YYYY-MM-DD`. |
+| Números decimales | En JSON, con punto (`4.24`). La UI muestra coma (`4,24`). Las distancias del sensor son enteros en mm. |
+| Identificadores | UUID en texto. Los generados por el cliente (puntos de telemetría) son UUID versión 7 recomendados. Los `slug` de institución son texto en minúsculas. |
 | Zona horaria | Los datos se muestran en `America/Bogota`. |
 
-Nota: el campo de correlación se llama `request_id`, en `snake_case` como el resto del JSON.
+El campo de correlación se llama `request_id`, en `snake_case` como el resto del JSON.
 
 ### 1.2 Autenticación
 
-Hay tres mecanismos, según el actor:
+Hay cuatro mecanismos, según el actor:
 
 | Actor | Mecanismo | Cabecera o cookie |
 |---|---|---|
-| Personas (Junta, fontanero, equipo, entidades) | JWT de acceso (HS256, 15 minutos) | `Authorization: Bearer <access_token>` |
+| Personas (`PLATFORM_ADMIN`, `INSTITUTION_ADMIN`, `OPERATOR`, `VIEWER`) | JWT de acceso (HS256, 15 minutos) | `Authorization: Bearer <access_token>` |
 | Sesión de la persona | Refresh token opaco de 256 bits | Cookie `caudal_rt` (`HttpOnly; Secure; SameSite=None; Path=/api/v1/auth`), con cabecera `X-Requested-With: caudal-web` y verificación de `Origin` |
-| Dispositivos (sensores, válvulas, gateways) | Firma Ed25519 sobre la petición | Cabeceras `X-Device-Id`, `X-Timestamp`, `X-Nonce`, `X-Signature` (ver `Protocolo-de-dispositivos.md`) |
-| Servicio de IA | Token de servicio | `Authorization: Bearer <IA_SERVICE_TOKEN>` (solo entre backend e IA, ver `Contrato-IA.md`) |
-| Público | Ninguna | Solo en `/api/v1/public/*` |
+| Dispositivos (sensor, actuadores y puente USB) | Firma Ed25519 sobre la petición | Cabeceras `X-Device-Id`, `X-Timestamp`, `X-Nonce`, `X-Signature` (ver [Protocolo-de-dispositivos.md](Protocolo-de-dispositivos.md)) |
+| Público | Ninguna | Solo `GET /api/v1/public/institutions` y `POST /api/v1/auth/login` |
 
-Reglas del JWT de acceso:
+Claims del JWT de acceso:
 
-- Claims: `iss`, `aud`, `sub`, `role`, `aqueduct_id`, `tv` (token_version), `jti`, `iat`, `exp`.
-- Se valida el algoritmo de forma explícita (`HS256`), `iss`, `aud`, `exp` y `nbf`, con tolerancia de 30 segundos.
-- El secreto tiene al menos 256 bits.
+| Claim | Significado |
+|---|---|
+| `iss`, `aud`, `sub`, `iat`, `exp`, `jti` | Estándar. Se valida `iss`, `aud`, `exp` y `nbf`, con tolerancia de 30 segundos. |
+| `role` | `PLATFORM_ADMIN`, `INSTITUTION_ADMIN`, `OPERATOR` o `VIEWER`. |
+| `institution_id` | Institución activa del usuario. Ausente en el token de plataforma. |
+| `scope` | `institution` (usuarios de una institución) o `platform` (superadmin). |
+| `act_as` | Solo en el token temporal del superadmin (`act_as=platform`), sección 3.5. |
+| `tv` | `token_version`. Debe coincidir con `iam.users.token_version`. |
+
+Reglas del JWT:
+
+- El algoritmo se valida de forma explícita (`HS256`). El secreto tiene al menos 256 bits.
 - `Authorization` mayor de 2 KiB se rechaza antes de parsear (`413`).
 - El access token vive solo en memoria del frontend. Nunca va en `localStorage`.
+- El `institution_id` sale del token validado, nunca de la URL ni de un parámetro.
 
-Refresh token: se rota en cada uso. Si se reutiliza un token ya rotado, se revoca toda su familia y se registra `TOKEN_REUSE_DETECTED`. Duración: 7 días; 30 días para `OPERATOR` (configurable).
+Refresh token: se rota en cada uso. Si se reutiliza un token ya rotado, se revoca toda su familia y se registra `TOKEN_REUSE_DETECTED`. Duración: 7 días; 30 días para `OPERATOR` (riesgo aceptado, ver [Seguridad.md](Seguridad.md)). La duración del `PLATFORM_ADMIN` está por confirmar.
 
 Cambiar contraseña, cambiar rol o desactivar una cuenta incrementa `token_version` y revoca sus refresh tokens. Así los access tokens vigentes dejan de servir.
 
-La cookie del refresh token se llama `caudal_rt`. El frontend (Vercel) y la API (Render) son sitios distintos, así que la cookie usa `SameSite=None; Secure; HttpOnly; Path=/api/v1/auth`. Además, la API exige la cabecera `X-Requested-With: caudal-web` y verifica que `Origin` esté en `CORS_ALLOWED_ORIGINS`. Si algún día comparten dominio, se pasa a `SameSite=Strict`.
+La cookie del refresh token se llama `caudal_rt`. El frontend (Vercel) y la API (Render) son sitios distintos, así que la cookie usa `SameSite=None; Secure; HttpOnly; Path=/api/v1/auth`. Además, la API exige la cabecera `X-Requested-With: caudal-web` y verifica que `Origin` esté en `CORS_ALLOWED_ORIGINS`.
 
 ### 1.3 Formato de error canónico
 
@@ -59,20 +84,19 @@ Toda respuesta de error tiene esta forma:
 ```json
 {
   "error": {
-    "code": "GAUGE_OUT_OF_RANGE",
-    "message": "La lectura está fuera del rango de la regla del tanque (0,00 a 5,00).",
+    "code": "CALIBRATION_INVALID",
+    "message": "La distancia de lleno debe ser menor que la de vacío (350 mm).",
     "details": {
-      "gauge_min": "0,00",
-      "gauge_max": "5,00",
-      "value": "8,00"
+      "empty_distance_mm": 350,
+      "full_distance_mm": 400
     },
     "request_id": "7f3c2a9e-1d4b-4e1a-9c0e-2b8f5a6d1e33"
   }
 }
 ```
 
-- `code`: código del catálogo de la siguiente tabla. El frontend decide su comportamiento con este campo, no con el texto.
-- `message`: en español, pensado para mostrarse al usuario. No revela si un usuario existe.
+- `code`: código del catálogo de la sección 1.4. El frontend decide su comportamiento con este campo, no con el texto.
+- `message`: en español, pensado para mostrarse al usuario. No revela si un usuario existe ni si una institución existe.
 - `details`: opcional. Siempre un objeto JSON. No contiene trazas, SQL ni secretos.
 - `request_id`: correlaciona la respuesta con los logs. También viene en la cabecera `X-Request-Id`.
 
@@ -80,46 +104,44 @@ Toda respuesta de error tiene esta forma:
 
 | Código | HTTP | Mensaje (español, ejemplo) | Cuándo |
 |---|---|---|---|
-| `VALIDATION_ERROR` | 400 | Revisa los datos enviados. | Formato, tipo, longitud, campo desconocido, JSON mal formado, rango de fechas inválido, UUID inválido |
-| `UNAUTHORIZED` | 401 | Sesión no válida. Vuelve a iniciar sesión. | Falta el token, expiró o no es válido. |
-| `INVALID_CREDENTIALS` | 401 | Usuario o contraseña incorrectos. | Login fallido. Igual con cuenta bloqueada o desactivada: no se revela el bloqueo. |
-| `MFA_REQUIRED` | 401 | Escribe el código de tu aplicación de autenticación. | La contraseña es correcta y la cuenta tiene MFA activo, pero falta `mfa_code`. |
+| `VALIDATION_ERROR` | 400 | Revisa los datos enviados. | Formato, tipo, longitud, campo desconocido, JSON mal formado, rango de fechas inválido, UUID inválido, forma del tanque que no coincide con sus medidas |
+| `CURSOR_INVALID` | 400 | El cursor de paginación no es válido. | Cursor alterado o expirado |
+| `UNAUTHORIZED` | 401 | Sesión no válida. Vuelve a iniciar sesión. | Falta el token, expiró o no es válido |
+| `INVALID_CREDENTIALS` | 401 | Usuario o contraseña incorrectos. | Login fallido. Igual con institución inexistente, cuenta bloqueada, cuenta desactivada o `mfa_code` incorrecto: no se revela el motivo |
+| `MFA_REQUIRED` | 401 | Escribe el código de tu aplicación de autenticación. | La contraseña es correcta y la cuenta tiene MFA activo, pero falta `mfa_code` |
 | `SESSION_REVOKED` | 401 | Tu sesión se cerró. Vuelve a iniciar sesión. | Refresh token reutilizado o familia revocada |
-| `INVALID_SIGNATURE` | 401 | La firma del dispositivo no es válida. | Firma Ed25519 incorrecta |
+| `INVALID_SIGNATURE` | 401 | La firma del dispositivo no es válida. | Firma Ed25519 incorrecta, clave o dispositivo desconocido |
 | `NONCE_REPLAY` | 401 | Petición repetida. | `X-Nonce` ya visto en los últimos 10 minutos |
 | `TIMESTAMP_OUT_OF_WINDOW` | 401 | La hora de la petición está fuera de la ventana permitida. | `X-Timestamp` fuera de ±300 s |
-| `FORBIDDEN` | 403 | No tienes permiso para esta acción. | Falta el permiso o el recurso es de otro acueducto |
+| `FORBIDDEN` | 403 | No tienes permiso para esta acción. | Falta el permiso, o un `VIEWER` intenta una mutación |
 | `PASSWORD_CHANGE_REQUIRED` | 403 | Debes cambiar tu contraseña antes de continuar. | `must_change_password = true`; solo se permiten `/auth/current-user`, `/auth/change-password` y `/auth/logout` |
 | `PRIVACY_NOTICE_PENDING` | 403 | Debes aceptar el aviso de privacidad. | Hay una versión nueva sin aceptar |
 | `DEVICE_INACTIVE` | 403 | El dispositivo no está activo. | Dispositivo `SUSPENDED` o `RETIRED` |
-| `DEMO_ONLY` | 403 | Esta operación solo aplica al acueducto de demostración. | Importación fuera de `is_demo = true` |
-| `NOT_FOUND` | 404 | No encontramos ese recurso. | Recurso inexistente o fuera del acueducto (no se distingue, para no revelar existencia) |
-| `CONFLICT` | 409 | Los datos cambiaron. Recarga e intenta de nuevo. | `lock_version` distinto, usuario o código ya existente, cierre ya registrado |
-| `INVALID_STATE_TRANSITION` | 409 | Esta acción no es válida en el estado actual. | Transición no permitida (propuesta, incidente, anomalía, día cerrado) |
-| `DUPLICATE_READING` | 409 | Ya existe una lectura con ese identificador y otro contenido. | Mismo UUID de cliente con contenido distinto |
-| `SCHEDULE_OVERLAP` | 409 | Los turnos se solapan. | Turnos que se cruzan en el tiempo |
-| `RULE_SET_IMMUTABLE` | 409 | Las reglas activas no se pueden modificar. Crea un borrador nuevo. | Edición de una versión `ACTIVE` o `SUPERSEDED` |
+| `SIMULATED_ONLY` | 403 | Esta operación solo aplica a instituciones simuladas. | Importación fuera de `is_simulated = true` (propuesto; reemplaza `DEMO_ONLY`) |
+| `NOT_FOUND` | 404 | No encontramos ese recurso. | Recurso inexistente o de otra institución (no se distingue, para no revelar existencia) |
+| `CONFLICT` | 409 | Los datos cambiaron. Recarga e intenta de nuevo. | `lock_version` distinto, usuario o slug ya existente, cierre del día ya registrado, clave repetida, válvula que ya tiene actuador |
+| `INVALID_STATE_TRANSITION` | 409 | Esta acción no es válida en el estado actual. | Transición no permitida (anomalía no `OPEN`, comando `EXPIRED` o `CANCELLED`, decisión ya no `PENDING`) |
 | `RATE_LIMITED` | 429 | Hiciste demasiadas solicitudes. Espera un momento. | Límite de tasa. Incluye `Retry-After` en segundos |
-| `GAUGE_OUT_OF_RANGE` | 422 | La lectura está fuera del rango de la regla del tanque. | Valor fuera de `gauge_min..gauge_max` o con más de 2 decimales |
-| `MISSING_TIMESTAMP` | 422 | Falta la fecha y hora de la observación. | `observed_at` ausente o no válido |
-| `FUTURE_TIMESTAMP` | 422 | La fecha de la observación está en el futuro. | `observed_at` mayor que ahora + 5 minutos |
-| `TOO_OLD` | 422 | La observación es demasiado antigua para registrarla. | Más de `max_backdate_days` días atrás |
-| `REASON_REQUIRED` | 422 | Escribe el motivo (entre 10 y 500 caracteres). | Motivo ausente, vacío o de menos de 10 caracteres |
-| `PASSWORD_POLICY_VIOLATION` | 422 | La contraseña no cumple la política. | Menos de 12 caracteres, en la lista de comunes, contiene el usuario, repetida del historial |
-| `RULE_SET_INVALID` | 422 | La versión de reglas no es válida. | Bandas con solape o huecos, rangos inválidos (ver `Reglas-de-negocio.md`, sección 2) |
-| `NO_LEVEL_DATA` | 422 | No hay un nivel válido para calcular la propuesta. | No hay lectura efectiva del tanque |
-| `HOURS_EXCEEDED` | 422 | La suma de turnos supera las horas disponibles. | Turnos modificados que superan el presupuesto del día |
-| `SHIFT_LENGTH_INVALID` | 422 | La duración del turno no está entre el mínimo y el máximo. | Fuera de `min_shift_hours..max_shift_hours` |
-| `OUTSIDE_OPERATING_WINDOW` | 422 | El turno cae fuera del horario de operación. | Fuera de `rule_operating_windows` |
-| `IMPORT_LIMIT_EXCEEDED` | 422 | El lote supera 5.000 filas. | Importación con más filas del límite |
-| `INVALID_KEY` | 422 | La clave pública no es válida. | No es Ed25519 de 32 bytes en base64url |
-| `CURSOR_INVALID` | 400 | El cursor de paginación no es válido. | Cursor alterado o expirado |
-| `PAYLOAD_TOO_LARGE` | 413 | El cuerpo de la petición es demasiado grande. | Supera el límite de la familia de rutas (ver sección 1.8) |
+| `PAYLOAD_TOO_LARGE` | 413 | El cuerpo de la petición es demasiado grande. | Supera el límite de la familia de rutas (sección 1.8) |
 | `UNSUPPORTED_MEDIA_TYPE` | 415 | Tipo de contenido no soportado. | Content-Type distinto de `application/json` en rutas JSON |
-| `IA_UNAVAILABLE` | 503 | El servicio de pronóstico no responde. Se usa la estimación simple. | Solo si fallan la IA y la estimación de respaldo a la vez (no debería ocurrir). El fallo normal de la IA no devuelve error: responde `200`/`201` con `is_fallback = true`. |
+| `DISTANCE_OUT_OF_RANGE` | 422 | La distancia del sensor está fuera de su alcance. | `distance_mm` menor que 0 (distinto de `-1`) o mayor que el alcance del sensor (propuesto) |
+| `CALIBRATION_INVALID` | 422 | Revisa la calibración del tanque. | `full_distance_mm >= empty_distance_mm`, o `empty_distance_mm` mayor que `height_mm` más el margen de montaje (propuesto) |
+| `NO_LEVEL_DATA` | 422 | No hay una lectura válida del sensor. | Sin lectura válida para calibrar, pronosticar o preguntar al asistente |
+| `MISSING_TIMESTAMP` | 422 | Falta la fecha y hora de la medida. | `observed_at` ausente o no válido |
+| `FUTURE_TIMESTAMP` | 422 | La fecha de la medida está en el futuro. | `observed_at` mayor que ahora + 5 minutos |
+| `TOO_OLD` | 422 | La medida es demasiado antigua para registrarla. | Solo en importación: fecha anterior al límite de antigüedad `max_backdate_days` (parámetro por definir; sin fuente desde que se quitaron `rule_sets`) |
+| `REASON_REQUIRED` | 422 | Escribe el motivo (entre 10 y 500 caracteres). | Descarte de una anomalía sin nota, observación `OTHER` sin texto |
+| `PASSWORD_POLICY_VIOLATION` | 422 | La contraseña no cumple la política. | Menos de 12 caracteres, en la lista de comunes, contiene el usuario, repetida del historial |
+| `INVALID_KEY` | 422 | La clave pública no es válida. | No es Ed25519 de 32 bytes en base64url |
+| `IMPORT_LIMIT_EXCEEDED` | 422 | El lote supera 5.000 filas. | Importación con más filas del límite |
+| `IA_UNAVAILABLE` | 503 | El servicio de pronóstico no responde. Se usa la estimación simple. | Solo si fallan la IA y la estimación de respaldo a la vez. El fallo normal de la IA no devuelve error: responde `200`/`201` con `is_fallback = true`. |
 | `INTERNAL_ERROR` | 500 | Ocurrió un error. Intenta de nuevo más tarde. | Error no controlado. Sin trazas en la respuesta. |
 
-Los códigos del servicio de IA (`INSUFFICIENT_HISTORY`, `INVALID_SERIES`, `MODEL_NOT_READY`) no llegan al cliente de la API. El backend los convierte en respaldo (ver `Contrato-IA.md`).
+Notas del catálogo:
+
+- Los códigos del servicio de IA (`INSUFFICIENT_HISTORY`, `INVALID_SERIES`, `MODEL_NOT_READY`) no llegan al cliente. El backend los convierte en respaldo (ver [Contrato-IA.md](Contrato-IA.md)).
+- Los códigos de reglas versionadas, turnos, lecturas manuales, correcciones y público salen del catálogo (sección 21.2).
+- Actores-y-permisos.md usa `PERMISSION_DENIED` y `RESOURCE_NOT_FOUND`. Este documento usa `FORBIDDEN` y `NOT_FOUND`, que son los del catálogo. Por unificar en `Actores-y-permisos.md`.
 
 ### 1.5 Paginación por cursor
 
@@ -130,23 +152,22 @@ Las colecciones son paginadas con cursor opaco firmado.
 
 ```json
 {
-  "items": [{ "id": "0190f3a2-7c1d-7b2e-9f11-3d4c5e6f7a81", "status": "REPORTED" }],
+  "items": [{ "id": "0190f3a2-7c1d-7b2e-9f11-3d4c5e6f7a81", "kind": "POSSIBLE_LEAK", "status": "OPEN" }],
   "next_cursor": "eyJvIjoyMH0.c2lnbmF0dXJh"
 }
 ```
 
 - El cursor se firma con HMAC. Un cursor alterado responde `400 CURSOR_INVALID`.
-- Las listas tienen orden estable (por `reported_at`, `observed_at`, `created_at` o `id`, según el recurso, descendente por defecto).
+- Las listas tienen orden estable (por `observed_at`, `created_at`, `detected_at` o `id`, según el recurso, descendente por defecto).
 - No se soportan `offset` ni conteos totales.
 
 ### 1.6 Idempotencia
 
 | Operación | Clave de idempotencia | Comportamiento |
 |---|---|---|
-| `POST /readings` | `id` (UUID del cliente) | Mismo `id` y mismo contenido: `200` con la lectura original y `idempotent_replay: true`. Mismo `id` con contenido distinto: `409 DUPLICATE_READING`. |
-| `POST /readings/batch` | `sync_batch_id` y `id` de cada lectura | Un lote repetido devuelve el resultado original. Cada lectura ya guardada se marca como `REPLAYED`. |
-| `POST /devices/telemetry` | `id` de cada punto | Un punto repetido se cuenta en `duplicates` y no se guarda otra vez. |
-| `POST /imports/*` | `file_sha256` del archivo | Un archivo ya importado responde `409 CONFLICT`. |
+| `POST /devices/telemetry` | `id` de cada punto | Un punto repetido con el mismo contenido se cuenta en `duplicates` y no se guarda otra vez. Mismo `id` con contenido distinto: `CONFLICT`. |
+| `POST /imports/readings` | `file_sha256` del archivo | Un archivo ya importado responde `409 CONFLICT`. |
+| `POST /valve-commands/manual` | Por definir | No hay idempotencia por cabecera. Un segundo comando activo sobre la misma válvula se rechaza o reemplaza (por definir, ver sección 10). |
 | Resto de `POST` | Por definir | No hay idempotencia por cabecera en esta versión. Usar `lock_version` donde aplique. |
 
 ### 1.7 Versionado
@@ -154,8 +175,9 @@ Las colecciones son paginadas con cursor opaco firmado.
 - Versión en la ruta: `/api/v1`.
 - Cambios aditivos (campos nuevos en respuestas, endpoints nuevos, valores nuevos opcionales) no suben la versión. Los clientes deben ignorar campos desconocidos en respuestas.
 - Cambios incompatibles (quitar campos, cambiar tipos, cambiar significado de un código) requieren `/api/v2`.
-- Las versiones anteriores se marcan con cabeceras `Deprecation` y `Sunset` antes de retirarse (propuesta).
-- El contrato con la IA tiene su propia versión (`/v1/*` en el servicio de IA). Ver `Contrato-IA.md`.
+- El contrato con la IA tiene su propia versión (`/v1/*` en el servicio de IA). Ver [Contrato-IA.md](Contrato-IA.md).
+
+La migración del modelo B2B no cambia la versión de la ruta: los endpoints eliminados se quitan con la versión 1 en uso y se listan en la sección 21.1.
 
 ### 1.8 Límites de tamaño y de tasa
 
@@ -170,14 +192,17 @@ Las colecciones son paginadas con cursor opaco firmado.
 | Texto global | 2.000 caracteres (tope por campo además) | Hechos, sección 11 |
 | Campos desconocidos | Se rechazan (`VALIDATION_ERROR`) | `FAIL_ON_UNKNOWN_PROPERTIES` |
 | Tipos | Sin coerción (un número no es texto) | Hechos, sección 11 |
-| Login | 5 por minuto por IP | Hechos, sección 11 |
-| Reportes públicos de daño | 3 por hora por IP, más honeypot y tiempo mínimo de llenado | Hechos, sección 11 |
+| Login por (IP, institución) | 5 por minuto | Seguridad.md, sección 2.10 |
+| Login por IP | 20 intentos en 15 minutos | Sección 2.2 |
+| Directorio público | Por IP. Valor por definir | Seguridad.md, sección 2.10 |
 | API autenticada | 120 por minuto por usuario | Hechos, sección 11 |
-| Telemetría | 60 por minuto por dispositivo | Hechos, sección 11 |
-| Recálculo de pronóstico | 10 por hora por acueducto | Hechos, sección 11 |
-| Otros grupos (importación, lectura pública, evaluación) | Por definir | |
+| Telemetría | 60 por minuto por dispositivo, en todas las rutas firmadas | Reglas-de-negocio.md, sección 4.1 |
+| Recálculo de pronóstico | 10 por hora por institución | Hechos, sección 11 |
+| Otros grupos (importación, evaluación) | Por definir | |
 
 Respuesta al exceder un límite: `429 RATE_LIMITED` con la cabecera `Retry-After` (segundos, redondeados hacia arriba) y el mismo valor en `details.retry_after_seconds`. El contador es un bucket de Bucket4j en PostgreSQL (`iam.rate_limit_buckets`, con bloqueos *advisory*) para que sea compartido entre instancias. La clave nunca lleva la IP en claro: es `login-ip:` más su HMAC. El límite de login cuenta todos los intentos, exitosos o no, y se decide antes de mirar la contraseña.
+
+Presupuesto de los dispositivos: cada dispositivo tiene su propio cupo de 60 por minuto. Un sensor que envía `DISTANCE` cada 2 s usa 30 por minuto. Un actuador que consulta `GET /devices/commands` cada 2 s usa otras 30. La consulta de `GET /devices/config` debe caber en lo que sobra. Su cadencia está por definir (propuesta: cada 30 s o al cambiar `config_version`).
 
 Campo `text` con normalización: NFC, recorte de espacios, colapso de espacios internos en nombres. Se rechazan caracteres de control (salvo `\n` en textos largos), caracteres bidi (U+202A a U+202E, U+2066 a U+2069) y de ancho cero (U+200B a U+200F, U+FEFF).
 
@@ -188,89 +213,81 @@ Campo `text` con normalización: NFC, recorte de espacios, colapso de espacios i
 - `/v3/api-docs` y `/swagger-ui.html` son públicos (solo documentación). Cabecera CSP de `/swagger-ui/**`: `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'`. El resto de la API usa `default-src 'none'; frame-ancestors 'none'`.
 - Esquema de seguridad `bearerAuth` (JWT). Ejecutar peticiones desde Swagger requiere un JWT válido.
 - Cada endpoint tiene `summary` y `description` en español.
-- Los ejemplos usan datos ficticios. No se publican datos reales de personas ni de la comunidad.
-- Los ejemplos de respuesta de errores usan los códigos de la sección 1.4.
+- Los ejemplos usan datos ficticios. No se publican datos reales de personas ni de instituciones.
 
 ### 1.10 Notación de este documento
 
 Cada endpoint indica:
 
-- **Permiso:** código requerido. Los roles que lo tienen están en la matriz de la sección 9 de los hechos.
+- **Permiso:** código requerido. `Autenticado` significa solo sesión, sin permiso adicional. `Público` significa sin sesión. La matriz por rol está en [Actores-y-permisos.md](Actores-y-permisos.md), sección 3.2.
 - **Cuerpo:** campos, tipo, si es obligatorio y límites.
 - **Respuesta:** campos principales.
-- **Errores:** códigos posibles, además de los comunes: `401 UNAUTHORIZED` si no hay sesión, `403 FORBIDDEN` si falta el permiso, `404 NOT_FOUND` si el recurso no existe en el acueducto, `429 RATE_LIMITED` si se excede la tasa, `500 INTERNAL_ERROR`. Estos comunes no se repiten en cada endpoint.
+- **Errores:** códigos posibles, además de los comunes: `401 UNAUTHORIZED` si no hay sesión, `403 FORBIDDEN` si falta el permiso, `404 NOT_FOUND` si el recurso no existe en la institución, `429 RATE_LIMITED` si se excede la tasa, `500 INTERNAL_ERROR`. Estos comunes no se repiten en cada endpoint.
 - **Ejemplo:** fragmento corto.
 
-Los permisos de la tabla siguiente son los que se usan en las secciones de recursos:
+Todos los endpoints de institución (`/institution/*`, `/tanks/*`, `/service-lines/*`, etc.) toman la institución del token. Un `PLATFORM_ADMIN` sin `act_as` solo puede usar los endpoints de `/platform/*`.
 
-| Permiso (propuesta) | BOARD_ADMIN | BOARD_MEMBER | OPERATOR | PROJECT_TEAM | SUPPORT_ENTITY | Público |
-|---|---|---|---|---|---|---|
-| `USER_MANAGE` (usuarios y membresías) | Sí | No | No | No | No | No |
-| `RULESET_PROPOSE` (crear borrador) | Sí | Sí | No | No | No | No |
-| `RULESET_EDIT` | Sí | Sí | No | No | No | No |
-| `RULESET_ACTIVATE` | Sí | No | No | No | No | No |
-| `READING_CREATE` | Sí | No | Sí | No | No | No |
-| `READING_CORRECT` | Sí | Sí | Sí (propias) | No | No | No |
-| `TANK_STATUS_READ` | Sí | Sí | Sí | Sí | No | No |
-| `FORECAST_RUN` | Sí | Sí | Sí | No | No | No |
-| `PROPOSAL_GENERATE`, `PROPOSAL_DECIDE`, `PROPOSAL_PUBLISH` | Sí | Sí | No | No | No | No |
-| `PROPOSAL_READ` (borradores) | Sí | Sí | No | No | No | No |
-| `EXECUTION_RECORD`, `DAY_CLOSE` | Sí | No | Sí | No | No | No |
-| `SCHEDULE_VIEW` (horario publicado del día) | Sí | Sí | Sí | Sí | No | No |
-| `INCIDENT_CREATE`, `INCIDENT_READ` | Sí | Sí | Sí | Sí | No | No (solo público) |
-| `MINUTES_GENERATE`, `MINUTES_VIEW`, `SUMMARY_SHARE_MANAGE` | Sí | Sí (sin compartir) | No | No | No | No |
-| `SUMMARY_READ` | Sí | Sí | No | No | Sí (solo autorizados) | No |
-| `EVALUATION_READ`, `IMPORT_RUN`, `AUDIT_READ`, `DEVICE_MANAGE` | Sí | No | No | Sí | No | No |
-| `VALVE_COMMAND_MANUAL` (comando manual y aceptar una decisión del piloto) | Sí | No | Sí | No | No | No |
-| `AUTOPILOT_CONFIGURE` (modo del piloto, ciclo forzado) | Sí | No | No | No | No | No |
-| `ASSISTANT_USE` (decisiones del piloto, preguntas al asistente) | Sí | Sí | Sí | Sí | No | No |
-| `REPORT_VIEW` (reportes del periodo y su narrativa) | Sí | Sí | No | Sí | No | No |
+## 2. Público y autenticación (`/public`, `/auth`)
 
-Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla responde a la matriz de la sección 9 de los hechos. Los nombres de permisos son propuesta y se confirman al cargar `iam.permissions` (Fase 2).
+### 2.1 `GET /api/v1/public/institutions`
 
-## 2. Autenticación (`/auth`)
+- **Permiso:** `Público`. Limitado por tasa (sección 1.8).
+- **Alcance:** solo instituciones activas. Responde `{slug, name}`. No hace join con usuarios, tanques ni datos de operación. Lo filtra `PublicInstitutionDirectoryProxy` (patrón Proxy).
+- **Respuesta 200:** `items` con `slug` y `name`. Sin paginación: la lista es corta (por definir si crece).
+- **Nota:** el frontend también puede entrar por `/i/{slug}/login`, que es una ruta de la aplicación web y no de la API.
+- **Riesgo aceptado:** el directorio expone qué instituciones son clientes. Ver [Riesgos.md](Riesgos.md), RG-06.
+- **Ejemplo:**
 
-### 2.1 `POST /api/v1/auth/login`
+```json
+{ "items": [{ "slug": "maqueta-caudal", "name": "Maqueta CAUDAL" }] }
+```
 
-- **Permiso:** público.
+### 2.2 `POST /api/v1/auth/login`
+
+- **Permiso:** `Público`.
 - **Cuerpo:**
 
 | Campo | Tipo | Oblig. | Límites |
 |---|---|---|---|
+| `institution_slug` | texto | Sí, salvo superadmin | Slug de la institución. Para el superadmin, `null` (opción "CAUDAL (plataforma)"). |
 | `username` | texto | Sí | 3 a 32, `^[a-z0-9][a-z0-9._-]{1,30}[a-z0-9]$`, se normaliza a minúsculas (`FieldLimits.USERNAME`) |
 | `password` | texto | Sí | 12 a 128, NFKC (`FieldLimits.PASSWORD`) |
 | `mfa_code` | texto | Si la cuenta tiene MFA activo | 6 dígitos (`FieldLimits.TOTP_CODE_PATTERN`) o un código de respaldo |
 
-- **Respuesta 200:** `access_token` (texto), `token_type` (`Bearer`), `expires_in` (900), `user` (`id`, `username`, `full_name`, `role`, `aqueduct_id`, `must_change_password`). Cookie `Set-Cookie` con el refresh token.
-- **Errores:** `401 INVALID_CREDENTIALS` (siempre con el mismo mensaje, aunque la cuenta esté bloqueada o desactivada, y también con un `mfa_code` incorrecto o ya usado), `401 MFA_REQUIRED` (la contraseña es correcta y la cuenta tiene MFA activo, pero falta `mfa_code`), `429 RATE_LIMITED`.
-- **Notas:** bloqueo por cuenta (5 fallos consecutivos en 15 minutos → 15 minutos, escalonado (x2) hasta 24 horas), bloqueo por IP (20 intentos en 15 minutos) y tiempo constante con hash señuelo. `MFA_REQUIRED` solo se responde después de verificar la contraseña: con una contraseña incorrecta la respuesta es siempre `INVALID_CREDENTIALS`. Un `mfa_code` incorrecto queda como `MFA_FAILED` en `iam.login_attempts` y en `iam.security_events`, y cuenta para el bloqueo.
+- **Respuesta 200:** `access_token` (texto), `token_type` (`Bearer`), `expires_in` (900), `user` (`id`, `username`, `full_name`, `role`, `institution_id`, `institution_slug`, `must_change_password`). Para el superadmin, `institution_id` y `institution_slug` son `null` y `role` es `PLATFORM_ADMIN`. Cookie `Set-Cookie` con el refresh token.
+- **Errores:** `401 INVALID_CREDENTIALS` (siempre con el mismo mensaje y el mismo tiempo de respuesta: institución inexistente, usuario inexistente en esa institución, contraseña incorrecta, cuenta bloqueada o desactivada, `mfa_code` incorrecto o ya usado), `401 MFA_REQUIRED` (solo si la contraseña es correcta), `429 RATE_LIMITED`.
+- **Reglas:**
+  - El usuario es único por institución `(institution_id, username)`. Dos instituciones pueden tener un usuario `admin`.
+  - Bloqueo por cuenta: 5 fallos consecutivos en 15 minutos bloquean 15 minutos; el bloqueo se duplica hasta 24 horas.
+  - Bloqueo por IP: 20 intentos fallidos en 15 minutos.
+  - Hash señuelo para tiempo constante cuando el usuario o la institución no existen.
+  - `MFA_REQUIRED` solo se responde después de verificar la contraseña. Un `mfa_code` incorrecto queda como `MFA_FAILED` en `iam.login_attempts` y en `iam.security_events`, y cuenta para el bloqueo.
 - **Ejemplo:**
 
 ```json
-{ "username": "junta.presidencia", "password": "contraseña-de-ejemplo-larga" }
+{ "institution_slug": "maqueta-caudal", "username": "operador.ejemplo", "password": "contraseña-de-ejemplo-larga" }
 ```
 
-### 2.2 `POST /api/v1/auth/refresh`
+### 2.3 `POST /api/v1/auth/refresh`
 
 - **Permiso:** cookie `caudal_rt` válida, cabecera `X-Requested-With: caudal-web` y `Origin` permitido. Sin cuerpo.
 - **Respuesta 200:** `access_token` nuevo y `expires_in`. Cookie rotada.
 - **Errores:** `401 UNAUTHORIZED` (sin cookie o vencida), `401 SESSION_REVOKED` (reutilización detectada: se revoca la familia), `403 FORBIDDEN` (falta `X-Requested-With` o `Origin` no permitido).
 
-### 2.3 `POST /api/v1/auth/logout`
+### 2.4 `POST /api/v1/auth/logout`
 
-- **Permiso:** autenticado.
+- **Permiso:** `Autenticado`.
 - **Respuesta 204.** Revoca la familia del refresh token actual (`LOGOUT`) y borra la cookie.
-- **Nota:** si hay pendientes en la cola offline, el frontend avisa antes de llamar a este endpoint.
 
-### 2.4 `POST /api/v1/auth/logout-all`
+### 2.5 `POST /api/v1/auth/logout-all`
 
-- **Permiso:** autenticado.
+- **Permiso:** `Autenticado`.
 - **Respuesta 204.** Revoca todos los refresh tokens del usuario (`LOGOUT_ALL`).
-- **Efecto:** además incrementa `token_version`, así que los access tokens ya emitidos (también el de esta petición) responden `401 UNAUTHORIZED` en su siguiente uso (HU-05). Borra la cookie `caudal_rt`.
+- **Efecto:** además incrementa `token_version`, así que los access tokens ya emitidos responden `401 UNAUTHORIZED` en su siguiente uso. Borra la cookie `caudal_rt`.
 
-### 2.5 `POST /api/v1/auth/change-password`
+### 2.6 `POST /api/v1/auth/change-password`
 
-- **Permiso:** autenticado. Permitido aunque `must_change_password = true`.
+- **Permiso:** `Autenticado`. Permitido aunque `must_change_password = true`.
 - **Cuerpo:**
 
 | Campo | Tipo | Oblig. | Límites |
@@ -279,7 +296,7 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 | `new_password` | texto | Sí | 12 a 128, NFKC, sin lista de comunes, sin el usuario, no repetida de las últimas 5 |
 
 - **Respuesta 204.** Incrementa `token_version`, revoca los refresh tokens (`PASSWORD_CHANGED`) y pone `must_change_password = false`.
-- **Errores:** `401 UNAUTHORIZED` (contraseña actual incorrecta), `422 PASSWORD_POLICY_VIOLATION` (`details.rule`: `TOO_SHORT`, `TOO_LONG`, `COMMON`, `CONTAINS_USERNAME` o `RECENTLY_USED`; una contraseña corta responde 422 y no 400, porque la regla vive en la política).
+- **Errores:** `401 UNAUTHORIZED` (contraseña actual incorrecta), `422 PASSWORD_POLICY_VIOLATION` (`details.rule`: `TOO_SHORT`, `TOO_LONG`, `COMMON`, `CONTAINS_USERNAME` o `RECENTLY_USED`).
 - **Historial:** se comparan la contraseña vigente y las anteriores de `iam.password_history`, hasta `PASSWORD_HISTORY_SIZE` en total.
 - **Ejemplo:**
 
@@ -287,729 +304,842 @@ Nota: `BOARD_MEMBER` no comparte resúmenes ni registra dispositivos. La tabla r
 { "current_password": "contraseña-temporal-ejemplo", "new_password": "nueva-contraseña-de-ejemplo" }
 ```
 
-### 2.6 `POST /api/v1/auth/reset-password`
+### 2.7 `POST /api/v1/auth/reset-password`
 
-- **Permiso:** público (con código de un solo uso emitido por la Junta).
-- **Cuerpo:** `username` (texto, mismo tope de entrada que login), `code` (texto de 1 a 32 caracteres; el código real tiene 12 caracteres Crockford base32, se muestra como `ABCD-EFGH-JKMN` y se acepta en minúsculas, con espacios o guiones), `new_password` (mismo límite que 2.5).
-- **Respuesta 204.** Marca el código como usado, incrementa `token_version` y revoca las sesiones (`PASSWORD_CHANGED`). No cambia `must_change_password`: una cuenta nueva sigue obligada a cambiar su contraseña tras el primer ingreso (HU-02). Si la contraseña no cumple la política responde 422 y el código no se gasta.
-- **Errores:** `401 UNAUTHORIZED` (código inválido, vencido o usado; mensaje genérico), `422 PASSWORD_POLICY_VIOLATION`, `429 RATE_LIMITED`.
+- **Permiso:** `Público` (con código de un solo uso emitido por el administrador de la institución o por el superadmin).
+- **Cuerpo:** `institution_slug` (texto, obligatorio; el usuario es único solo dentro de su institución), `username` (mismo tope de entrada que login), `code` (texto de 1 a 32 caracteres; el código real tiene 12 caracteres Crockford base32, se muestra como `ABCD-EFGH-JKMN` y se acepta en minúsculas, con espacios o guiones), `new_password` (mismo límite que 2.6).
+- **Respuesta 204.** Marca el código como usado, incrementa `token_version` y revoca las sesiones (`PASSWORD_CHANGED`). No cambia `must_change_password`: una cuenta nueva sigue obligada a cambiar su contraseña tras el primer ingreso. Si la contraseña no cumple la política responde 422 y el código no se gasta.
+- **Errores:** `401 UNAUTHORIZED` (código inválido, vencido o usado, o institución o usuario inexistentes; mensaje genérico), `422 PASSWORD_POLICY_VIOLATION`, `429 RATE_LIMITED`.
 
-### 2.7 `GET /api/v1/auth/current-user`
+### 2.8 `GET /api/v1/auth/current-user`
 
-- **Permiso:** autenticado. Permitido aunque `must_change_password = true`.
-- **Ruta antigua:** `GET /api/v1/auth/me` responde lo mismo mientras se publica el frontend que usa la ruta nueva; se retirará después.
-- **Respuesta 200:** `id`, `username`, `full_name`, `status`, `must_change_password`, `privacy_accepted_version`, `memberships` (lista de `aqueduct_id`, `role`, `valid_from`, `valid_to`) y `permissions` (lista de códigos).
+- **Permiso:** `Autenticado`. Permitido aunque `must_change_password = true`.
+- **Respuesta 200:** `id`, `username`, `full_name`, `role`, `institution` (`id`, `slug`, `name`, `is_simulated`; `null` para el superadmin), `must_change_password`, `privacy_accepted_version` y `permissions` (lista de códigos vigentes en esa institución).
 - **Ejemplo:**
 
 ```json
 {
   "id": "0190f3a2-0000-7000-8000-000000000001",
-  "username": "fontanero.ejemplo",
+  "username": "operador.ejemplo",
   "full_name": "Persona de Ejemplo",
+  "role": "OPERATOR",
+  "institution": { "id": "0190f3a2-0000-7000-8000-0000000000aa", "slug": "maqueta-caudal", "name": "Maqueta CAUDAL", "is_simulated": false },
   "must_change_password": false,
-  "memberships": [{ "aqueduct_id": "0190f3a2-0000-7000-8000-0000000000aa", "role": "OPERATOR" }],
-  "permissions": ["READING_CREATE", "READING_CORRECT", "EXECUTION_RECORD", "DAY_CLOSE"]
+  "permissions": ["NETWORK_VIEW", "STATUS_VIEW", "VALVE_COMMAND_MANUAL", "OBSERVATION_CREATE", "DAY_CLOSE", "MINUTES_VIEW", "ASSISTANT_USE"]
 }
 ```
 
-### 2.8 `POST /api/v1/auth/mfa/enroll` y `POST /api/v1/auth/mfa/confirm`
+### 2.9 `POST /api/v1/auth/mfa/enroll` y `POST /api/v1/auth/mfa/confirm`
 
-- **Permiso:** autenticado, solo roles de `MFA_ALLOWED_ROLES` (por defecto `BOARD_ADMIN` y `PROJECT_TEAM`). Otro rol responde `403 FORBIDDEN`.
+- **Permiso:** `Autenticado`, solo para los roles de `MFA_ALLOWED_ROLES`: `PLATFORM_ADMIN` e `INSTITUTION_ADMIN`. Otro rol responde `403 FORBIDDEN`. Hacerlo obligatorio para `INSTITUTION_ADMIN` está por definir (ver [Actores-y-permisos.md](Actores-y-permisos.md), sección 2).
 - **TOTP:** RFC 6238 con HMAC-SHA1, 6 dígitos y pasos de 30 segundos; se acepta un paso de desfase hacia cada lado. Un código no sirve dos veces (`last_used_step`).
-- **`POST /auth/mfa/enroll`:** sin cuerpo. Genera un secreto de 20 bytes, lo guarda cifrado con AES-256-GCM (clave `MFA_ENCRYPTION_KEY`, id `MFA_KEY_ID`, ligado a la cuenta) y responde `201` con `secret` (Base32) y `otpauth_uri` (para el QR), una sola vez. Repetirla reemplaza un factor pendiente. `409 CONFLICT` con `details.reason = MFA_ALREADY_ACTIVE` si ya está activo.
-- **`POST /auth/mfa/confirm`:** cuerpo `code` (6 dígitos). Activa el factor pendiente y responde `200` con `recovery_codes`: 10 códigos de respaldo de un solo uso (`ABCD-EFGH-JKMN`), que se muestran una sola vez; solo se guarda su SHA-256 en `iam.mfa_recovery_codes`. Errores: `400 VALIDATION_ERROR` (código incorrecto), `404 NOT_FOUND` (no hay enrolamiento pendiente), `409 CONFLICT` (ya activo).
-- **Login:** con MFA activo, `POST /auth/login` pide `mfa_code` (sección 2.1): un código TOTP o uno de respaldo, que queda usado (`used_at`).
+- **`POST /auth/mfa/enroll`:** sin cuerpo. Genera un secreto de 20 bytes, lo guarda cifrado con AES-256-GCM (clave `MFA_ENCRYPTION_KEY`, id `MFA_KEY_ID`, ligado a la cuenta) y responde `201` con `secret` (Base32) y `otpauth_uri` (para el QR), una sola vez. `409 CONFLICT` con `details.reason = MFA_ALREADY_ACTIVE` si ya está activo.
+- **`POST /auth/mfa/confirm`:** cuerpo `code` (6 dígitos). Activa el factor pendiente y responde `200` con `recovery_codes`: 10 códigos de respaldo de un solo uso, que se muestran una sola vez; solo se guarda su SHA-256 en `iam.mfa_recovery_codes`. Errores: `400 VALIDATION_ERROR` (código incorrecto), `404 NOT_FOUND` (no hay enrolamiento pendiente), `409 CONFLICT` (ya activo).
+- **Login:** con MFA activo, `POST /auth/login` pide `mfa_code` (sección 2.2).
 
-### 2.9 `POST /api/v1/auth/switch-aqueduct`
+### 2.10 `POST /api/v1/auth/switch-institution` (por definir)
 
-- **Permiso:** autenticado.
-- **Cuerpo:** `aqueduct_id` (UUID, obligatorio).
-- **Respuesta 200:** `access_token` nuevo con `aqueduct_id` del acueducto indicado y el rol de la membresía vigente en él, `token_type` y `expires_in`. Un JWT lleva un solo acueducto (el activo). El refresh token no cambia: al refrescar, la sesión vuelve al primer acueducto vigente.
-- **Errores:** `403 FORBIDDEN` (la membresía no está vigente o no existe).
-- **Ejemplo:** `{ "aqueduct_id": "0190f3a2-0000-7000-8000-0000000000bb" }`
+- **Permiso:** `Autenticado`.
+- **Estado:** por definir. Un usuario pertenece a una sola institución (Actores-y-permisos.md, sección 1). Esta ruta solo tiene sentido si una misma persona necesita cuentas en varias. La versión anterior `switch-aqueduct` se renombra a `switch-institution` solo si se mantiene.
+- **Si se mantiene, cuerpo:** `institution_id` (UUID, obligatorio). **Respuesta 200:** `access_token` nuevo con el `institution_id` indicado y el rol de esa membresía. **Errores:** `403 FORBIDDEN` (no hay membresía vigente).
 
-## 3. Usuarios y membresías
+## 3. Plataforma: instituciones (`/platform`)
 
-### 3.1 `GET /api/v1/users`
+Estos endpoints usan el token de `PLATFORM_ADMIN` (`scope = platform`, sin `institution_id`). Solo tienen el permiso `PLATFORM_MANAGE`. Las operaciones entre instituciones pasan por funciones `SECURITY DEFINER` de la base de datos (`platform.create_institution`, `platform.list_institutions`), ver [Seguridad-de-la-base-de-datos.md](Seguridad-de-la-base-de-datos.md), sección 5.4.
+
+### 3.1 `GET /api/v1/platform/institutions`
+
+- **Permiso:** `PLATFORM_MANAGE`.
+- **Parámetros:** `is_active` (opcional), `limit`, `cursor`.
+- **Respuesta 200:** `items` con `id`, `slug`, `name`, `is_simulated`, `is_active` y `created_at`. Orden por `created_at`, descendente. Next cursor.
+
+### 3.2 `POST /api/v1/platform/institutions`
+
+- **Permiso:** `PLATFORM_MANAGE`.
+- **Efecto:** crea la institución a partir de una plantilla (patrón Prototype). La plantilla copia el tanque, las líneas, las válvulas y los parámetros de `org.institution_settings`. En la misma transacción se fija `SET LOCAL app.institution_id` con el id nuevo. La función es `platform.create_institution(...)`.
+- **Cuerpo:**
+
+| Campo | Tipo | Oblig. | Límites |
+|---|---|---|---|
+| `slug` | texto | Sí | 3 a 40, `^[a-z0-9]+(-[a-z0-9]+)*$`, único. Límite exacto por definir en `FieldLimits.INSTITUTION_SLUG`. |
+| `name` | texto | Sí | 2 a 80 (por definir en `FieldLimits`) |
+| `is_simulated` | booleano | No | Por defecto `false`. Se decide al crear y no cambia después (propuesto). |
+| `template_code` | texto | No | Código de la plantilla. Por definir; si falta, se usa la plantilla por defecto. |
+
+- **Respuesta 201:** institución creada (`id`, `slug`, `name`, `is_simulated`, `is_active`).
+- **Errores:** `400 VALIDATION_ERROR` (slug con formato inválido), `404 NOT_FOUND` (plantilla inexistente), `409 CONFLICT` (slug repetido).
+- **Ejemplo:**
+
+```json
+{ "slug": "escuela-ejemplo", "name": "Escuela de Ejemplo", "is_simulated": true }
+```
+
+### 3.3 `PATCH /api/v1/platform/institutions/{id}`
+
+- **Permiso:** `PLATFORM_MANAGE`.
+- **Cuerpo (todos opcionales):** `name`, `is_active`. Desactivar una institución la quita del directorio público (`GET /public/institutions`) y bloquea su login. El `slug` y `is_simulated` no cambian.
+- **Respuesta 200:** institución actualizada.
+- **Errores:** `404 NOT_FOUND`.
+
+### 3.4 `POST /api/v1/platform/institutions/{id}/admin`
+
+- **Permiso:** `PLATFORM_MANAGE`.
+- **Cuerpo:** `username` (3 a 32, regex de login), `full_name` (2 a 80, `FieldLimits.PERSON_NAME`).
+- **Respuesta 201:** `user` (`id`, `username`, `role` = `INSTITUTION_ADMIN`), `activation_code` y `expires_at`. El código se muestra una sola vez. El usuario fija su contraseña con `POST /auth/reset-password`.
+- **Errores:** `409 CONFLICT` (usuario ya existe en esa institución), `404 NOT_FOUND`.
+
+### 3.5 `POST /api/v1/platform/institutions/{id}/act-as`
+
+- **Permiso:** `PLATFORM_MANAGE`.
+- **Cuerpo:** ninguno.
+- **Efecto:** emite un token temporal de 15 minutos con `institution_id` de la institución indicada y `act_as = platform`. Sus permisos son los de `INSTITUTION_ADMIN` en esa institución. No se puede renovar: al expirar hay que volver a emitirlo (por confirmar). La emisión, cada acción y el cierre quedan en `audit.audit_log` con el actor `PLATFORM_ADMIN` y la institución objetivo.
+- **Respuesta 200:** `access_token`, `token_type`, `expires_in` (900), `institution_id`, `act_as` = `platform`.
+- **Errores:** `404 NOT_FOUND` (institución inexistente).
+
+## 4. Usuarios (`/users`)
+
+Un usuario pertenece a una sola institución. La institución sale del token, no del cuerpo. Las membresías (`/memberships`) se quitan de este documento: si una persona necesita cuentas en varias instituciones, está por definir ([Actores-y-permisos.md](Actores-y-permisos.md), sección 1).
+
+### 4.1 `GET /api/v1/users`
 
 - **Permiso:** `USER_MANAGE`.
-- **Parámetros:** `status` (`ACTIVE`, `LOCKED`, `DISABLED`), `limit`, `cursor`.
-- **Alcance:** cuentas con alguna membresía, vigente o pasada, en el acueducto de la sesión, ordenadas por `username`.
-- **Respuesta:** `items` con `id`, `username`, `full_name` (confidencial, solo para `BOARD_ADMIN`), `status`, `locked_until`, `must_change_password`, `last_login_at`, y `next_cursor`.
-- **Errores:** `400 VALIDATION_ERROR`, `400 CURSOR_INVALID` (cursor alterado o de otra colección).
-- **Ejemplo:** `GET /api/v1/users?status=ACTIVE&limit=20`
+- **Parámetros:** `status` (`ACTIVE`, `LOCKED`, `DISABLED`), `role` (`INSTITUTION_ADMIN`, `OPERATOR`, `VIEWER`), `limit`, `cursor`.
+- **Alcance:** usuarios de la institución del token, ordenados por `username`.
+- **Respuesta:** `items` con `id`, `username`, `full_name` (solo para `INSTITUTION_ADMIN`), `role`, `status`, `locked_until`, `must_change_password`, `last_login_at`, y `next_cursor`.
+- **Errores:** `400 VALIDATION_ERROR`, `400 CURSOR_INVALID`.
 
-### 3.2 `POST /api/v1/users`
+### 4.2 `POST /api/v1/users`
 
 - **Permiso:** `USER_MANAGE`.
 - **Cuerpo:**
 
 | Campo | Tipo | Oblig. | Límites |
 |---|---|---|---|
-| `username` | texto | Sí | 3 a 32, regex de login (`FieldLimits.USERNAME`) |
+| `username` | texto | Sí | 3 a 32, regex de login (`FieldLimits.USERNAME`). Único en la institución. |
 | `full_name` | texto | Sí | 2 a 80, letras, espacio, `'`, `-`, `.` (`FieldLimits.PERSON_NAME`) |
-| `aqueduct_id` | UUID | Sí | Acueducto existente |
-| `role` | texto | Sí | `BOARD_ADMIN`, `BOARD_MEMBER`, `OPERATOR`, `PROJECT_TEAM`, `SUPPORT_ENTITY` |
+| `role` | texto | Sí | `INSTITUTION_ADMIN`, `OPERATOR` o `VIEWER`. `PLATFORM_ADMIN` no se asigna aquí. |
 
-- **Respuesta 201:** usuario creado con `must_change_password = true` y sin contraseña conocida. Se guarda un hash Argon2id de 32 bytes aleatorios, que no sirve para entrar. Además el sistema emite un código de activación de un solo uso (`iam.password_reset_grants`): la respuesta trae `activation_code` y `expires_at`, y el código se muestra una sola vez. El usuario fija su contraseña con `POST /auth/reset-password`.
-- **Errores:** `409 CONFLICT` (usuario ya existe). Los errores de formato responden `400 VALIDATION_ERROR`.
+- **Respuesta 201:** usuario creado con `must_change_password = true`. Se guarda un hash Argon2id de 32 bytes aleatorios, que no sirve para entrar. El sistema emite un código de activación de un solo uso (`iam.password_reset_grants`): la respuesta trae `activation_code` y `expires_at`, y el código se muestra una sola vez.
+- **Errores:** `409 CONFLICT` (usuario ya existe en la institución), `400 VALIDATION_ERROR` (formato o rol no permitido).
 - **Ejemplo:**
 
 ```json
-{ "username": "operador.ejemplo", "full_name": "Persona de Ejemplo", "aqueduct_id": "0190f3a2-0000-7000-8000-0000000000aa", "role": "OPERATOR" }
+{ "username": "operador.ejemplo", "full_name": "Persona de Ejemplo", "role": "OPERATOR" }
 ```
 
-### 3.3 `PATCH /api/v1/users/{id}`
+### 4.3 `PATCH /api/v1/users/{id}`
 
 - **Permiso:** `USER_MANAGE`.
-- **Cuerpo (todos opcionales):** `full_name` (2 a 80), `status` (`ACTIVE`, `LOCKED`, `DISABLED`).
+- **Cuerpo (todos opcionales):** `full_name` (2 a 80), `role` (`INSTITUTION_ADMIN`, `OPERATOR` o `VIEWER`), `status` (`ACTIVE`, `LOCKED` o `DISABLED`).
+- **Efecto:** cambiar el rol o desactivar o bloquear la cuenta incrementa `token_version` y revoca sus refresh tokens (`ROLE_CHANGED`). `LOCKED` puesto por un administrador no tiene fin y dura hasta que alguien envíe `ACTIVE`. `DISABLED` es definitivo y guarda `disabled_at`.
 - **Respuesta 200:** usuario actualizado.
-- **Efecto:** desactivar o bloquear revoca sus refresh tokens e incrementa `token_version`. `LOCKED` puesto por un administrador no tiene fin (`locked_until` nulo) y dura hasta que alguien envíe `ACTIVE`, que además borra los intentos fallidos y el nivel de bloqueo. `DISABLED` es definitivo y guarda `disabled_at`.
-- **Respuesta 200:** `id`, `username`, `full_name`, `status`, `locked_until`, `must_change_password`, `last_login_at`.
-- **Errores:** `404 NOT_FOUND` (la cuenta no existe o no tiene membresía en el acueducto de la sesión), `409 INVALID_STATE_TRANSITION` (una cuenta `DISABLED` no cambia de estado), `409 CONFLICT` con `details.reason = SELF_LOCKOUT` (un administrador no bloquea ni desactiva su propia cuenta).
+- **Errores:** `404 NOT_FOUND` (la cuenta no existe o es de otra institución), `409 INVALID_STATE_TRANSITION` (una cuenta `DISABLED` no cambia de estado), `409 CONFLICT` con `details.reason = SELF_LOCKOUT` (un administrador no bloquea, desactiva ni baja su propio rol).
 - **Ejemplo:** `{ "status": "DISABLED" }`
 
-### 3.4 `POST /api/v1/users/{id}/reset-grants`
+### 4.4 `POST /api/v1/users/{id}/reset-grants`
 
 - **Permiso:** `USER_MANAGE`.
 - **Cuerpo:** `reason` (texto, 10 a 500, `FieldLimits.REASON`).
-- **Respuesta 201:** `id`, `code` (se muestra una sola vez), `expires_at`. Solo se guarda el hash SHA-256 del código. Los códigos anteriores de la cuenta que no se usaron quedan revocados (`revoked_at`), así solo sirve el último.
-- **Errores:** `422 REASON_REQUIRED`, `404 NOT_FOUND` (la cuenta no existe o no tiene membresía en el acueducto), `409 INVALID_STATE_TRANSITION` (cuenta `DISABLED`).
-- **Ejemplo:** `{ "code": "ABCD-2345", "expires_at": "2026-10-09T10:00:00-05:00" }` (valores ficticios)
+- **Respuesta 201:** `id`, `code` (se muestra una sola vez), `expires_at`. Solo se guarda el hash SHA-256 del código. Los códigos anteriores no usados quedan revocados (`revoked_at`).
+- **Errores:** `422 REASON_REQUIRED`, `404 NOT_FOUND`, `409 INVALID_STATE_TRANSITION` (cuenta `DISABLED`).
+- **Ejemplo:** `{ "code": "ABCD-2345", "expires_at": "2026-11-21T10:00:00-05:00" }` (valores ficticios)
 
-### 3.5 `GET /api/v1/memberships`
+## 5. Meta, catálogos y aviso de privacidad
 
-- **Permiso:** `USER_MANAGE`.
-- **Parámetros:** `user_id`, `aqueduct_id` (solo el de la sesión; otro responde `403`), `limit`, `cursor`.
-- **Respuesta:** `items`, en orden de creación, con `id`, `user_id`, `aqueduct_id`, `role_code`, `valid_from`, `valid_to`, `granted_by`.
+### 5.1 `GET /api/v1/meta/constraints`
 
-### 3.6 `POST /api/v1/memberships`
-
-- **Permiso:** `USER_MANAGE`.
-- **Cuerpo:** `user_id` (UUID, obligatorio), `aqueduct_id` (UUID, obligatorio), `role_code` (enum de la sección 3.2, obligatorio), `valid_from` (fecha y hora, opcional, por defecto ahora), `valid_to` (opcional, debe ser mayor que `valid_from`).
-- **Respuesta 201:** la membresía (`id`, `user_id`, `aqueduct_id`, `role_code`, `valid_from`, `valid_to`, `granted_by`).
-- **Errores:** `400 VALIDATION_ERROR` (`valid_to` no mayor que `valid_from` o rol desconocido), `403 FORBIDDEN` (`aqueduct_id` distinto del de la sesión), `404 NOT_FOUND` (la cuenta no existe), `409 CONFLICT` con `details.reason = MEMBERSHIP_OVERLAP`: una cuenta tiene un solo rol a la vez en un acueducto, así que la vigencia no puede cruzarse con otra membresía del mismo acueducto.
-
-### 3.7 `DELETE /api/v1/memberships/{id}`
-
-- **Permiso:** `USER_MANAGE`.
-- **Respuesta 204.** No borra la fila: hace `UPDATE` de `valid_to = ahora`. Las membresías no se eliminan porque la auditoría las referencia.
-- **Efecto:** incrementa `token_version` del usuario. Si la membresía aún no empezó, `valid_to` queda un microsegundo después de `valid_from`. Terminar una membresía ya terminada responde 204 sin cambios.
-- **Errores:** `404 NOT_FOUND` (no existe o es de otro acueducto), `409 CONFLICT` con `details.reason = SELF_LOCKOUT` (un administrador no termina su propia membresía vigente).
-
-## 4. Meta, catálogos y aviso de privacidad
-
-### 4.1 `GET /api/v1/meta/constraints`
-
-- **Permiso:** público.
-- **Respuesta:** los límites de `FieldLimits` que el frontend usa para armar sus esquemas Zod. Cada campo: `min`, `max`, `pattern` (si aplica) y topes propios (`max_lines`, `integer_digits`, `fraction_digits`, `default`). Campos: `username`, `password`, `person_name`, `place_name`, `sector.code`, `valve.code`, `valve.location_hint`, `reading.note`, `reading.gauge_value`, `reason`, `incident.description`, `catalog.code`, `tracking_code`, `reset_code`, `mfa_code`, `aqueduct.slug`, `page.limit`, `list.items`, `rule_set.bands`, `forecast.horizon_days`, `text`, `body.bytes`. Se puede guardar en caché una hora (`Cache-Control: max-age=3600, public`). Los parámetros de negocio no están aquí: viven en las reglas (`GET /rule-sets/current`).
+- **Permiso:** `Público`.
+- **Respuesta:** los límites de `FieldLimits` que el frontend usa para armar sus esquemas Zod. Cada campo trae `min`, `max`, `pattern` (si aplica) y topes propios. Campos principales: `username`, `password`, `person_name`, `place_name`, `institution_slug`, `observation.note`, `reason`, `reset_code`, `mfa_code`, `tank.dimension_mm`, `setting.*`, `page.limit`, `list.items`, `text`, `body.bytes`. Los valores que aún no están decididos se marcan "por definir" en [Configuracion-sin-valores-quemados.md](Configuracion-sin-valores-quemados.md).
+- **Caché:** una hora (`Cache-Control: max-age=3600, public`).
+- **Los parámetros de negocio no están aquí.** Viven en `org.institution_settings` (sección 6).
 - **Ejemplo:**
 
 ```json
-{ "username": { "min": 3, "max": 32 }, "password": { "min": 12, "max": 128 }, "reading.note": { "min": 0, "max": 500, "max_lines": 10 } }
+{ "username": { "min": 3, "max": 32 }, "password": { "min": 12, "max": 128 }, "observation.note": { "min": 10, "max": 500 } }
 ```
 
-### 4.2 `GET /api/v1/catalogs/{catalog}`
+### 5.2 `GET /api/v1/catalogs/{catalog}`
 
-- **Permiso:** público (solo etiquetas).
-- **Parámetro de ruta:** `catalog` = `WATER_APPEARANCE` o `DAMAGE_CATEGORY`. Otro valor: `404 NOT_FOUND`.
-- **Respuesta:** lista de `code`, `label_es`, `sort_order`, solo elementos activos y del acueducto o globales.
-- **Ejemplo:** `{ "items": [{ "code": "NORMAL", "label_es": "Normal", "sort_order": 1 }] }`
-- **Catálogos de la semilla:** `WATER_APPEARANCE` (`NORMAL` Normal, `MUDDY` Con barro, `TURBID` Turbia, `NOT_OBSERVED` Sin observar, usado por las lecturas de sensor) y `DAMAGE_CATEGORY` (`LEAK` Fuga, `BROKEN_PIPE` Tubo roto, `NO_WATER` Sin agua, `DIRTY_WATER` Agua sucia, `VALVE_FAILURE` Falla de válvula, `OTHER` Otro). Para lecturas de sensor ver `Protocolo-de-dispositivos.md`.
+- **Permiso:** `Público` (solo etiquetas).
+- **Parámetro de ruta:** `catalog`. Otro valor: `404 NOT_FOUND`.
+- **Respuesta:** lista de `code`, `label_es`, `sort_order`, solo elementos activos.
+- **Nota:** los tipos de observación (`WATER_DIRTY`, `WATER_MUDDY`, `VISIBLE_DAMAGE`, `OTHER`) son un enum fijo del código, no un catálogo. Los catálogos de la versión 1 (`WATER_APPEARANCE`, `DAMAGE_CATEGORY`) salen con las lecturas manuales y los reportes públicos. Qué catálogos quedan en la semilla está por definir.
+- **Ejemplo:** `{ "items": [{ "code": "WATER_DIRTY", "label_es": "Agua sucia", "sort_order": 1 }] }` (ejemplo; la semilla está por definir)
 
-### 4.3 `GET /api/v1/privacy-notice/current`
+### 5.3 `GET /api/v1/privacy-notice/current`
 
-- **Permiso:** autenticado.
-- **Respuesta:** `version`, `text_es`, `text_sha256`, `effective_at`. La vigente es la versión más alta con `effective_at` ya cumplido. La semilla (V49) trae la versión 1, un borrador que requiere revisión jurídica.
+- **Permiso:** `Autenticado`.
+- **Respuesta:** `version`, `text_es`, `text_sha256`, `effective_at`. La vigente es la versión más alta con `effective_at` ya cumplido.
 - **Errores:** `404 NOT_FOUND` (no hay aviso vigente).
 
-### 4.4 `POST /api/v1/privacy-notice/accept`
+### 5.4 `POST /api/v1/privacy-notice/accept`
 
-- **Permiso:** autenticado.
+- **Permiso:** `Autenticado`.
 - **Cuerpo:** `version` (entero, obligatorio, debe ser la versión vigente).
-- **Respuesta 201:** `user_id`, `version`, `accepted_at`. Se guarda la IP en HMAC. Aceptar otra vez la misma versión devuelve la primera aceptación. `GET /auth/current-user` muestra la última versión aceptada en `privacy_accepted_version`.
+- **Respuesta 201:** `user_id`, `version`, `accepted_at`. Se guarda la IP en HMAC. Aceptar otra vez la misma versión devuelve la primera aceptación.
 - **Errores:** `409 CONFLICT` con `details.current_version` (la versión ya no es la vigente).
 
-## 5. Red: tanques, sectores y válvulas
+## 6. Configuración de la institución (`/institution/settings`)
 
-La red (tanques, sectores y válvulas) la gestiona `BOARD_ADMIN` (`NETWORK_MANAGE`). Los textos siguen `FieldLimits.PLACE_NAME` (2 a 60).
+Los parámetros de negocio viven en `org.institution_settings`: una fila por institución, editable por el administrador, auditada y sin versiones. Reemplazan a las reglas versionadas (`rule_sets`), que se quitan del producto. Los valores de ejemplo son de [Reglas-de-negocio.md](Reglas-de-negocio.md), sección 13, y no son configuración real.
 
-### 5.1 `GET /api/v1/tanks`
+### 6.1 `GET /api/v1/institution/settings`
 
-- **Permiso:** autenticado.
-- **Respuesta:** lista de `id`, `name`, `gauge_min`, `gauge_max`, `gauge_step`, `capacity_liters`, `is_active`.
+- **Permiso:** `STATUS_VIEW`.
+- **Respuesta 200:** la fila completa de `org.institution_settings` de la institución del token, con `updated_by` y `updated_at`.
+- **Ejemplo:**
 
-### 5.2 `POST /api/v1/tanks`
+```json
+{
+  "reserve_level_pct": 20.00,
+  "low_level_pct": 30.00,
+  "critical_level_pct": 10.00,
+  "stale_after_seconds": 30,
+  "persist_interval_seconds": 60,
+  "max_level_change_per_minute": 2.00,
+  "sensor_stuck_window_seconds": 120,
+  "trend_window_minutes": 10,
+  "forecast_step_seconds": 300,
+  "forecast_horizon_steps": 12,
+  "forecast_context_steps": 288,
+  "operator_absence_minutes": 30,
+  "reserve_floor_pct": 15.00,
+  "autopilot_mode": "ASSISTED",
+  "updated_at": "2026-11-20T09:00:00-05:00"
+}
+```
 
-- **Permiso:** `BOARD_ADMIN`.
+### 6.2 `PATCH /api/v1/institution/settings`
+
+- **Permiso:** `INSTITUTION_CONFIGURE` para los campos generales. Los campos del piloto (`autopilot_mode`, `operator_absence_minutes`, `reserve_floor_pct`) exigen además `AUTOPILOT_CONFIGURE`. Cómo se combinan los dos permisos en una misma ruta está por definir: [Actores-y-permisos.md](Actores-y-permisos.md) lista `PATCH /institution/settings` bajo `INSTITUTION_CONFIGURE` y el modo del piloto bajo `AUTOPILOT_CONFIGURE` (ruta por definir).
+- **Cuerpo (todos opcionales):**
+
+| Campo | Tipo | Límites |
+|---|---|---|
+| `reserve_level_pct`, `low_level_pct`, `critical_level_pct` | decimal (2) | 0 a 100. `critical_level_pct < low_level_pct`. |
+| `stale_after_seconds` | entero | Mayor que 0 |
+| `persist_interval_seconds` | entero | Mayor que 0 |
+| `max_level_change_per_minute` | decimal (2) | Mayor o igual a 0, en mm/min |
+| `sensor_stuck_window_seconds` | entero | Mayor que 0 |
+| `trend_window_minutes` | entero | Mayor que 0 |
+| `forecast_step_seconds` | entero | Mayor que 0 |
+| `forecast_horizon_steps`, `forecast_context_steps` | entero | Mayor que 0. Límites máximos por definir. |
+| `operator_absence_minutes` | entero | 1 a 1440 |
+| `reserve_floor_pct` | decimal (2) | 0 a 100 |
+| `autopilot_mode` | texto | `MANUAL`, `ASSISTED` o `AUTOMATIC` |
+
+- **Respuesta 200:** la fila completa, como 6.1.
+- **Efecto:** cada cambio queda en `audit.audit_log` con su valor anterior y el nuevo (`INSTITUTION_SETTINGS_CHANGED`, propuesto). Rige desde la siguiente lectura o ciclo.
+- **Errores:** `400 VALIDATION_ERROR` (rango inválido, por ejemplo `critical_level_pct >= low_level_pct`, o modo desconocido), `403 FORBIDDEN` (falta el permiso del campo).
+- **Ejemplo:** `{ "reserve_level_pct": 25.00, "autopilot_mode": "AUTOMATIC" }`
+
+Nota: la escala del pronóstico (`forecast_*`) se expresa en pasos de tiempo. La maqueta usa segundos o minutos (ver [Modulo-IA.md](Modulo-IA.md)).
+
+## 7. Tanque, líneas y válvulas (configuración)
+
+El administrador configura la red de la institución: el tanque y su geometría, las líneas de servicio y una válvula por línea. Una línea de servicio se llama "Acueducto N" en la interfaz, y su nombre es editable. En código se llama `service_line`. Ver [Reglas-de-negocio.md](Reglas-de-negocio.md), secciones 1 a 3 y 9.
+
+Todos los cambios de esta sección llegan al puente sin reiniciarlo, porque el puente relee `GET /devices/config` (sección 16.1).
+
+### 7.1 `GET /api/v1/tanks`
+
+- **Permiso:** `NETWORK_VIEW`.
+- **Respuesta:** `items` con `id`, `name`, `shape` (`CYLINDER` o `RECTANGULAR`), `height_mm`, `diameter_mm` o `length_mm` y `width_mm` (según la forma), `empty_distance_mm`, `full_distance_mm`, `blind_zone_mm` y `is_active`. El volumen no se guarda: se calcula (sección 8).
+
+### 7.2 `POST /api/v1/tanks`
+
+- **Permiso:** `INSTITUTION_CONFIGURE`.
+- **Uso:** normalmente el tanque lo crea la plantilla de la institución (sección 3.2). Esta ruta sirve para una institución que aún no tiene tanque. Una institución tiene un solo tanque en esta versión (propuesto): un segundo tanque responde `409 CONFLICT`.
 - **Cuerpo:**
 
 | Campo | Tipo | Oblig. | Límites |
 |---|---|---|---|
 | `name` | texto | Sí | 2 a 60 (`PLACE_NAME`) |
-| `gauge_min` | decimal (2) | Sí | `numeric(6,2)`: hasta 9999.99 en valor absoluto |
-| `gauge_max` | decimal (2) | Sí | Mayor que `gauge_min` |
-| `gauge_step` | decimal (2) | Sí | Mayor que 0 |
-| `capacity_liters` | entero | No | Mayor que 0 |
+| `shape` | texto | Sí | `CYLINDER` o `RECTANGULAR` |
+| `height_mm` | entero | Sí | Mayor que 0 |
+| `diameter_mm` | entero | Si `shape = CYLINDER` | Mayor que 0. No se envía con `RECTANGULAR`. |
+| `length_mm`, `width_mm` | entero | Si `shape = RECTANGULAR` | Mayores que 0. No se envían con `CYLINDER`. |
+| `empty_distance_mm` | entero | Sí | Distancia del sensor al fondo, con el tanque vacío. Entre 0 y 4000 (alcance del HC-SR04). |
+| `full_distance_mm` | entero | Sí | Distancia del sensor a la superficie, con el tanque lleno. Entre 0 y 4000. Reglas de calibración en 7.3. |
+| `blind_zone_mm` | entero | No | Mayor o igual a 0. Por defecto por definir (la maqueta usa 20 mm como ejemplo). |
 
 - **Respuesta 201:** tanque creado.
-- **Errores:** `400 VALIDATION_ERROR` (`gauge_max <= gauge_min`).
-- **Ejemplo:** `{ "name": "Tanque principal", "gauge_min": 0.00, "gauge_max": 5.00, "gauge_step": 0.01 }`
+- **Errores:** `400 VALIDATION_ERROR` (la forma no coincide con sus medidas), `422 CALIBRATION_INVALID` (ver 7.3), `409 CONFLICT` (la institución ya tiene tanque).
+- **Ejemplo (medidas de la maqueta, ejemplo):**
 
-### 5.3 `GET /api/v1/sectors`
+```json
+{ "name": "Tanque de la maqueta", "shape": "CYLINDER", "height_mm": 300, "diameter_mm": 200, "empty_distance_mm": 350, "full_distance_mm": 80, "blind_zone_mm": 20 }
+```
 
-- **Permiso:** autenticado.
-- **Respuesta:** lista de `id`, `code`, `name`, `parent_sector_id`, `households_count`, `is_active`. Sin datos personales.
+### 7.3 `PATCH /api/v1/tanks/{id}`
 
-### 5.4 `POST /api/v1/sectors`
+- **Permiso:** `INSTITUTION_CONFIGURE`.
+- **Cuerpo (todos opcionales):** los campos de 7.2, salvo que `shape` solo cambia junto con sus medidas.
+- **Reglas de calibración** (se validan al guardar):
 
-- **Permiso:** `NETWORK_MANAGE` (`BOARD_ADMIN`).
-- **Cuerpo:** `code` (texto, 2 a 20, `^[A-Z0-9-]+$`, único en el acueducto; `FieldLimits.SECTOR_CODE`), `name` (2 a 60), `parent_sector_id` (UUID, opcional, sector del mismo acueducto), `households_count` (entero, mayor o igual a 0, por defecto 0).
-- **Respuesta 201:** sector creado.
-- **Errores:** `400 VALIDATION_ERROR` (formato o `parent_sector_id` que no es del acueducto), `409 CONFLICT` (código repetido en el acueducto).
-- **Ejemplo:** `{ "code": "SEC-01", "name": "Sector Ejemplo", "households_count": 12 }`
+| Regla | Ejemplo que pasa | Ejemplo que falla |
+|---|---|---|
+| `full_distance_mm < empty_distance_mm` | `80 < 350` | `full = 400` con `empty = 350` |
+| `empty_distance_mm <= height_mm + margen_de_montaje` | `350 <= 300 + 50` (margen de ejemplo 50 mm) | `empty = 360` |
 
-### 5.5 `PATCH /api/v1/sectors/{id}`
+El margen de montaje está por definir. Si una regla falla, la respuesta es `422 CALIBRATION_INVALID` y no cambia nada.
 
-- **Permiso:** `NETWORK_MANAGE` (`BOARD_ADMIN`).
-- **Cuerpo (todos opcionales):** `name` (2 a 60), `households_count` (mayor o igual a 0), `is_active`, `parent_sector_id` (UUID de otro sector del acueducto: lo mueve debajo de él) e `is_region` (`true` lo convierte en región, es decir, en sector raíz sin padre; no se combina con `parent_sector_id`). El `code` no cambia.
-- **Regiones (v2):** una región es un sector raíz. El árbol de sectores no admite ciclos (un sector no puede quedar debajo de sí mismo ni de uno de sus descendientes) ni huérfanos (el padre debe existir en el acueducto).
-- **Respuesta 200:** sector actualizado; ahora incluye `is_region`.
-- **Errores:** `400 VALIDATION_ERROR` (padre inexistente, el mismo sector, un descendiente, o `parent_sector_id` junto con `is_region`), `404 NOT_FOUND` (no existe o es de otro acueducto).
+- **Respuesta 200:** tanque actualizado.
+- **Errores:** `400 VALIDATION_ERROR`, `422 CALIBRATION_INVALID`, `404 NOT_FOUND`.
 
-### 5.6 `GET /api/v1/sectors/{id}/valves`
+### 7.4 `POST /api/v1/tanks/{id}/calibration`
 
-- **Permiso:** autenticado.
-- **Respuesta:** lista de `id`, `code`, `name`, `location_hint`, `is_motorized`, `fail_safe_position`, `is_active`.
+- **Permiso:** `INSTITUTION_CONFIGURE`.
+- **Efecto:** calibra con la última lectura cruda válida del sensor, sin escribir la distancia a mano. El botón "usar lectura actual como vacío" o "como lleno" de la interfaz llama a esta ruta.
+- **Cuerpo:** `point` (texto, obligatorio): `EMPTY` (guarda `empty_distance_mm`) o `FULL` (guarda `full_distance_mm`).
+- **Respuesta 200:** tanque actualizado y `distance_mm` usada, con `observed_at`.
+- **Reglas:** solo se calibra con una lectura cuyo `sensor_status` sea `OK` (sección 8.1). Con `NO_ECHO` o `STALE` la ruta responde `422 NO_LEVEL_DATA`. Después de guardar, aplica las reglas de 7.3.
+- **Errores:** `422 NO_LEVEL_DATA`, `422 CALIBRATION_INVALID`, `400 VALIDATION_ERROR` (`point` desconocido), `404 NOT_FOUND`.
+- **Ejemplo:** `{ "point": "EMPTY" }`
 
-### 5.7 `POST /api/v1/sectors/{id}/valves`
+### 7.5 `GET /api/v1/service-lines`
 
-- **Permiso:** `NETWORK_MANAGE` (`BOARD_ADMIN`).
+- **Permiso:** `NETWORK_VIEW`.
+- **Respuesta:** `items` con `id`, `tank_id`, `name`, `is_active` y `valve` (la válvula de la línea: `id`, `code`, `is_motorized`, `servo_channel`, `open_angle_deg`, `closed_angle_deg`, `fail_safe_position`, `is_active`; `null` si la línea aún no tiene válvula).
+- **Ejemplo de respuesta:**
+
+```json
+{
+  "items": [
+    {
+      "id": "0190f3a2-e001-7000-8000-000000000001",
+      "tank_id": "0190f3a2-e000-7000-8000-000000000001",
+      "name": "Acueducto 1",
+      "is_active": true,
+      "valve": { "id": "0190f3a2-e002-7000-8000-000000000001", "code": "V1", "is_motorized": true, "servo_channel": 1, "open_angle_deg": 90, "closed_angle_deg": 0, "fail_safe_position": "KEEP", "is_active": true }
+    }
+  ]
+}
+```
+
+### 7.6 `POST /api/v1/service-lines`
+
+- **Permiso:** `INSTITUTION_CONFIGURE`.
+- **Cuerpo:** `tank_id` (UUID, obligatorio, tanque de la institución) y `name` (texto, 2 a 60, `PLACE_NAME`).
+- **Respuesta 201:** línea creada, sin válvula todavía.
+- **Límite de líneas:** por definir. Lo acota la cantidad de canales del actuador.
+- **Errores:** `404 NOT_FOUND` (tanque inexistente o de otra institución), `400 VALIDATION_ERROR`.
+
+### 7.7 `PATCH /api/v1/service-lines/{id}`
+
+- **Permiso:** `INSTITUTION_CONFIGURE`.
+- **Cuerpo (todos opcionales):** `name`, `is_active`. No hay borrado: una línea se desactiva con `is_active = false`.
+- **Respuesta 200:** línea actualizada.
+- **Errores:** `404 NOT_FOUND`.
+
+### 7.8 `POST /api/v1/service-lines/{id}/valves`
+
+- **Permiso:** `INSTITUTION_CONFIGURE`.
+- **Regla:** cada línea tiene una sola válvula. Si ya tiene una, responde `409 CONFLICT`.
 - **Cuerpo:**
 
 | Campo | Tipo | Oblig. | Límites |
 |---|---|---|---|
-| `code` | texto | Sí | 1 a 20, `^[A-Z0-9-]+$`, único por sector (`FieldLimits.VALVE_CODE`) |
-| `name` | texto | Sí | 2 a 60 (`PLACE_NAME`) |
-| `location_hint` | texto | No | 0 a 120, una línea (`LOCATION_HINT`) |
-| `is_motorized` | booleano | No | Por defecto `false` |
+| `code` | texto | Sí | 1 a 20, `^[A-Z0-9-]+$`, único en la institución (`FieldLimits.VALVE_CODE`) |
+| `is_motorized` | booleano | No | Por defecto `false`. Una válvula motorizada tiene actuador. |
+| `servo_channel` | entero | Si `is_motorized` | Canal del servo en el actuador. Único por actuador. Rango por definir. En la maqueta, 1 y 2. |
+| `open_angle_deg`, `closed_angle_deg` | entero | Si `is_motorized` | 0 a 180 (rango del servo). Deben ser distintos. |
 | `fail_safe_position` | texto | No | `KEEP`, `OPEN` o `CLOSED`. Por defecto `KEEP`. |
 
 - **Respuesta 201:** válvula creada.
-- **Errores:** `404 NOT_FOUND` (el sector no existe o es de otro acueducto), `409 CONFLICT` (código repetido en el sector).
+- **Errores:** `400 VALIDATION_ERROR` (motorizada sin canal o sin ángulos, o ángulos iguales), `409 CONFLICT` (la línea ya tiene válvula, código repetido o canal ocupado), `404 NOT_FOUND`.
+- **Ejemplo:**
 
-### 5.8 `PATCH /api/v1/valves/{id}`
+```json
+{ "code": "V1", "is_motorized": true, "servo_channel": 1, "open_angle_deg": 90, "closed_angle_deg": 0, "fail_safe_position": "KEEP" }
+```
 
-- **Permiso:** `NETWORK_MANAGE` (`BOARD_ADMIN`).
-- **Cuerpo (todos opcionales):** `name`, `location_hint` (vacío la borra), `is_motorized`, `fail_safe_position`, `is_active`. El `code` no cambia.
+### 7.9 `PATCH /api/v1/valves/{id}`
+
+- **Permiso:** `INSTITUTION_CONFIGURE`.
+- **Cuerpo (todos opcionales):** `is_motorized`, `servo_channel`, `open_angle_deg`, `closed_angle_deg`, `fail_safe_position`, `is_active`. El `code` no cambia.
+- **Efecto:** el puente aplica el nuevo canal o ángulo en su siguiente lectura de `GET /devices/config`, sin reiniciar.
 - **Respuesta 200:** válvula actualizada.
-- **Errores:** `404 NOT_FOUND` (no existe o es de un sector de otro acueducto).
+- **Errores:** `400 VALIDATION_ERROR` (ángulos iguales o fuera de 0 a 180), `409 CONFLICT` (canal ocupado por otra válvula), `404 NOT_FOUND`.
 
-### 5.9 `GET /api/v1/network`
+### 7.10 `GET /api/v1/valves`
 
 - **Permiso:** `NETWORK_VIEW`.
-- **Respuesta:** `items`, los sectores de primer nivel como árbol (patrón Composite, `NetworkNode`): cada parte tiene `kind` (`SECTOR` o `VALVE`), `id`, `code`, `name`, `is_active`, `households` (viviendas de la parte y de todo lo que contiene), `active_valves` (válvulas activas de todo lo que contiene) y `children` (primero sus válvulas, luego sus subsectores). Un sector inactivo no suma viviendas ni válvulas. Un sector con un padre desconocido o que cierra un ciclo aparece en el primer nivel.
+- **Respuesta:** lista plana de válvulas de la institución, con `id`, `service_line_id`, `code`, `is_motorized`, `servo_channel`, `open_angle_deg`, `closed_angle_deg`, `fail_safe_position` e `is_active`. Para el estado en vivo, ver 10.3.
 
-## 6. Reglas de la Junta (`/rule-sets`)
+### 7.11 `GET /api/v1/network` (por definir)
 
-Las reglas se leen en la app offline para validar lecturas, así que `GET /rule-sets/current` es el endpoint más consultado. Las reglas de negocio y su validación están en `Reglas-de-negocio.md`.
+- **Estado:** por definir. [Actores-y-permisos.md](Actores-y-permisos.md) lo lista con `NETWORK_VIEW`. Su forma anterior (árbol de sectores y regiones) se quita. Si se mantiene, devolvería el tanque, las líneas y sus válvulas en una sola respuesta. Hasta decidirlo, usar `GET /tanks`, `GET /service-lines` y `GET /valves`.
 
-### 6.1 `GET /api/v1/rule-sets/current`
+## 8. Sensor en vivo
 
-- **Permiso:** autenticado (`OPERATOR`, `PROJECT_TEAM`, Junta).
-- **Respuesta 200:** versión `ACTIVE` completa: `id`, `version`, `valid_from`, `reserve_level`, `reserve_policy` (`NONE`, `REDUCE_TO_CRITICAL_BAND` o `PRIORITY_ONLY`), `max_daily_service_hours`, `min_shift_hours`, `max_shift_hours`, `allocation_strategy`, `duplicate_window_minutes`, `max_level_change_per_hour`, `stale_reading_hours`, `max_backdate_days`, `forecast_horizon_days`, `forecast_context_days`, `trend_threshold_per_day`, `bands` (lista de `band`, `min_level`, `max_level`, `daily_service_hours`, `priority_only`), `sectors` (`sector_id`, `is_included`, `is_priority`, `priority_rank`), `valve_order` (`valve_id`, `sequence_order`), `operating_windows` (`day_of_week`, `start_time`, `end_time`), `gauge` (`min`, `max`, `step`) y `server_time`.
-- **Errores:** `404 NOT_FOUND` (no hay versión activa).
-- **Ejemplo:**
+El sensor ultrasónico HC-SR04 envía la distancia en mm. El backend la convierte en nivel y en volumen con la geometría del tanque (patrón Strategy, `CylinderGeometry` o `RectangularGeometry`). Las fórmulas están en [Reglas-de-negocio.md](Reglas-de-negocio.md), sección 2.
 
-```json
-{
-  "version": 3,
-  "reserve_level": 1.00,
-  "bands": [
-    { "band": "LOW", "min_level": 1.50, "max_level": 3.50, "daily_service_hours": 8.00, "priority_only": false }
-  ],
-  "server_time": "2026-10-09T04:30:00-05:00"
-}
-```
-
-### 6.2 `GET /api/v1/rule-sets`
-
-- **Permiso:** `RULESET_VIEW`.
-- **Parámetros:** `status` (`DRAFT`, `ACTIVE`, `SUPERSEDED`, `DISCARDED`), `limit`, `cursor`.
-- **Respuesta:** `items` de la versión más nueva a la más antigua, con `id`, `version`, `status`, `valid_from`, `valid_to`, `activated_at`, `based_on_rule_set_id`, y `next_cursor`.
-
-### 6.3 `GET /api/v1/rule-sets/{id}`
-
-- **Permiso:** `RULESET_VIEW`.
-- **Respuesta:** la versión completa, como 6.1 (sin `gauge` ni `server_time`), más `status`, `based_on_rule_set_id`, `valid_to`, `change_reason`, `created_by`, `created_at`, `activated_by` y `activated_at`.
-- **Errores:** `404 NOT_FOUND` (no existe o es de otro acueducto).
-
-### 6.4 `POST /api/v1/rule-sets`
-
-- **Permiso:** `RULESET_DRAFT` (`BOARD_ADMIN` y `BOARD_MEMBER`).
-- **Cuerpo:** `change_reason` (texto, opcional en el borrador; si viene, 10 a 500). Se exige al activar (6.6). Ver `Reglas-de-negocio.md`, sección 7.
-- **Respuesta 201:** borrador copia de la versión `ACTIVE` con el número siguiente y `based_on_rule_set_id` (patrón Prototype, sección 1.1 de reglas), con la forma de 6.3.
-- **Errores:** `404 NOT_FOUND` (no hay versión activa que copiar), `409 CONFLICT` con `details.reason = DRAFT_EXISTS` (ya existe un borrador abierto; un acueducto tiene uno a la vez).
-- **Ejemplo:** `{ "change_reason": "Sube la reserva de 1,00 a 1,20 por la temporada seca." }`
-
-### 6.5 `PATCH /api/v1/rule-sets/{id}`
-
-- **Permiso:** `RULESET_DRAFT`.
-- **Cuerpo (todos opcionales, solo en `DRAFT`):** `change_reason`, escalares de la sección 6.1 (`reserve_level`, `max_daily_service_hours`, etc.), y listas que reemplazan a las actuales: `bands` (1 a 10 elementos; `priority_only` es falso si no llega), `sectors` (`is_included` verdadero y `is_priority` falso si no llegan), `valve_order`, `operating_windows` (hasta 100).
-- **Respuesta 200:** borrador actualizado, con la forma de 6.3.
-- **Errores:** `409 RULE_SET_IMMUTABLE` (no es `DRAFT`), `400 VALIDATION_ERROR` (rangos y valores de enumeraciones), `422 RULE_SET_INVALID` con `details.constraint` cuando la base de datos rechaza el cambio (bandas solapadas `rule_level_bands_no_overlap`, sector o válvula de otro acueducto, orden repetido). La cobertura del rango del tanque se valida al activar (6.6).
-- **Ejemplo:** `{ "reserve_level": 1.20 }`
-
-### 6.6 `POST /api/v1/rule-sets/{id}/activate`
-
-- **Permiso:** `RULESET_ACTIVATE` (solo `BOARD_ADMIN`).
-- **Cuerpo:** `change_reason` (texto, 10 a 500, obligatorio, `FieldLimits.REASON`). Ver `Reglas-de-negocio.md`, sección 7.
-- **Respuesta 200:** versión `ACTIVE` con `valid_from`. La versión anterior queda `SUPERSEDED`.
-- **Errores:** `422 RULE_SET_INVALID` con `details.violations` (lista de `code`: `NO_BANDS`, `BAND_EMPTY`, `BAND_OVERLAP`, `BAND_GAP` con `tank_id` y `gaps` `from`/`to`, `BAND_HOURS_OUT_OF_RANGE`, `SHIFT_LENGTH_INVALID`, `DAILY_HOURS_OUT_OF_RANGE`, `VALVE_ORDER_MISSING` con `valve_ids`), `422 REASON_REQUIRED` (falta el motivo o no tiene 10 a 500 caracteres después de recortar), `409 INVALID_STATE_TRANSITION` (no es `DRAFT`), `404 NOT_FOUND`.
-- **Transacción:** valida, marca la versión vigente `SUPERSEDED` con `valid_to` igual al `valid_from` de la nueva y pone el borrador en `ACTIVE` con `activated_by`, `activated_at` y `change_reason`. Si algo falla no cambia nada.
-- **Ejemplo:** `{ "change_reason": "Se activa la reserva de 1,20 aprobada en la reunión de octubre." }`
-
-## 7. Lecturas del tanque (`/readings`)
-
-Una lectura es una observación del nivel de la regla pintada. Su estatus epistémico es `OBSERVED`. Las reglas de validación están en `Reglas-de-negocio.md`, sección 8.
-
-### 7.1 `POST /api/v1/readings`
-
-- **Permiso:** `READING_CREATE`.
-- **Cuerpo:**
-
-| Campo | Tipo | Oblig. | Límites |
-|---|---|---|---|
-| `id` | UUID | Sí | UUID generado por el cliente (idempotencia) |
-| `tank_id` | UUID | Sí | Tanque del acueducto |
-| `gauge_value` | decimal (2) | Sí | Entre `gauge_min` y `gauge_max` del tanque, máximo 2 decimales |
-| `water_appearance_code` | texto | Sí | Código de `WATER_APPEARANCE`, `1` a 40 (`CATALOG_CODE`) |
-| `damage_noticed` | booleano | No | Por defecto `false` |
-| `note` | texto | No | 0 a 500, máximo 10 líneas (`NOTE`) |
-| `observed_at` | fecha y hora | Sí | ISO-8601 con zona, no más de 5 minutos en el futuro, no más de `max_backdate_days` atrás |
-
-- **Respuesta 201:** `reading` (`id`, `tank_id`, `gauge_value`, `observed_at`, `received_at`, `source` = `MANUAL_APP`, `validation_status`, `rule_set_id`), `issues` (lista de `code`, `severity`, `details`).
-- **Respuesta 200:** si `id` ya existe con el mismo contenido, `idempotent_replay: true` y la lectura original.
-- **Errores:** `422 GAUGE_OUT_OF_RANGE`, `422 MISSING_TIMESTAMP`, `422 FUTURE_TIMESTAMP`, `422 TOO_OLD`, `409 DUPLICATE_READING`, `404 NOT_FOUND` (tanque).
-- **Ejemplo:**
-
-```json
-{
-  "id": "0190f3a2-1111-7000-8000-000000000001",
-  "tank_id": "0190f3a2-2222-7000-8000-000000000001",
-  "gauge_value": 2.10,
-  "water_appearance_code": "NORMAL",
-  "damage_noticed": false,
-  "note": "",
-  "observed_at": "2026-10-08T18:00:00-05:00"
-}
-```
-
-### 7.2 `POST /api/v1/readings/batch`
-
-- **Permiso:** `READING_CREATE`. Es la sincronización de la cola offline.
-- **Cuerpo:** `sync_batch_id` (UUID del cliente, obligatorio) y `readings` (lista de 1 a 100 objetos con los campos de 7.1).
-- **Límite:** cuerpo de 64 KiB.
-- **Respuesta 200:** `sync_batch_id`, `items_received`, `items_accepted`, `items_rejected`, `idempotent_replay` y `results`, uno por lectura en el orden del envío (`id`, `status` = `ACCEPTED`, `FLAGGED`, `REPLAYED` o `REJECTED`). Una lectura inválida no se guarda: su elemento trae `error` con `code` (`GAUGE_OUT_OF_RANGE`, `MISSING_TIMESTAMP`, `FUTURE_TIMESTAMP`, `TOO_OLD`, `NOT_FOUND`, `DUPLICATE_READING` o `VALIDATION_ERROR`) y `details`, y el resto del lote sigue. La app pide corregir antes de reenviar.
-- **Guardado:** `ops.sync_batches` es de solo inserción: se escribe una vez, con sus conteos, antes que sus lecturas, y cada lectura guardada lleva `sync_batch_id`. Las lecturas se guardan en el orden de `observed_at` (así el salto brusco y el duplicado se comparan en orden de tiempo aunque la cola las envíe desordenadas).
-- **Idempotencia:** reenviar el mismo lote (mismo `sync_batch_id`, mismas lecturas) responde `200` con `idempotent_replay: true`, los conteos guardados y `REPLAYED` o el mismo rechazo por lectura, sin guardar nada.
-- **Errores:** `400 VALIDATION_ERROR` (lista vacía, más de 100 lecturas o ids repetidos dentro del lote), `413 PAYLOAD_TOO_LARGE`, `409 CONFLICT` con `details.reason = SYNC_BATCH_REUSED` (`sync_batch_id` existente con otro contenido).
-- **Nota:** un error de una lectura no cancela el lote. Cada lectura se evalúa por separado.
-
-### 7.3 `GET /api/v1/readings`
-
-- **Permiso:** `READING_VIEW` (lo tienen `BOARD_ADMIN`, `BOARD_MEMBER`, `OPERATOR` y `PROJECT_TEAM`).
-- **Parámetros:** `tank_id` (obligatorio), `from` y `to` (ISO-8601 con zona, inclusivos; `from` no puede ser posterior a `to`), `validation_status` (`ACCEPTED` o `FLAGGED`), `limit` y `cursor` (sección 1.5).
-- **Orden:** de la más reciente a la más antigua por `observed_at` y, a igual momento, por `id`. El cursor guarda esa posición firmada con HMAC.
-- **Respuesta 200:** `items` (lecturas con su valor efectivo `effective_gauge_value` y `correction_count`) y `next_cursor`.
-- **Errores:** `400 CURSOR_INVALID`, `400 VALIDATION_ERROR` (`limit` fuera de 1 a 100, rango invertido o estado desconocido), `404 NOT_FOUND` (tanque inexistente o de otro acueducto), `403 FORBIDDEN`.
-
-### 7.4 `GET /api/v1/readings/{id}`
-
-- **Permiso:** `READING_VIEW`.
-- **Respuesta:** `reading` (con `effective_gauge_value`, la última corrección o el valor original, y `correction_count`), sus `issues`, y el historial de `corrections` de la más antigua a la más reciente (`id`, `corrected_gauge_value`, `reason`, `corrected_by`, `created_at`).
-- **Errores:** `404 NOT_FOUND` (no existe o es de otro acueducto).
-
-### 7.5 `POST /api/v1/readings/{id}/corrections`
-
-- **Permiso:** `READING_CORRECT`. Un `OPERATOR` solo corrige sus propias lecturas.
-- **Cuerpo:** `corrected_gauge_value` (decimal 2, dentro del rango), `reason` (texto, 10 a 500).
-- **Respuesta 201:** la corrección (`id`, `reading_id`, `corrected_gauge_value`, `reason`, `corrected_by`, `created_at`) y `effective_gauge_value`. El dato original no cambia.
-- **Errores:** `422 GAUGE_OUT_OF_RANGE` (con `gauge_min`, `gauge_max`, `value`), `422 REASON_REQUIRED` (falta o no tiene 10 a 500 caracteres), `403 FORBIDDEN` (un `OPERATOR` sobre una lectura que no registró), `404 NOT_FOUND`.
-- **Ejemplo:** `{ "corrected_gauge_value": 2.00, "reason": "El fontanero leyó mal la regla; se confirmó con la foto." }`
-
-## 8. Estado del tanque y pronóstico
-
-### 8.1 `GET /api/v1/tanks/{id}/status`
+### 8.1 `GET /api/v1/tanks/{id}/live`
 
 - **Permiso:** `STATUS_VIEW`.
-- **Cálculo:** `TankStatusFacade` (patrón Facade). La tendencia es la pendiente por mínimos cuadrados del último nivel de cada día de los últimos `TREND_WINDOW_DAYS` días (3); con menos de dos días es nula. Un dato viejo abre una sola anomalía `STALE_DATA` abierta por tanque. La banda usa `[min_level, max_level)` y la banda superior incluye `gauge_max`. `level`, `trend`, `band` y `forecast` son nulos si no hay datos.
+- **Uso:** la interfaz consulta este endpoint cada 2 segundos.
 - **Respuesta 200:**
-  - `level`: `value`, `observed_at`, `hours_ago`.
-  - `trend`: `slope_per_day`, `label` (`DOWN`, `STABLE` o `UP`) y `label_es` ("viene bajando", "estable", "sube").
-  - `stale`: `is_stale`, `stale_after_hours`.
-  - `band`: banda del nivel actual.
-  - `forecast`: `run_id`, `is_fallback`, `fallback_reason`, `horizon_days`, `points` (`target_date`, `p10`, `p50`, `p90`).
-  - `open_anomalies`: número de anomalías abiertas.
-- **Ejemplo:**
+
+| Campo | Significado |
+|---|---|
+| `distance_mm` | Distancia cruda del último punto (mm). `-1` si no hubo eco. |
+| `level_mm`, `level_pct` | Nivel (sección 2 de Reglas). Nulos si no hay nivel (sin eco o zona ciega). |
+| `volume_l` | Litros. Nulo si no hay nivel. |
+| `observed_at` | Momento de la medida (UTC). |
+| `age_seconds` | Segundos desde `observed_at`. |
+| `sensor_status` | `OK`, `NO_ECHO` o `STALE`. |
+
+- **Regla de `sensor_status`**, en este orden:
+  1. `STALE` si `age_seconds > stale_after_seconds`.
+  2. `NO_ECHO` si el último punto fue `-1`, o si cae en la zona ciega (`distance_mm < blind_zone_mm`). En la zona ciega el punto se reporta como `NO_ECHO` (por confirmar).
+  3. `OK` en los demás casos.
+- **Sin ningún punto:** `sensor_status = STALE` y los campos de medida en `null` (propuesto).
+- **Errores:** `404 NOT_FOUND`.
+- **Ejemplo** (lectura de 215 mm en la maqueta):
 
 ```json
 {
-  "level": { "value": 2.10, "observed_at": "2026-10-08T18:00:00-05:00", "hours_ago": 10.5 },
-  "trend": { "slope_per_day": -0.25, "label": "DOWN", "label_es": "viene bajando" },
-  "stale": { "is_stale": false, "stale_after_hours": 12 },
-  "forecast": { "is_fallback": false, "points": [{ "target_date": "2026-10-09", "p10": 1.80, "p50": 2.10, "p90": 2.40 }] }
+  "distance_mm": 215,
+  "level_mm": 135.0,
+  "level_pct": 50.0,
+  "volume_l": 4.24,
+  "observed_at": "2026-11-20T20:30:00Z",
+  "age_seconds": 2,
+  "sensor_status": "OK"
 }
 ```
 
-### 8.2 `GET /api/v1/tanks/{id}/forecasts/latest`
+### 8.2 `GET /api/v1/readings`
+
+- **Permiso:** `STATUS_VIEW` (propuesto; el permiso de lectura de lecturas crudas no existe todavía, ver [Actores-y-permisos.md](Actores-y-permisos.md), sección 3.2).
+- **Solo lectura.** No hay alta manual de lecturas. La fuente es el sensor, y en instituciones simuladas, la importación de historial (sección 15).
+- **Parámetros:** `tank_id` (obligatorio), `from` y `to` (ISO-8601 con zona, inclusivos; `from` no puede ser posterior a `to`), `limit` (1 a 100, 20 por defecto), `cursor`.
+- **Orden:** de la más reciente a la más antigua por `observed_at`.
+- **Respuesta 200:** `items` con `id`, `observed_at`, `distance_mm`, `level_mm`, `level_pct`, `volume_l`, `source` (`SENSOR` o `IMPORT`), `device_id` y `next_cursor`.
+- **Qué se guarda:** los puntos crudos van a `devices.telemetry_points`. Las lecturas efectivas van a `ops.readings` cada `persist_interval_seconds`, o antes si el nivel cambia más de un umbral (por definir). Ver [Protocolo-de-dispositivos.md](Protocolo-de-dispositivos.md), sección 4.3.
+- **Errores:** `400 VALIDATION_ERROR` (rango invertido o `limit` fuera de 1 a 100), `400 CURSOR_INVALID`, `404 NOT_FOUND` (tanque inexistente o de otra institución).
+
+## 9. Pronóstico, eventos y anomalías
+
+El pronóstico tiene tres salidas separadas (ver [Reglas-de-negocio.md](Reglas-de-negocio.md), sección 6). Los eventos y las recomendaciones del piloto se muestran aparte.
+
+### 9.1 `GET /api/v1/tanks/{id}/outlook`
 
 - **Permiso:** `STATUS_VIEW`.
-- **Respuesta:** la última corrida mostrada (`run_id`, `model_name`, `model_version`, `is_fallback`, `fallback_reason`, `horizon_days`, `created_at`, `context_from`, `context_to`) y sus `points` (`target_date`, `p10`, `p50`, `p90`). Nunca devuelve la corrida de sombra (`SHADOW_BASELINE`).
-- **Errores:** `404 NOT_FOUND` (el tanque no existe o nunca se pronosticó).
+- **Respuesta 200:** las tres salidas, cada una con su origen.
 
-### 8.3 `POST /api/v1/tanks/{id}/forecasts`
+| Bloque | Origen | Qué contiene |
+|---|---|---|
+| `water_left` | `OBSERVED` | Litros y porcentaje que quedan, por geometría. Sin predicción. |
+| `time_to_reserve` | `ESTIMATED` (determinista) | Minutos hasta la reserva, con la pendiente de `trend_window_minutes`. `status`: `FALLING`, `NOT_EMPTYING_AT_CURRENT_RATE` o `ALREADY_BELOW_RESERVE`. |
+| `time_to_empty` | `ESTIMATED` (determinista) | Minutos hasta vaciarse, con la misma pendiente. Mismos `status`. |
+| `chronos_band` | `ESTIMATED` (modelo Chronos) | Banda p10, p50 y p90 por paso de `forecast_step_seconds`, hasta `forecast_horizon_steps`. Con `is_fallback` y `fallback_reason` si se usó respaldo. La unidad (`level_pct` o mm) está por definir. |
 
-- **Permiso:** `FORECAST_RUN`.
-- **Cuerpo:** `horizon_days` (entero de 1 a 3, opcional; por defecto `forecast_horizon_days` de la regla vigente).
-- **Respuesta 201:** corrida nueva con `points` y `is_fallback`. Si la IA no responde o el circuito está abierto, la respuesta es igual, con `is_fallback = true` y `fallback_reason` (`IA_TIMEOUT`, `CIRCUIT_OPEN`, `IA_ERROR` o `INSUFFICIENT_HISTORY`). La estimación simple que se calcula siempre junto a la IA se guarda con `is_fallback = false` y `fallback_reason = SHADOW_BASELINE`; `is_fallback = true` solo cuando reemplaza a la IA.
-- **Serie:** las lecturas efectivas del tanque de los últimos `forecast_context_days`; la llamada a la IA ocurre fuera de la transacción y respeta los timeouts de `docs/Contrato-IA.md` (2 s y 10 s). Sin `IA_SERVICE_URL` configurada, la respuesta es la estimación simple con `IA_ERROR`.
-- **Errores:** `400 VALIDATION_ERROR` (`horizon_days` fuera de 1 a 3), `404 NOT_FOUND`, `422 NO_LEVEL_DATA` (sin lecturas en la ventana), `429 RATE_LIMITED` (10 por hora por acueducto, con `Retry-After`), `503 IA_UNAVAILABLE` (solo si también falla la estimación simple).
-- **Ejemplo:** `{ "horizon_days": 1 }`
-
-## 9. Anomalías (`/anomalies`)
-
-Las anomalías son sospechas (`INFERRED`) hasta que alguien las confirme.
-
-### 9.1 `GET /api/v1/anomalies`
-
-- **Permiso:** `STATUS_VIEW`.
-- **Parámetros:** `status` (`OPEN`, `CONFIRMED`, `DISMISSED`), `kind` (`POSSIBLE_LEAK`, `SENSOR_FAULT`, `STALE_DATA`, `SUSPECTED_DUPLICATE`, `ABNORMAL_DROP`), `limit`, `cursor`.
-- **Respuesta:** `items`, de la más nueva a la más antigua, con `id`, `kind`, `detected_at`, `status`, `evidence`, `resolved_by`, `resolved_at`, `resolution_note`, `related_incident_id`, y `next_cursor`.
-
-### 9.2 `PATCH /api/v1/anomalies/{id}`
-
-- **Permiso:** `ANOMALY_REVIEW` (`BOARD_ADMIN` y `BOARD_MEMBER`).
-- **Cuerpo:** `status` (`CONFIRMED` o `DISMISSED`), `resolution_note` (texto, 0 a 500; obligatorio con 10 a 500 caracteres si es `DISMISSED`), `related_incident_id` (UUID, opcional).
-- **Respuesta 200:** anomalía actualizada.
-- **Errores:** `409 INVALID_STATE_TRANSITION` (no está `OPEN`), `422 REASON_REQUIRED` (descarte sin motivo).
-- **Ejemplo:** `{ "status": "DISMISSED", "resolution_note": "Se revisó la válvula; la caída fue por la lluvia y no por fuga." }`
-
-## 10. Propuestas de turnos (`/schedule-proposals`)
-
-La propuesta sigue la máquina de estados de `Reglas-de-negocio.md`, sección 12. Un `lock_version` protege cada transición contra cambios simultáneos.
-
-### 10.1 `POST /api/v1/schedule-proposals`
-
-- **Permiso:** `PROPOSAL_GENERATE`.
-- **Cuerpo:** `service_date` (fecha `YYYY-MM-DD`, obligatoria).
-- **Respuesta 201:** propuesta con `status` = `PENDING_REVIEW` (`DRAFT` es solo interno mientras se construye), `available_hours`, `tank_level_snapshot`, `tank_band`, `forecast_run_id`, `strategy_code`, `lock_version`, `items` (`id`, `sector_id`, `sequence`, `start_at`, `end_at`, `origin`, `reasons`) y `unserved_sectors` (sectores sin turno con su motivo, guardado en `schedule_proposals.unserved_sectors`).
-- **Errores:** `422 NO_LEVEL_DATA`, `404 NOT_FOUND` (no hay regla activa), `409 CONFLICT` (ya existe una propuesta no rechazada para la fecha), `422 OUTSIDE_OPERATING_WINDOW` (las reglas no abren ese día).
-- **Ejemplo:** `{ "service_date": "2026-10-09" }`
-
-### 10.2 `GET /api/v1/schedule-proposals`
-
-- **Permiso:** `PROPOSAL_VIEW`.
-- **Parámetros:** `service_date_from`, `service_date_to`, `status`, `limit`, `cursor`.
-- **Respuesta:** lista de propuestas (sin `items`).
-
-### 10.3 `GET /api/v1/schedule-proposals/{id}`
-
-- **Permiso:** `PROPOSAL_VIEW`.
-- **Respuesta:** la propuesta completa, como 10.1, con `decisions` (historial de decisiones con motivo) y `snapshot_taken` (si hubo cambios).
-
-### 10.4 `POST /api/v1/schedule-proposals/{id}/approve`
-
-- **Permiso:** `PROPOSAL_DECIDE`.
-- **Cuerpo:** `lock_version` (entero, obligatorio).
-- **Respuesta 200:** propuesta en `APPROVED`, con `lock_version` incrementado.
-- **Errores:** `409 CONFLICT` (`lock_version` distinto), `409 INVALID_STATE_TRANSITION` (no está en `PENDING_REVIEW`).
-- **Ejemplo:** `{ "lock_version": 0 }`
-
-### 10.5 `POST /api/v1/schedule-proposals/{id}/modify`
-
-- **Permiso:** `PROPOSAL_DECIDE`.
-- **Cuerpo:**
-  - `lock_version` (entero, obligatorio).
-  - `reason` (texto, 10 a 500, obligatorio).
-  - `items` (lista de 1 a 100): `id` (UUID del turno existente, o nulo para un turno nuevo), `sector_id` (UUID), `start_at`, `end_at` (fecha y hora, `end_at > start_at`), `sequence` (entero mayor o igual a 0).
-- **Respuesta 200:** propuesta en `APPROVED_WITH_CHANGES`. Antes del cambio se guarda `proposal_snapshots`. Los turnos cambiados llevan `origin` `MODIFIED`; los nuevos, `ADDED`.
-- **Errores:** `422 REASON_REQUIRED`, `422 HOURS_EXCEEDED`, `422 SHIFT_LENGTH_INVALID`, `422 OUTSIDE_OPERATING_WINDOW`, `409 SCHEDULE_OVERLAP`, `409 CONFLICT`, `409 INVALID_STATE_TRANSITION`.
-- **Ejemplo:**
+- **Campos comunes:** `sensor_status` y `age_seconds`. Si el sensor no está en `OK`, las salidas usan el último dato válido y muestran su `age_seconds`.
+- **Sin lectura válida:** `200` con `water_left` nulo y `sensor_status` distinto de `OK` (propuesto), para que la pantalla lo muestre.
+- **Respuesta de ejemplo** (datos de la sección 6 de Reglas, ejemplo):
 
 ```json
 {
-  "lock_version": 0,
-  "reason": "La escuela tiene clase especial; se corre su turno a las 07:00.",
-  "items": [
-    { "id": "0190f3a2-3333-7000-8000-000000000001", "sector_id": "0190f3a2-4444-7000-8000-000000000001", "start_at": "2026-10-09T07:00:00-05:00", "end_at": "2026-10-09T10:00:00-05:00", "sequence": 1 }
-  ]
+  "water_left": { "origin": "OBSERVED", "liters": 4.24, "level_pct": 50.0, "observed_at": "2026-11-20T20:30:00Z" },
+  "time_to_reserve": { "origin": "ESTIMATED", "status": "FALLING", "minutes": 40.5 },
+  "time_to_empty": { "origin": "ESTIMATED", "status": "FALLING", "minutes": 67.5 },
+  "chronos_band": {
+    "origin": "ESTIMATED",
+    "is_fallback": false,
+    "fallback_reason": null,
+    "step_seconds": 300,
+    "points": [{ "offset_seconds": 300, "p10": 47.0, "p50": 49.5, "p90": 52.0 }]
+  },
+  "sensor_status": "OK",
+  "age_seconds": 2
 }
 ```
 
-### 10.6 `POST /api/v1/schedule-proposals/{id}/reject`
-
-- **Permiso:** `PROPOSAL_DECIDE`.
-- **Cuerpo:** `lock_version`, `reason` (10 a 500, obligatorio).
-- **Respuesta 200:** propuesta en `REJECTED` (estado final).
-- **Errores:** `422 REASON_REQUIRED`, `409 CONFLICT`, `409 INVALID_STATE_TRANSITION`.
-
-### 10.7 `POST /api/v1/schedule-proposals/{id}/publish`
-
-- **Permiso:** `SCHEDULE_PUBLISH`.
-- **Cuerpo:** `lock_version` (entero, obligatorio).
-- **Respuesta 201:** `publication` con `id`, `proposal_id`, `published_at`, `whatsapp_text`, `poster_sha256`. La propuesta pasa a `PUBLISHED` y se emite el evento `SchedulePublished`, que deja la publicación en la auditoría.
-- **Errores:** `409 INVALID_STATE_TRANSITION` (no está aprobada), `409 CONFLICT`.
-- **Nota:** la publicación nunca incluye datos personales ni motivos internos. Ver `Reglas-de-negocio.md`, sección 13.
-
-## 11. Ejecución de turnos y cierre del día
-
-### 11.1 `POST /api/v1/schedule-items/{id}/execution`
-
-- **Permiso:** `DAY_CLOSE` (registra ejecuciones y cierres; lo tienen `OPERATOR` y `BOARD_ADMIN`).
-- **Cuerpo:**
-
-| Campo | Tipo | Oblig. | Límites |
-|---|---|---|---|
-| `status` | texto | Sí | `COMPLETED`, `PARTIAL` o `NOT_EXECUTED` |
-| `actual_start` | fecha y hora | No | Requerido en `PARTIAL` (propuesta) |
-| `actual_end` | fecha y hora | No | `actual_end > actual_start` |
-| `note` | texto | No | 0 a 500, máximo 10 líneas (`NOTE`) |
-| `supersedes_id` | UUID | No | Ejecución anterior que esta reemplaza |
-
-- **Respuesta 201:** ejecución registrada. Una ejecución nunca se edita; un cambio es una fila nueva con `supersedes_id`. Sin horas, `COMPLETED` usa las del turno y `PARTIAL` toma el fin del turno; `NOT_EXECUTED` no admite horas. Un turno con ejecución vigente solo recibe otra que la reemplace.
-- **Errores:** `400 VALIDATION_ERROR` (`actual_end <= actual_start`), `409 INVALID_STATE_TRANSITION` (propuesta no publicada o día cerrado), `409 CONFLICT` (ya reemplazada).
-- **Ejemplo:** `{ "status": "PARTIAL", "actual_start": "2026-10-09T08:00:00-05:00", "actual_end": "2026-10-09T09:30:00-05:00", "note": "Se cortó el agua a las 09:30 por falla de la bomba." }`
-
-### 11.2 `GET /api/v1/days/{date}/closure`
-
-- **Permiso:** `DAY_CLOSE`.
-- **Respuesta 200:** cierre (`id`, `service_date`, `notes`, `closed_by`, `closed_at`) y `executions` del día.
-- **Errores:** `404 NOT_FOUND` (día sin cierre).
-
-### 11.3 `POST /api/v1/days/{date}/closure`
-
-- **Permiso:** `DAY_CLOSE`.
-- **Cuerpo:** `notes` (texto, 0 a 500, máximo 10 líneas).
-- **Respuesta 201:** cierre creado. La propuesta del día pasa a `CLOSED` y el día ya no recibe ejecuciones.
-- **Errores:** `409 INVALID_STATE_TRANSITION` (no hay propuesta `PUBLISHED`), `409 CONFLICT` (día ya cerrado, también si dos cierres llegan a la vez).
-- **Ejemplo:** `{ "notes": "Día sin novedades mayores. Un turno a medias por la lluvia." }`
-
-### 11.4 `GET /api/v1/days/{date}/schedule`
-
-- **Permiso:** `SCHEDULE_VIEW` (lo tienen `BOARD_ADMIN`, `BOARD_MEMBER`, `OPERATOR` y `PROJECT_TEAM`).
-- **Parámetro:** `date` (fecha `YYYY-MM-DD`, día de servicio en la zona horaria del acueducto).
-- **Respuesta 200:** horario publicado del día: `service_date`, `proposal_id`, `published_at` (cuándo se publicó) e `items`. Cada elemento de `items` tiene la misma forma que los turnos de la propuesta (10.3): `id` (el que usa 11.1), `sector_id`, `sequence`, `start_at`, `end_at`, `origin` y `reasons` (con `code`, `params` y `text`). Es un dato interno del acueducto, no el horario público.
-- **Solo publicado:** responde la propuesta en `PUBLISHED` o, si el día ya se cerró, en `CLOSED` (así el cierre del día sigue mostrando sus turnos; el resultado del cierre está en 11.2). Un borrador o una propuesta pendiente o aprobada pero no publicada no se muestra.
-- **Errores:** `400 VALIDATION_ERROR` (la fecha no tiene el formato `YYYY-MM-DD`), `404 NOT_FOUND` (el día no tiene horario publicado en el acueducto).
-- **Ejemplo de respuesta:**
-
-```json
-{
-  "service_date": "2026-10-16",
-  "proposal_id": "0190f3a2-b001-7000-8000-000000000001",
-  "published_at": "2026-10-15T20:05:00Z",
-  "items": [
-    {
-      "id": "0190f3a2-c001-7000-8000-000000000001",
-      "sector_id": "0190f3a2-d001-7000-8000-000000000001",
-      "sequence": 1,
-      "start_at": "2026-10-16T08:00:00-05:00",
-      "end_at": "2026-10-16T11:00:00-05:00",
-      "origin": "PROPOSED",
-      "reasons": [{ "code": "PRIORITY_SECTOR", "params": { "sector": "La Esperanza" }, "text": "Sector prioritario por nivel bajo." }]
-    }
-  ]
-}
-```
-
-## 12. Incidentes (`/incidents`)
-
-### 12.1 `GET /api/v1/incidents`
-
-- **Permiso:** `INCIDENT_READ`.
-- **Parámetros:** `status`, `source` (`PUBLIC_FORM`, `OPERATOR`, `ANOMALY`, `IMPORT`), `sector_id`, `from`, `to`, `limit`, `cursor`.
-- **Respuesta:** lista de `id`, `source`, `category_code`, `sector_id`, `description`, `location_hint`, `status`, `reported_at`. Sin datos del reportante: el HMAC de la IP nunca sale de la base.
-
-### 12.2 `POST /api/v1/incidents`
-
-- **Permiso:** `INCIDENT_CREATE`. Crea con `source = OPERATOR`. Las anomalías crean incidentes por sistema y la importación con su propio origen.
-- **Cuerpo:**
-
-| Campo | Tipo | Oblig. | Límites |
-|---|---|---|---|
-| `category_code` | texto | Sí | Código de `DAMAGE_CATEGORY` |
-| `sector_id` | UUID | No | Sector del acueducto |
-| `description` | texto | Sí | 10 a 500 (`INCIDENT_DESCRIPTION`) |
-| `location_hint` | texto | No | 0 a 120, una línea (`LOCATION_HINT`) |
-
-- **Respuesta 201:** incidente con `status = REPORTED`.
-- **Ejemplo:** `{ "category_code": "LEAK", "description": "Gotea el tubo junto a la escuela.", "location_hint": "Frente a la escuela" }`
-
-### 12.3 `PATCH /api/v1/incidents/{id}/status`
-
-- **Permiso:** `INCIDENT_CREATE` (quien puede registrar también puede cambiar su estado; verificar).
-- **Cuerpo:** `status` (`VERIFYING`, `CONFIRMED`, `RESOLVED` o `DISMISSED`), `note` (texto, 0 a 500; de 10 a 500 si el estado es `DISMISSED`).
-- **Respuesta 200:** incidente actualizado. Se agrega una fila a `incident_status_history`.
-- **Errores:** `409 INVALID_STATE_TRANSITION` (transición no permitida), `422 REASON_REQUIRED` (descarte sin nota).
-- **Ejemplo:** `{ "status": "CONFIRMED", "note": "Se verificó en campo el 9 de octubre." }`
-
-## 13. Actas y resúmenes para entidades
-
-### 13.1 `POST /api/v1/minutes`
-
-- **Permiso:** `MINUTES_GENERATE`.
-- **Cuerpo:** `period_from`, `period_to` (fechas, `period_to >= period_from`).
-- **Respuesta 201:** acta en `DRAFT` con `content` (secciones `observed`, `estimated`, `inferred`, `confirmed`).
-- **Errores:** `400 VALIDATION_ERROR` (periodo invertido o de más de 366 días).
-- **Cierre:** el acta se cierra como `FINAL` con `POST /api/v1/minutes/{id}/finalize` (sección 13.7).
-
-### 13.2 `GET /api/v1/minutes/{id}`
-
-- **Permiso:** `MINUTES_VIEW`.
-- **Respuesta:** acta con `status`, `period_from`, `period_to`, `content`, `generated_by`, `generated_at`, `pdf_sha256` y `audit_head_hash` (si está `FINAL`).
-
-### 13.3 `GET /api/v1/minutes/{id}/pdf`
-
-- **Permiso:** `MINUTES_VIEW`.
-- **Respuesta 200:** `application/pdf`. Un acta en `DRAFT` lleva la marca "BORRADOR". Un acta `FINAL` trae la cabecera `X-Content-SHA256`, igual a `pdf_sha256`: el PDF es determinista y se vuelve a generar idéntico. Cada descarga escribe en `audit.data_access_log` con `resource = MINUTES_PDF`.
 - **Errores:** `404 NOT_FOUND`.
 
-### 13.4 `POST /api/v1/summary-shares`
+### 9.2 `POST /api/v1/tanks/{id}/forecasts`
 
-- **Permiso:** `SUMMARY_SHARE_MANAGE` (solo `BOARD_ADMIN`).
+- **Permiso:** `FORECAST_RUN`.
+- **Cuerpo:** `horizon_steps` (entero de 1 a `forecast_horizon_steps` de la institución, opcional; por defecto ese valor).
+- **Serie:** las lecturas efectivas de los últimos `forecast_context_steps` pasos de `forecast_step_seconds` (remuestreadas). La llamada a `caudal-ia` ocurre fuera de la transacción y respeta los timeouts de [Contrato-IA.md](Contrato-IA.md).
+- **Respuesta 201:** corrida con `run_id`, `model_name`, `is_fallback`, `fallback_reason` (`IA_TIMEOUT`, `CIRCUIT_OPEN`, `IA_ERROR` o `INSUFFICIENT_HISTORY`) y `points`. La estimación simple que se calcula junto a la IA se guarda con `fallback_reason = SHADOW_BASELINE` y nunca se devuelve como pronóstico principal.
+- **Errores:** `400 VALIDATION_ERROR`, `404 NOT_FOUND`, `422 NO_LEVEL_DATA` (sin lecturas en la ventana), `429 RATE_LIMITED` (10 por hora por institución), `503 IA_UNAVAILABLE` (solo si también falla la estimación simple).
+- **Ejemplo:** `{ "horizon_steps": 12 }`
+
+### 9.3 `GET /api/v1/events`
+
+- **Permiso:** `STATUS_VIEW` (propuesto; la lectura general de eventos está por definir en [Actores-y-permisos.md](Actores-y-permisos.md)).
+- **Parámetros:** `tank_id` (obligatorio), `kind` (opcional: `LOW_LEVEL`, `CRITICAL_LEVEL`, `COMMAND_FAILED`, `OBSERVATION`, `ANOMALY`), `from`, `to`, `limit`, `cursor`.
+- **Respuesta 200:** `items` con `id`, `kind`, `occurred_at`, `origin` (`OBSERVED` para alertas, comandos y observaciones; `INFERRED` para anomalías), `summary_es` y `ref` (tipo e id del objeto de origen).
+- **Nota:** las alertas de nivel usan `low_level_pct` y `critical_level_pct` de la institución. Un comando `FAILED` o `EXPIRED` genera `COMMAND_FAILED`.
+
+### 9.4 `GET /api/v1/anomalies`
+
+- **Permiso:** `STATUS_VIEW`.
+- **Parámetros:** `status` (`OPEN`, `CONFIRMED`, `DISMISSED`), `kind` (`SENSOR_FAULT`, `STALE_DATA`, `ABNORMAL_DROP`, `POSSIBLE_LEAK`), `limit`, `cursor`.
+- **Respuesta:** `items` con `id`, `kind`, `detected_at`, `status`, `evidence` (los valores que dispararon la regla), `resolved_by`, `resolved_at`, `resolution_note` y `next_cursor`. Son sospechas (`INFERRED`) hasta que alguien las confirme.
+- **Reglas de detección** (escala de segundos, sensor cada ~2 s):
+
+| `kind` | Condición | Parámetro |
+|---|---|---|
+| `SENSOR_FAULT` | Sin eco o valor pegado durante la ventana, con alguna válvula abierta. Con todas las válvulas cerradas, un valor estable es normal. | `sensor_stuck_window_seconds` |
+| `STALE_DATA` | Sin telemetría durante más de `stale_after_seconds` | `stale_after_seconds` |
+| `ABNORMAL_DROP` | El nivel baja más rápido que `max_level_change_per_minute` | `max_level_change_per_minute` |
+| `POSSIBLE_LEAK` | El nivel baja con todas las válvulas cerradas, más que la tolerancia | Tolerancia por definir |
+
+- Los duplicados no son anomalías: un envío repetido se rechaza por `X-Nonce` (sección 16.2).
+
+### 9.5 `PATCH /api/v1/anomalies/{id}`
+
+- **Permiso:** `ANOMALY_REVIEW` (`INSTITUTION_ADMIN`).
+- **Conflicto por resolver:** [Reglas-de-negocio.md](Reglas-de-negocio.md), sección 7, dice que el operador confirma la anomalía en campo. La matriz de [Actores-y-permisos.md](Actores-y-permisos.md) solo da `ANOMALY_REVIEW` al administrador. Por definir quién puede confirmar o descartar.
+- **Cuerpo:** `status` (`CONFIRMED` o `DISMISSED`) y `resolution_note` (texto, 0 a 500). Al descartar es obligatoria (10 a 500 caracteres; propuesta). Si la nota es opcional al confirmar, está por definir.
+- **Respuesta 200:** anomalía actualizada.
+- **Errores:** `409 INVALID_STATE_TRANSITION` (no está `OPEN`), `422 REASON_REQUIRED` (descarte sin nota).
+- **Ejemplo:** `{ "status": "DISMISSED", "resolution_note": "Se revisó la válvula; la caída fue por la lluvia y no por fuga." }`
+
+## 10. Válvulas y comandos
+
+Un comando de válvula tiene un solo origen: manual (la persona lo pide en la interfaz) o piloto (decisión de `ops.autopilot_decisions`, sección 11). Cada comando pasa por una máquina de estados (patrón State, `ValveCommandState`): `PENDING`, `DELIVERED`, `ACKED`, `FAILED`, `EXPIRED`, `CANCELLED`. La tabla completa está en [Protocolo-de-dispositivos.md](Protocolo-de-dispositivos.md), sección 5.2.
+
+Flujo de extremo a extremo: `POST /valve-commands/manual` crea el comando en `PENDING`; el puente lo recoge con `GET /devices/commands`, lo envía por serie al Arduino (`S<n> <grados>`), recibe `DONE` y confirma con `POST /devices/commands/{id}/ack` (`ACKED`). La interfaz consulta el estado con `GET /valve-commands/{id}`.
+
+### 10.1 `POST /api/v1/valve-commands/manual`
+
+- **Permiso:** `VALVE_COMMAND_MANUAL` (`OPERATOR` e `INSTITUTION_ADMIN`). Enviar un comando manual cuenta como acción humana y pausa al piloto automático.
 - **Cuerpo:**
 
 | Campo | Tipo | Oblig. | Límites |
 |---|---|---|---|
-| `grantee_user_id` | UUID | Sí | Usuario con rol `SUPPORT_ENTITY` |
-| `scope` | texto | Sí | `MONTHLY_SUMMARY` o `MINUTES` |
-| `period_from`, `period_to` | fechas | Sí | `period_to >= period_from` |
-| `reason` | texto | Sí | 10 a 500 (`REASON`) |
-| `expires_at` | fecha y hora | Sí | Obligatorio, en el futuro. Límite máximo: por definir. |
+| `valve_id` | UUID | Sí | Válvula motorizada de la institución, con actuador activo |
+| `command` | texto | Sí | `OPEN` o `CLOSE` |
+| `manual_reason` | texto | No | 10 a 500 si viene. Si falta, se guarda un texto por defecto (por definir). Así todo comando manual tiene motivo. |
+| `not_before` | fecha y hora | No | Por defecto, ahora. El comando no se entrega antes. |
+| `expires_at` | fecha y hora | No | Mayor que `not_before`. Por defecto, `not_before` más 60 segundos (valor por definir). Si llega ese momento sin entregarse, pasa a `EXPIRED`. |
 
-- **Respuesta 201:** autorización creada.
-- **Errores:** `422 REASON_REQUIRED` (motivo ausente o corto), `400 VALIDATION_ERROR` (`grantee_user_id` que no es de rol `SUPPORT_ENTITY`, o `expires_at` en el pasado).
-- **Ejemplo:** `{ "grantee_user_id": "0190f3a2-5555-7000-8000-000000000001", "scope": "MONTHLY_SUMMARY", "period_from": "2026-10-01", "period_to": "2026-10-31", "reason": "Informe para la alcaldía municipal.", "expires_at": "2026-11-30T23:59:00-05:00" }`
+- **Respuesta 201:** comando en `PENDING`.
+- **Regla de un solo comando activo:** no se encolan dos comandos activos (`PENDING` o `DELIVERED`) para la misma válvula. Si llega otro, la regla (rechazar o reemplazar) está por definir. Propuesta: rechazar con `409 CONFLICT`.
+- **Errores:** `400 VALIDATION_ERROR` (`expires_at <= not_before`), `422 REASON_REQUIRED` (motivo de menos de 10 caracteres), `404 NOT_FOUND` (válvula inexistente, de otra institución o sin actuador activo), `409 CONFLICT` (comando activo sobre la misma válvula, propuesta).
+- **Ejemplo:**
 
-### 13.5 `DELETE /api/v1/summary-shares/{id}`
+```json
+{ "valve_id": "0190f3a2-e002-7000-8000-000000000001", "command": "CLOSE", "manual_reason": "Fuga visible en la manguera; cierre preventivo." }
+```
 
-- **Permiso:** `SUMMARY_SHARE_MANAGE`.
-- **Respuesta 204.** Pone `revoked_at` y `revoked_by`. No borra la fila.
-- **Errores:** `409 CONFLICT` (ya revocada).
+### 10.2 `GET /api/v1/valve-commands/{id}`
 
-### 13.6 `GET /api/v1/summaries`
+- **Permiso:** `VALVE_COMMAND_MANUAL` (lo tienen `OPERATOR` e `INSTITUTION_ADMIN`).
+- **Respuesta 200:** `id`, `valve_id`, `command`, `status`, `origin` (`MANUAL` o `AUTOPILOT`), `manual_reason` o `autopilot_decision_id`, `not_before`, `expires_at`, `created_by` (nulo si lo creó el piloto), `created_at`, `delivered_at`, `acked_at`, `detail` (texto del último ack) y `events` (transiciones: `event`, `detail`, `occurred_at`).
+- **Errores:** `404 NOT_FOUND`.
 
-- **Permiso:** `SUMMARY_READ`. Para `SUPPORT_ENTITY`, solo lista y permite leer las autorizaciones vigentes (ver `Reglas-de-negocio.md`, sección 16.3).
-- **Parámetros:** `period_from`, `period_to`, `limit`, `cursor`.
-- **Respuesta:** lista de resúmenes con `scope`, `period_from`, `period_to`, `content` (secciones) y `summary_share_id`.
-- **Nota:** cada consulta de una entidad escribe en `audit.data_access_log`.
+### 10.3 `GET /api/v1/valves/live`
 
-### 13.7 `POST /api/v1/minutes/{id}/finalize`
-
-- **Permiso:** `MINUTES_GENERATE`. Sin cuerpo.
-- **Respuesta 200:** acta en `FINAL` (transición `DRAFT` → `FINAL`), con `finalized_by`, `finalized_at` y `pdf_sha256`. Ya no lleva la marca "BORRADOR".
-- **Errores:** `409 INVALID_STATE_TRANSITION` (el acta no está en `DRAFT`), `404 NOT_FOUND`.
-
-### 13.8 `GET /api/v1/minutes`
-
-- **Permiso:** `MINUTES_VIEW`. Solo ve las actas de su acueducto.
-- **Parámetros:** `limit` (de 1 a 100, por defecto 20) y `cursor` (sección 1.5).
-- **Orden:** del acta más reciente a la más antigua, por `generated_at` (momento de la generación) y luego por `id`.
-- **Respuesta:** `items` y `next_cursor`. Cada elemento trae `id`, `period_from`, `period_to`, `status` (`DRAFT` o `FINAL`), `generated_at`, `finalized_at` y `pdf_sha256`. `finalized_at` y `pdf_sha256` son nulos mientras el acta es `DRAFT`. No trae las secciones (`content`); su detalle está en 13.2. Todo PDF se descarga con 13.3, también el borrador.
-- **Errores:** `400 VALIDATION_ERROR` (`limit` fuera de rango), `400 CURSOR_INVALID` (cursor alterado).
-- **Ejemplo de respuesta:**
+- **Permiso:** `STATUS_VIEW`. La interfaz la consulta cada 2 segundos.
+- **Respuesta 200:** `items` con `valve_id`, `service_line_id`, `state` (`OPEN`, `CLOSED` o `UNKNOWN`) y `last_command` (`id`, `command`, `status`, `origin`, `created_at`, `updated_at`; `null` si no hay ninguno).
+- **Cómo sale el estado:** del último comando `ACKED` de esa válvula. `OPEN` si fue una apertura, `CLOSED` si fue un cierre, `UNKNOWN` si no tiene ningún ack. Un comando `FAILED` o `EXPIRED` no cambia el estado.
+- **Significado:** `ACKED` confirma que el actuador respondió. No confirma que el agua haya fluido.
+- **Ejemplo:**
 
 ```json
 {
   "items": [
     {
-      "id": "0190f3a2-7c1d-7b2e-9f11-3d4c5e6f7a81",
-      "period_from": "2026-10-01",
-      "period_to": "2026-10-31",
-      "status": "FINAL",
-      "generated_at": "2026-10-14T13:00:00Z",
-      "finalized_at": "2026-10-14T13:05:00Z",
-      "pdf_sha256": "3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b"
+      "valve_id": "0190f3a2-e002-7000-8000-000000000001",
+      "service_line_id": "0190f3a2-e001-7000-8000-000000000001",
+      "state": "OPEN",
+      "last_command": { "id": "0190f3a2-e003-7000-8000-000000000001", "command": "OPEN", "status": "ACKED", "origin": "MANUAL", "created_at": "2026-11-20T10:00:00Z", "updated_at": "2026-11-20T10:00:03Z" }
     }
-  ],
-  "next_cursor": null
+  ]
 }
 ```
+
+## 11. Piloto automático (`/autopilot`)
+
+![Secuencia del piloto automático](images/secuencia-piloto-automatico.png)
+
+![Secuencia de aceptar una recomendación](images/secuencia-aceptar-recomendacion.png)
+
+El piloto automático es el actor de sistema `AUTOPILOT` (sin cuenta). Cada `AUTOPILOT_INTERVAL_SECONDS` segundos (60 por defecto) toma una foto de la institución (nivel, pronóstico, tendencia, anomalías abiertas, estado de las válvulas y modo) y pide recomendaciones a `caudal-ia` (`POST /v1/insights/recommendations`, con el mismo cliente y circuit breaker del pronóstico, pero con un circuito propio). Si el servicio no responde, usa reglas deterministas (`source: "RULES"`, `model: "rules-v1"`).
+
+El backend vuelve a validar todo lo que recibe: descarta acciones desconocidas y válvulas que no están en la foto, exige una válvula motorizada con actuador para `OPEN` y `CLOSE`, recorta el motivo a 280 caracteres, limita la confianza a 0..1 y deja como máximo 5 recomendaciones. Cada una queda como una **decisión** en `ops.autopilot_decisions`.
+
+Acciones: `OPEN`, `CLOSE`, `WAIT` (no hacer nada por ahora) e `INSPECT` (revisar en campo). Las reglas que eligen entre ellas están en [Reglas-de-negocio.md](Reglas-de-negocio.md), sección 10.2.
+
+**Qué hace el piloto con cada decisión según el modo** (`institution_settings.autopilot_mode`, sección 6):
+
+| Modo | Efecto |
+|---|---|
+| `MANUAL` | La decisión queda `PENDING` y solo se muestra; no se puede aceptar. |
+| `ASSISTED` | Queda `PENDING` hasta que una persona la acepte (crea el comando) o la rechace. |
+| `AUTOMATIC` | Un `OPEN` o `CLOSE` se ejecuta solo si nadie actuó en `operator_absence_minutes` (un comando manual, una aceptación o un rechazo): crea el comando con origen `AUTOPILOT` y la decisión pasa a `EXECUTED`. Si el operador estuvo activo, queda `PENDING` con `status_detail: "OPERATOR_ACTIVE"`. |
+
+**Guardas comunes a todos los modos:**
+
+- **Piso de reserva** (`reserve_floor_pct`): un `OPEN` nunca se ejecuta con el nivel en o por debajo del piso (un nivel desconocido cuenta como bajo la reserva). La decisión queda `SKIPPED` con `status_detail: "RESERVE_FLOOR"`. Si la válvula ya está abierta, la recomendación es `CLOSE`. La misma guarda se aplica al aceptar a mano, con el nivel de ese momento (responde `409 CONFLICT`).
+- **Prioridad humana** (`operator_absence_minutes`): mientras una persona haya enviado un comando a una válvula hace menos de ese tiempo, el piloto no cambia esa válvula y recomienda `WAIT`.
+- Cuando un ciclo crea decisiones nuevas, las `PENDING` anteriores pasan a `EXPIRED`.
+- Un comando de una decisión lleva `autopilot_decision_id` como único origen. Si lo acepta una persona, `created_by` es esa persona. La decisión aceptada pasa a `EXECUTED` cuando el actuador confirma el comando (`ACKED`).
+- Todo queda en la auditoría: `AUTOPILOT_DECISION_ACCEPTED`, `AUTOPILOT_DECISION_REJECTED` y `AUTOPILOT_EXECUTED` (esta última con el actor `SYSTEM`). Los cambios de modo quedan como `INSTITUTION_SETTINGS_CHANGED` (sección 6.2).
+
+**Configuración del piloto.** El modo, la prioridad humana y el piso de reserva viven en `org.institution_settings`. La ruta `/autopilot/settings` de la versión anterior se quita. [Actores-y-permisos.md](Actores-y-permisos.md) lista el cambio de modo como `PUT /autopilot/mode`, con ruta por definir: ver la nota de la sección 6.2.
+
+**Esquema `Decision`:**
+
+| Campo | Significado |
+|---|---|
+| `id`, `created_at` | Identificador y momento de la decisión |
+| `source` | `LLM` o `RULES` |
+| `model` | Modelo que la produjo (`rules-v1` o el del servicio) |
+| `action` | `OPEN`, `CLOSE`, `WAIT` o `INSPECT` |
+| `valve_id` | Válvula. Nulo en `WAIT` e `INSPECT`. |
+| `reason` | Motivo en español, hasta 280 caracteres |
+| `confidence` | 0 a 1 |
+| `status` | `PENDING`, `ACCEPTED`, `REJECTED`, `EXECUTED`, `EXPIRED` o `SKIPPED` |
+| `status_detail` | Nulo, `RESERVE_FLOOR`, `COMMAND_REFUSED`, `OPERATOR_ACTIVE` o el motivo del rechazo |
+| `decided_by`, `decided_at` | Quién decidió (persona o `AUTOPILOT`) y cuándo |
+| `valve_command_id` | Comando creado, si lo hubo |
+
+### 11.1 `GET /api/v1/autopilot/decisions`
+
+- **Permiso:** `STATUS_VIEW`.
+- **Parámetros:** `status` (opcional) y `limit` (1 a 100, 100 por defecto).
+- **Respuesta 200:** `{ "items": [Decision] }`, de la más nueva a la más vieja. La pantalla consulta `status=PENDING` cada 2 segundos.
+- **Errores:** `400 VALIDATION_ERROR` (estado o límite no válidos).
+
+### 11.2 `GET /api/v1/autopilot/recommendations`
+
+- **Permiso:** `STATUS_VIEW`.
+- **Respuesta 200:** atajo de `GET /autopilot/decisions?status=PENDING`.
+
+### 11.3 `POST /api/v1/autopilot/decisions/{id}/accept`
+
+- **Permiso:** `VALVE_COMMAND_MANUAL` (`INSTITUTION_ADMIN` y `OPERATOR`).
+- **Cuerpo:** ninguno.
+- **Respuesta 200:** la `Decision` en `ACCEPTED`. Para `OPEN` y `CLOSE` crea el comando de la válvula (`PENDING`). Cuenta como acción humana.
+- **Errores:** `404 NOT_FOUND` (decisión inexistente, o válvula no motorizada o sin actuador activo), `409 CONFLICT` (modo `MANUAL`, `OPEN` bajo el piso de reserva, que deja la decisión en `SKIPPED`, o ya hay un comando activo de la válvula), `409 INVALID_STATE_TRANSITION` (la decisión ya no está `PENDING`).
+
+### 11.4 `POST /api/v1/autopilot/decisions/{id}/reject`
+
+- **Permiso:** `ASSISTANT_USE`.
+- **Cuerpo (opcional):** `{ "reason": "hasta 200 caracteres" }`.
+- **Respuesta 200:** la `Decision` en `REJECTED`, con el motivo en `status_detail`. No crea comando. Cuenta como acción humana.
+- **Errores:** `404 NOT_FOUND`, `409 INVALID_STATE_TRANSITION`.
+
+### 11.5 `POST /api/v1/autopilot/run`
+
+- **Permiso:** `AUTOPILOT_CONFIGURE`.
+- **Uso:** fuerza un ciclo del piloto, para la demostración.
+- **Respuesta 200:** `{ "items": [Decision] }` con las decisiones del ciclo. Vacío si la institución no tiene tanque ni válvulas motorizadas.
+
+## 12. Asistente y reportes
+
+### 12.1 `POST /api/v1/assistant/ask`
+
+- **Permiso:** `ASSISTANT_USE` (`INSTITUTION_ADMIN` y `OPERATOR`; el `VIEWER` no lo tiene, según [Actores-y-permisos.md](Actores-y-permisos.md), sección 3.3).
+- **Rol del LLM:** responde preguntas en lenguaje natural. No decide, no envía comandos y no inventa cifras. Recibe el `outlook`, los eventos y el estado de las válvulas de la institución, y sus respuestas usan esos datos. Preguntas sugeridas: "¿cuánta agua queda?", "¿cuándo llega a la reserva?" y "¿qué pasó hoy?".
+- **Cuerpo:** `{ "question": "..." }` (3 a 500 caracteres).
+- **Respuesta 200:** `{ "source": "LLM" | "RULES", "model": "...", "answer": "...", "generated_at": "..." }`. Si `caudal-ia` no responde o supera `INSIGHTS_READ_TIMEOUT_MS`, contesta una plantilla de reglas con los mismos datos.
+- **Errores:** `400 VALIDATION_ERROR`, `422 NO_LEVEL_DATA` (sin lectura válida para responder con cifras).
+- **Ejemplo:** `{ "question": "¿cuánta agua queda?" }`, con respuesta `"Quedan 4,24 L (50,0 %)."`.
+
+### 12.2 `GET /api/v1/reports?from=&to=`
+
+- **Permiso:** `REPORT_VIEW` (`INSTITUTION_ADMIN`).
+- **Parámetros:** `from` (inclusive) y `to` (exclusivo), fechas y horas ISO 8601. El periodo dura como máximo 92 días.
+- **Respuesta 200:** `{ "from", "to", "aggregates": { "levels", "valve_commands", "autopilot_decisions", "observations", "anomalies", "closures" } }`:
+  - `levels`: nivel mínimo, máximo y promedio, en mm y en %;
+  - `valve_commands`: comandos por origen (`MANUAL`, `AUTOPILOT`) y estado;
+  - `autopilot_decisions`: decisiones por origen, acción y estado;
+  - `observations`: observaciones por tipo;
+  - `anomalies`: anomalías por tipo y estado;
+  - `closures`: días cerrados.
+- **Nota:** no incluye datos personales de los usuarios.
+- **Errores:** `400 VALIDATION_ERROR` (periodo vacío, invertido o de más de 92 días).
+
+### 12.3 `POST /api/v1/reports/narrative`
+
+- **Permiso:** `REPORT_VIEW`.
+- **Cuerpo:** `{ "from": "...", "to": "..." }`.
+- **Respuesta 200:** `{ "source", "model", "generated_at", "title", "summary", "findings": [..], "recommendations": [..], "markdown": "..." }`, escrito en español por el asistente o, si el servicio falla, por una plantilla. Se imprime desde el navegador.
+- **Errores:** `400 VALIDATION_ERROR`.
+
+## 13. Observaciones, cierre del día y actas
+
+### 13.1 `POST /api/v1/observations`
+
+- **Permiso:** `OBSERVATION_CREATE` (`OPERATOR` e `INSTITUTION_ADMIN`). El `VIEWER` solo lee.
+- **Uso:** el operador anota lo que ve en campo. Una observación no es una medida del sensor.
+- **Cuerpo:**
+
+| Campo | Tipo | Oblig. | Límites |
+|---|---|---|---|
+| `kind` | texto | Sí | `WATER_DIRTY` (agua sucia), `WATER_MUDDY` (agua turbia), `VISIBLE_DAMAGE` (daño visible) u `OTHER` (otro) |
+| `service_line_id` | UUID | No | Línea de la institución, si la observación es de una línea |
+| `note` | texto | Según `kind` | 10 a 500 caracteres (`FieldLimits`). Obligatoria con `OTHER`. |
+
+- **Hora:** la asigna el servidor al recibir la observación. Aceptar la hora del cliente está por definir.
+- **Respuesta 201:** observación con `id`, `kind`, `note`, `service_line_id`, `recorded_by`, `observed_at` y `origin` (`OBSERVED`).
+- **Errores:** `400 VALIDATION_ERROR` (tipo desconocido), `422 REASON_REQUIRED` (`OTHER` sin texto), `404 NOT_FOUND` (línea de otra institución).
+- **Ejemplo:**
+
+```json
+{ "kind": "WATER_MUDDY", "service_line_id": "0190f3a2-e001-7000-8000-000000000001", "note": "El agua sale con barro después de abrir la manguera." }
+```
+
+### 13.2 `GET /api/v1/observations`
+
+- **Permiso:** `STATUS_VIEW`.
+- **Parámetros:** `from`, `to`, `kind`, `limit` (1 a 100), `cursor`.
+- **Respuesta:** `items` de la más reciente a la más antigua, con los campos de 13.1 y `next_cursor`.
+
+### 13.3 `GET /api/v1/days/{date}/closure`
+
+- **Permiso:** `STATUS_VIEW`.
+- **Parámetro:** `date` (`YYYY-MM-DD`, día de servicio en `America/Bogota`).
+- **Respuesta 200:**
+
+| Campo | Significado |
+|---|---|
+| `service_date` | Día consultado |
+| `closed` | `true` si el día ya está cerrado |
+| `summary` | Resumen automático del día: aperturas y cierres por válvula con su origen, nivel mínimo y máximo (mm y %), litros entregados estimados (método por definir), eventos y observaciones |
+| `closure` | Cierre (`id`, `notes`, `closed_by`, `closed_at`) o `null` si el día aún no se cierra |
+
+- **Nota:** el resumen existe antes del cierre. El operador lo revisa, agrega novedades y cierra (13.4).
+- **Errores:** `400 VALIDATION_ERROR` (fecha con formato inválido).
+
+### 13.4 `POST /api/v1/days/{date}/closure`
+
+- **Permiso:** `DAY_CLOSE` (`OPERATOR` e `INSTITUTION_ADMIN`).
+- **Cuerpo:** `notes` (texto, 0 a 500, máximo 10 líneas, `FieldLimits.NOTE`).
+- **Efecto:** congela el resumen del día y guarda las novedades del operador. El cierre alimenta las actas (13.5).
+- **Respuesta 201:** cierre creado, con su `summary` congelado.
+- **Errores:** `409 CONFLICT` (el día ya está cerrado, también si dos cierres llegan a la vez), `400 VALIDATION_ERROR`.
+- **Ejemplo:** `{ "notes": "Día sin novedades mayores. Una manguera se pisó a medias por la lluvia." }`
+
+### 13.5 Actas (`/minutes`)
+
+Las actas usan los cuatro estatus epistémicos (ver [Reglas-de-negocio.md](Reglas-de-negocio.md), sección 12): cada registro cae en una sola sección.
+
+| Sección | Qué datos van |
+|---|---|
+| `observed` | Lecturas efectivas, agua que queda, observaciones y novedades del cierre |
+| `estimated` | Banda Chronos, tiempos hasta la reserva y hasta vaciarse, litros entregados estimados |
+| `inferred` | Anomalías abiertas o descartadas, recomendaciones del piloto |
+| `confirmed` | Comandos `ACKED` y anomalías confirmadas en campo |
+
+**Estados:** `DRAFT` (se puede regenerar) y `FINAL` (inmutable, con `pdf_sha256` y `audit_head_hash`). El periodo y el alcance de cada acta están por definir.
+
+#### `POST /api/v1/minutes`
+
+- **Permiso:** `MINUTES_GENERATE` (`INSTITUTION_ADMIN`).
+- **Cuerpo:** `period_from`, `period_to` (fechas, `period_to >= period_from`).
+- **Respuesta 201:** acta en `DRAFT` con `content` (secciones de la tabla).
+- **Errores:** `400 VALIDATION_ERROR` (periodo invertido o de más de 366 días).
+
+#### `POST /api/v1/minutes/{id}/finalize`
+
+- **Permiso:** `MINUTES_GENERATE`. Sin cuerpo.
+- **Respuesta 200:** acta en `FINAL`, con `finalized_by`, `finalized_at` y `pdf_sha256`.
+- **Errores:** `409 INVALID_STATE_TRANSITION` (el acta no está en `DRAFT`), `404 NOT_FOUND`.
+
+#### `GET /api/v1/minutes/{id}`
+
+- **Permiso:** `MINUTES_VIEW` (`INSTITUTION_ADMIN`, `OPERATOR` y `VIEWER`, según [Actores-y-permisos.md](Actores-y-permisos.md), sección 3.3).
+- **Respuesta:** acta con `status`, `period_from`, `period_to`, `content`, `generated_by`, `generated_at`, `pdf_sha256` y `audit_head_hash` (si está `FINAL`).
+
+#### `GET /api/v1/minutes`
+
+- **Permiso:** `MINUTES_VIEW`. Solo ve las actas de su institución.
+- **Parámetros:** `limit` (1 a 100, 20 por defecto) y `cursor`.
+- **Orden:** del acta más reciente a la más antigua, por `generated_at` y luego por `id`.
+- **Respuesta:** `items` con `id`, `period_from`, `period_to`, `status`, `generated_at`, `finalized_at` y `pdf_sha256` (nulos mientras es `DRAFT`), y `next_cursor`. No trae `content`: su detalle está en `GET /minutes/{id}`.
+
+#### `GET /api/v1/minutes/{id}/pdf`
+
+- **Permiso:** `MINUTES_VIEW`.
+- **Respuesta 200:** `application/pdf` (OpenPDF). Un acta en `DRAFT` lleva la marca "BORRADOR". Un acta `FINAL` trae la cabecera `X-Content-SHA256`, igual a `pdf_sha256`: el PDF es determinista y se vuelve a generar idéntico. Cada descarga queda en `audit.data_access_log`.
+- **Errores:** `404 NOT_FOUND`.
 
 ## 14. Evaluación de la IA
 
 ### 14.1 `GET /api/v1/forecast-evaluation`
 
-- **Permiso:** `EVALUATION_READ`.
-- **Parámetros:** `horizon_days` (1 a 3), `from`, `to`.
+- **Permiso:** `EVALUATION_VIEW` (`INSTITUTION_ADMIN`).
+- **Parámetros:** `horizon_steps` (1 a `forecast_horizon_steps`), `from`, `to`.
 - **Respuesta 200:**
 
 | Campo | Significado |
 |---|---|
 | `n` | Número de pronósticos evaluados |
-| `mae_ia`, `mae_simple` | Error absoluto medio del p50 |
+| `mae_ia`, `mae_simple` | Error absoluto medio del p50, del modelo y de la estimación simple |
 | `wql_ia` | Pérdida cuantílica ponderada |
 | `coverage_80` | Proporción de reales dentro de [p10, p90] (meta cercana a 80 %) |
 | `avg_interval_width` | Ancho medio del intervalo |
 | `skill` | `1 - MAE_ia / MAE_simple` |
 | `helps` | `true` si `skill > 0` de forma sostenida, con al menos 30 pronósticos y cobertura entre 70 % y 90 % |
 
-- **Ejemplo:** `{ "horizon_days": 1, "n": 34, "skill": 0.12, "coverage_80": 0.78, "helps": true }` (valores ficticios)
+- **Ejemplo:** `{ "horizon_steps": 12, "n": 34, "skill": 0.12, "coverage_80": 0.78, "helps": true }` (valores ficticios)
 
-## 15. Público (sin login)
+## 15. Importación de historial simulado (`/imports`)
 
-Estas rutas no requieren autenticación. Solo muestran datos públicos y no revelan nombres ni teléfonos. El proxy `PublicScheduleProxy` aplica la protección antes de responder.
+Solo para instituciones con `is_simulated = true`. Lo usa el superadmin con un token `act_as=platform` (permiso `IMPORT_SIMULATED`, que no tiene ningún rol de institución). En cualquier otra institución responde `403 SIMULATED_ONLY` y queda el evento `IMPORT_REJECTED` en `iam.security_events`. La base de datos lo rechaza también con `sim.guard_simulated_only` (propuesto; antes `sim.guard_demo_only`).
 
-### 15.1 `GET /api/v1/public/{aqueductSlug}/schedule`
+Límites: cuerpo de 1 MiB o 5.000 filas por lote (lo que llegue primero). Más filas: `422 IMPORT_LIMIT_EXCEEDED`. La importación puede enviar fechas anteriores al límite de antigüedad (`max_backdate_days`, por definir), que es la excepción de la regla de antigüedad. Cada importación crea una fila en `sim.import_batches` antes que sus datos.
 
-- **Parámetros:** `date` (opcional, por defecto hoy en `America/Bogota`).
-- **Respuesta 200:**
-  - `aqueduct`: `name`, `is_demo`.
-  - `service_date`.
-  - `publication`: `id`, `published_at`.
-  - `items`: `sector_name`, `start_at`, `end_at`.
-  - Si `is_demo = true`, el banner "Datos simulados" se incluye en `aqueduct.banner`.
-- **Errores:** `404 NOT_FOUND` (slug inexistente, página desactivada o sin publicación para la fecha).
+### 15.1 `POST /api/v1/imports/readings`
 
-### 15.2 `GET /api/v1/public/{aqueductSlug}/schedule/whatsapp-text`
-
-- **Respuesta 200:** `text/plain; charset=utf-8` con el mensaje de `publications.whatsapp_text`. Sin datos personales.
-- **Errores:** `404 NOT_FOUND`.
-
-### 15.3 `GET /api/v1/public/{aqueductSlug}/schedule/poster.pdf`
-
-- **Respuesta 200:** `application/pdf` del cartel. La cabecera `X-Content-SHA256` trae el hash que se guardó en `poster_sha256`. El PDF es determinista (sin fechas ni identificador aleatorio), así que el hash del archivo coincide con el guardado.
-- **Errores:** `404 NOT_FOUND`.
-
-### 15.4 `POST /api/v1/public/{aqueductSlug}/damage-reports`
-
-- **Límite:** 3 por hora por IP. Honeypot y tiempo mínimo de llenado.
-- **Cuerpo:**
+- **Permiso:** `IMPORT_SIMULATED`. Lista de endpoints de importación por definir.
+- **Cuerpo común:**
 
 | Campo | Tipo | Oblig. | Límites |
 |---|---|---|---|
-| `category_code` | texto | Sí | Código de `DAMAGE_CATEGORY` |
-| `sector_id` | UUID | No | Sector del acueducto |
-| `description` | texto | Sí | 10 a 500 (`INCIDENT_DESCRIPTION`) |
-| `location_hint` | texto | No | 0 a 120 (`LOCATION_HINT`) |
-| `website` | texto | No | Campo trampa oculto. Debe llegar vacío. |
-| `form_started_at` | fecha y hora | Sí | Al menos `PUBLIC_FORM_MIN_SECONDS` (3 s por defecto) antes del envío |
+| `scenario_name` | texto | Sí | 1 a 60 |
+| `seed` | entero (64 bits) | Sí | Semilla del simulador |
+| `simulator_version` | texto | Sí | 1 a 30 |
+| `file_sha256` | texto | Sí | 64 caracteres hexadecimales. Repetido: `409 CONFLICT`. |
+| `rows` | lista | Sí | 1 a 5.000 |
 
-- **Respuesta 201:** `tracking_code` (8 caracteres Crockford base32, se muestra una sola vez), `status = REPORTED` y `message` (texto para mostrar a la persona).
-- **Errores:** `400 VALIDATION_ERROR` (tiempo mínimo no cumplido), `404 NOT_FOUND` (slug), `429 RATE_LIMITED`. Si el campo `website` llega con valor, la API responde `201` genérico, no guarda nada y registra `HONEYPOT_TRIGGERED` sin revelarlo.
-- **Ejemplo:** `{ "category_code": "LEAK", "description": "Hay agua saliendo del tubo de la calle principal.", "location_hint": "Esquina de la tienda", "website": "", "form_started_at": "2026-10-09T09:00:00-05:00" }`
-
-### 15.5 `GET /api/v1/public/damage-reports/{trackingCode}`
-
-- **Respuesta 200:** `status`, `status_label_es`, `category_label_es`, `reported_at`, `updated_at`. No devuelve la descripción, el lugar, datos del reportante ni la IP. La búsqueda por hash usa la función `ops.find_public_report` (V50), porque el código no trae el acueducto.
-- **Errores:** `400 VALIDATION_ERROR` (formato de código inválido), `404 NOT_FOUND` (código no existe; mensaje genérico).
+- **Cada fila:** `observed_at` (fecha y hora) y `distance_mm` (entero; `-1` sin eco, o de 0 a 4000). Si la importación envía distancia cruda o nivel está por definir. Las filas pasan por la misma cadena de validación del sensor (Reglas, sección 4.2). No aplica `TOO_OLD`, porque la importación puede enviar fechas antiguas.
+- **Respuesta 201:** `import_batch_id`, `rows_received`, `rows_accepted`, `rows_rejected` y `rejections` (lista de `row`, la posición en el archivo desde 1, y `code`).
 
 ## 16. Dispositivos (firmados)
 
-Las rutas de telemetría y comandos no usan JWT. Cada petición lleva firma Ed25519. El protocolo completo, con la cadena canónica, la validación en orden y los vectores de prueba, está en `Protocolo-de-dispositivos.md`.
+Las rutas de dispositivos no usan JWT. Cada petición lleva firma Ed25519. El protocolo completo, con la cadena canónica, la validación en orden y los vectores de prueba, está en [Protocolo-de-dispositivos.md](Protocolo-de-dispositivos.md). Los dispositivos de la institución de prueba son un sensor (`LEVEL_SENSOR`) y dos actuadores (`VALVE_ACTUATOR`) que el puente USB firma (ver [Simulador-y-hardware.md](Simulador-y-hardware.md)).
 
-### 16.1 `POST /api/v1/devices/telemetry`
+### 16.1 `GET /api/v1/devices/config`
+
+- **Autenticación:** firma del dispositivo. Cuerpo vacío.
+- **Efecto:** entrega a cada dispositivo su configuración. El puente la relee sin reiniciarse. El firmware del Arduino no cambia: recibe ángulos crudos.
+- **Respuesta 200 para un sensor:**
+
+```json
+{
+  "config_version": 7,
+  "device_id": "0190f3a2-9999-7000-8000-000000000001",
+  "kind": "LEVEL_SENSOR",
+  "sensor": { "empty_distance_mm": 350, "full_distance_mm": 80, "blind_zone_mm": 20, "sample_interval_seconds": 2 }
+}
+```
+
+- **Respuesta 200 para un actuador:**
+
+```json
+{
+  "config_version": 7,
+  "device_id": "0190f3a2-9999-7000-8000-000000000002",
+  "kind": "VALVE_ACTUATOR",
+  "actuator": { "valve_id": "0190f3a2-e002-7000-8000-000000000001", "servo_channel": 1, "open_angle_deg": 90, "closed_angle_deg": 0, "fail_safe_position": "KEEP" }
+}
+```
+
+- **Campos:** `config_version` cambia con cada edición de la configuración. Así el puente solo aplica una configuración nueva. `sample_interval_seconds` y `max_travel_seconds` (tiempo máximo de recorrido del servo) son valores por definir en el lado del backend o del puente.
+- **Cadencia:** por definir (propuesta: cada 30 segundos, o al cambiar `config_version`). Debe caber en el cupo de 60 por minuto del dispositivo (sección 1.8).
+- **Errores:** las mismas firmas que 16.2, `403 DEVICE_INACTIVE`.
+
+### 16.2 `POST /api/v1/devices/telemetry`
 
 - **Autenticación:** firma del dispositivo (`X-Device-Id`, `X-Timestamp`, `X-Nonce`, `X-Signature`).
 - **Límite:** 256 KiB de cuerpo, 60 peticiones por minuto por dispositivo.
@@ -1018,40 +1148,42 @@ Las rutas de telemetría y comandos no usan JWT. Cada petición lleva firma Ed25
 | Campo | Tipo | Oblig. | Límites |
 |---|---|---|---|
 | `id` | UUID | Sí | Generado por el dispositivo (idempotencia) |
-| `metric` | texto | Sí | `LEVEL`, `BATTERY_V`, `RSSI` o `VALVE_POSITION` |
-| `value` | decimal (3) | Sí | Número finito, hasta 3 decimales. Para `LEVEL`: hasta 2 decimales (ver protocolo). |
+| `metric` | texto | Sí | `DISTANCE` (sensor, mm crudos), `VALVE_POSITION`, `BATTERY_V` o `RSSI`. Las tres últimas por definir: la maqueta por USB no las mide. |
+| `value` | entero | Sí | Para `DISTANCE`: `-1` (sin eco) o de 0 a 4000 mm. |
 | `observed_at` | fecha y hora | Sí | ISO-8601 con zona |
 
-- **Respuesta 200:** `accepted`, `duplicates`, `rejected` y `results` (por `id`: `ACCEPTED` o `DUPLICATE`, con `reading_id` cuando generó lectura). Un punto inválido (por ejemplo, `LEVEL` fuera del rango del tanque) no se guarda: su elemento trae `error` con `code`, igual que en las lecturas.
+- **Respuesta 200:** `accepted`, `duplicates`, `rejected` y `results` (por `id`: `ACCEPTED` o `DUPLICATE`, con `reading_id` si el punto produjo una lectura efectiva en ese momento). Un punto inválido no se guarda: su elemento trae `error` con `code` (`DISTANCE_OUT_OF_RANGE`, `FUTURE_TIMESTAMP` o `VALIDATION_ERROR`).
+- **Un `-1` se guarda.** No produce nivel y cuenta para `SENSOR_FAULT` (Reglas, sección 4.2). Por eso el puente envía `-1` cuando no hay eco, en lugar de callar.
 - **Errores:** `401 INVALID_SIGNATURE`, `401 NONCE_REPLAY`, `401 TIMESTAMP_OUT_OF_WINDOW`, `403 DEVICE_INACTIVE`, `413 PAYLOAD_TOO_LARGE`, `400 VALIDATION_ERROR`, `429 RATE_LIMITED`.
 - **Ejemplo:**
 
 ```json
 {
   "points": [
-    { "id": "0190f3a2-6666-7000-8000-000000000001", "metric": "LEVEL", "value": 2.10, "observed_at": "2026-10-08T18:00:00-05:00" },
-    { "id": "0190f3a2-6666-7000-8000-000000000002", "metric": "BATTERY_V", "value": 12.4, "observed_at": "2026-10-08T18:00:00-05:00" }
+    { "id": "0190f3a2-6666-7000-8000-000000000001", "metric": "DISTANCE", "value": 215, "observed_at": "2026-11-20T15:30:00-05:00" },
+    { "id": "0190f3a2-6666-7000-8000-000000000002", "metric": "DISTANCE", "value": -1, "observed_at": "2026-11-20T15:30:02-05:00" }
   ]
 }
 ```
 
-### 16.2 `GET /api/v1/devices/commands`
+### 16.3 `GET /api/v1/devices/commands`
 
 - **Autenticación:** firma del dispositivo. Cuerpo vacío.
-- **Respuesta 200:** `items` (hasta 100) con `id`, `valve_id`, `command` (`OPEN` o `CLOSE`), `not_before`, `expires_at`. Solo comandos `PENDING` cuyo `not_before` ya llegó y que no vencieron. Al entregarse pasan a `DELIVERED` y se registra el evento.
-- **Errores:** las mismas firmas que 16.1, `403 DEVICE_INACTIVE`.
+- **Respuesta 200:** `items` (hasta 100) con `id`, `valve_id`, `command` (`OPEN` o `CLOSE`), `not_before`, `expires_at`. Solo comandos `PENDING` o `DELIVERED` sin confirmar, cuyo `not_before` ya llegó y que no vencieron. Al entregarse pasan a `DELIVERED`.
+- **Entrega:** al menos una vez. El puente debe tratar cada comando como idempotente.
+- **Errores:** las mismas firmas que 16.2, `403 DEVICE_INACTIVE`.
 
-### 16.3 `POST /api/v1/devices/commands/{id}/ack`
+### 16.4 `POST /api/v1/devices/commands/{id}/ack`
 
 - **Autenticación:** firma del dispositivo.
 - **Cuerpo:** `result` (`ACKED` o `FAILED`, obligatorio) y `detail` (texto, 0 a 200).
 - **Respuesta 200:** comando con su nuevo `status`. Es idempotente: confirmar dos veces el mismo comando responde igual.
 - **Errores:** `409 INVALID_STATE_TRANSITION` (comando `EXPIRED` o `CANCELLED`), `404 NOT_FOUND` (comando de otro dispositivo).
-- **Ejemplo:** `{ "result": "ACKED", "detail": "Válvula abierta; posición confirmada." }`
+- **Ejemplo:** `{ "result": "ACKED", "detail": "DONE S1 90 recibido del Arduino." }`
 
-### 16.4 `POST /api/v1/devices`
+### 16.5 `POST /api/v1/devices`
 
-- **Permiso:** `DEVICE_MANAGE`.
+- **Permiso:** `DEVICE_MANAGE` (`INSTITUTION_ADMIN`, o `PLATFORM_ADMIN` con `act_as`). Quién puede dar de alta claves está por definir.
 - **Cuerpo:**
 
 | Campo | Tipo | Oblig. | Límites |
@@ -1064,11 +1196,11 @@ Las rutas de telemetría y comandos no usan JWT. Cada petición lleva firma Ed25
 
 - **Respuesta 201:** dispositivo con `status = ACTIVE`. Todavía sin clave: no acepta firmas hasta registrar una.
 
-### 16.5 `POST /api/v1/devices/{id}/keys`
+### 16.6 `POST /api/v1/devices/{id}/keys`
 
 - **Permiso:** `DEVICE_MANAGE`.
 - **Cuerpo:** `public_key` (texto, base64url sin relleno, 43 caracteres que decodifican a 32 bytes).
-- **Respuesta 201:** `key_id`, `fingerprint` (SHA-256 de la clave en hexadecimal, 64 caracteres) y `activated_at`. La clave anterior, si existía, sigue válida 7 días (configurable) y después queda revocada. Para revocarla antes, ver `DELETE /devices/{id}/keys/{keyId}`.
+- **Respuesta 201:** `key_id`, `fingerprint` (SHA-256 de la clave en hexadecimal, 64 caracteres) y `activated_at`. La clave anterior, si existía, sigue válida 7 días (`DEVICE_KEY_ROTATION_DAYS`) y después queda revocada.
 - **Errores:** `422 INVALID_KEY`, `409 CONFLICT` (la misma clave ya está registrada).
 
 ### 16.7 `PATCH /api/v1/devices/{id}`
@@ -1084,314 +1216,178 @@ Las rutas de telemetría y comandos no usan JWT. Cada petición lleva firma Ed25
 - **Respuesta 204.** Revoca la clave: hace `UPDATE` de `revoked_at`, no borra la fila. Desde ese momento las firmas con esa clave dejan de aceptarse.
 - **Errores:** `404 NOT_FOUND`, `409 CONFLICT` (la clave ya estaba revocada).
 
-### 16.6 `POST /api/v1/valve-commands/manual`
-
-- **Permiso:** `VALVE_COMMAND_MANUAL` (`BOARD_ADMIN` y, desde la v2, `OPERATOR`). Enviar un comando manual cuenta como acción humana y pausa al piloto automático.
-- **Cuerpo:** `valve_id` (UUID), `command` (`OPEN` o `CLOSE`), `manual_reason` (texto, 10 a 500, obligatorio), `not_before` (fecha y hora), `expires_at` (mayor que `not_before`).
-- **Respuesta 201:** comando en `PENDING`.
-- **Errores:** `422 REASON_REQUIRED`, `400 VALIDATION_ERROR` (`expires_at <= not_before`), `404 NOT_FOUND` (válvula sin actuador).
-- **Ejemplo:** `{ "valve_id": "0190f3a2-7777-7000-8000-000000000001", "command": "CLOSE", "manual_reason": "Fuga visible en el tubo; cierre preventivo.", "not_before": "2026-10-09T10:00:00-05:00", "expires_at": "2026-10-09T10:05:00-05:00" }`
-
 ### 16.9 `GET /api/v1/devices`
 
-- **Permiso:** `DEVICE_MANAGE` (`BOARD_ADMIN` y `PROJECT_TEAM`). `OPERATOR` recibe `403 FORBIDDEN`.
-- **Parámetros:** `limit` (1 a 100, por defecto 20) y `cursor` (sección 1.5).
-- **Alcance:** dispositivos del acueducto de la sesión, del registro más reciente al más antiguo (`created_at` y, a igual momento, `id`). Otro acueducto ve una lista vacía.
-- **Respuesta 200:** `items` y `next_cursor`. Cada elemento trae `id`, `kind`, `name`, `status` (`ACTIVE`, `SUSPENDED` o `RETIRED`), `tank_id` (sensores), `valve_id` (actuadores), `created_at`, `last_seen_at` (nulo si nunca reportó) y `active_key`: la clave que se acepta ahora, con `id`, `valid_from` (registro de la clave) y `valid_until` (fin de la gracia tras una rotación; nulo si no tiene fin). Si el dispositivo no tiene clave vigente, `active_key` es `null`.
-- **Nunca devuelve:** el material de la clave pública, su huella, nonces ni secretos. Un dispositivo no expone sus claves revocadas.
-- **Errores:** `400 VALIDATION_ERROR` (`limit` fuera de 1 a 100), `400 CURSOR_INVALID`, `401 UNAUTHORIZED`, `403 FORBIDDEN`.
-- **Ejemplo:** `GET /api/v1/devices?limit=2`
+- **Permiso:** `DEVICE_MANAGE`. Un `OPERATOR` o un `VIEWER` recibe `403 FORBIDDEN`.
+- **Parámetros:** `limit` (1 a 100, por defecto 20) y `cursor`.
+- **Alcance:** dispositivos de la institución del token, del registro más reciente al más antiguo.
+- **Respuesta 200:** `items` y `next_cursor`. Cada elemento trae `id`, `kind`, `name`, `status`, `tank_id` (sensores), `valve_id` (actuadores), `created_at`, `last_seen_at` (nulo si nunca reportó) y `active_key`: `id`, `valid_from` y `valid_until` (nulo si no tiene fin). Si no tiene clave vigente, `active_key` es `null`.
+- **Nunca devuelve:** el material de la clave pública, su huella, nonces ni secretos.
+- **Errores:** `400 VALIDATION_ERROR`, `400 CURSOR_INVALID`, `401 UNAUTHORIZED`, `403 FORBIDDEN`.
 
-```json
-{
-  "items": [
-    {
-      "id": "0190f3a2-6666-7000-8000-0000000000d2",
-      "kind": "VALVE_ACTUATOR",
-      "name": "Motor del puente",
-      "status": "ACTIVE",
-      "tank_id": null,
-      "valve_id": "0190f3a2-7777-7000-8000-000000000001",
-      "created_at": "2026-10-09T14:00:00Z",
-      "last_seen_at": "2026-10-14T08:30:00Z",
-      "active_key": {
-        "id": "0190f3a2-6666-7000-8000-0000000000e2",
-        "valid_from": "2026-10-09T14:05:00Z",
-        "valid_until": null
-      }
-    },
-    {
-      "id": "0190f3a2-6666-7000-8000-0000000000d1",
-      "kind": "LEVEL_SENSOR",
-      "name": "Sensor del tanque principal",
-      "status": "ACTIVE",
-      "tank_id": "0190f3a2-5555-7000-8000-000000000001",
-      "valve_id": null,
-      "created_at": "2026-10-08T12:00:00Z",
-      "last_seen_at": null,
-      "active_key": null
-    }
-  ],
-  "next_cursor": "eyJvIjoyMH0.c2lnbmF0dXJh"
-}
-```
+## 17. Auditoría y seguridad
 
-## 17. Importación de historial simulado (`/imports`)
+### 17.1 `GET /api/v1/audit-log`
 
-Solo `PROJECT_TEAM` y solo para acueductos con `is_demo = true`. Cualquier otro acueducto responde `403 DEMO_ONLY`. Cada importación crea una fila en `sim.import_batches`.
-
-Límites: cuerpo de 1 MiB o 5.000 filas por lote (lo que llegue primero). Más filas: `422 IMPORT_LIMIT_EXCEEDED`. La importación puede enviar fechas anteriores a `max_backdate_days` (excepción de la regla de antigüedad).
-
-Campos comunes del cuerpo:
-
-| Campo | Tipo | Oblig. | Límites |
-|---|---|---|---|
-| `aqueduct_id` | UUID | Sí | Debe ser `is_demo = true` |
-| `scenario_name` | texto | Sí | 1 a 60 |
-| `seed` | entero (64 bits) | Sí | Semilla del simulador |
-| `simulator_version` | texto | Sí | 1 a 30 |
-| `file_sha256` | texto | Sí | 64 caracteres hexadecimales. Repetido: `409 CONFLICT`. |
-| `rows` | lista | Sí | 1 a 5.000 |
-
-Respuesta 201 común: `import_batch_id`, `rows_received`, `rows_accepted`, `rows_rejected` y `rejections` (lista de `row`, la posición en el archivo desde 1, y `code`).
-
-Permiso: `IMPORT_SIMULATED` (`PROJECT_TEAM`). `aqueduct_id` debe ser el acueducto de la sesión y estar marcado `is_demo`; otro responde `403 DEMO_ONLY` (la base de datos lo rechaza también con `sim.guard_demo_only`). La fila de `sim.import_batches` se escribe una vez, con sus conteos, antes que sus datos.
-
-### 17.1 `POST /api/v1/imports/readings`
-
-- Cada fila tiene los campos de la lectura (7.1) sin `source`, que se fija en `IMPORT`. Las lecturas quedan con `import_batch_id`.
-- Pasan la misma cadena de validación de 7.1 salvo `TOO_OLD`, y se guardan en el orden de `observed_at`. Un `id` repetido dentro del archivo se rechaza con `DUPLICATE_READING`.
-
-### 17.2 `POST /api/v1/imports/shift-executions`
-
-- Cada fila: `schedule_item_id` (UUID existente del acueducto), `status` (`COMPLETED`, `PARTIAL` o `NOT_EXECUTED`), `actual_start`, `actual_end` (posterior a `actual_start` si ambos vienen), `note` (hasta 500). Quedan con `import_batch_id`. Un turno que no existe se rechaza con `NOT_FOUND`; un estado o un rango inválido, con `VALIDATION_ERROR`.
-
-### 17.3 `POST /api/v1/imports/incidents`
-
-- Cada fila: `category_code` (activo en `DAMAGE_CATEGORY`), `sector_id` (opcional, del acueducto), `description` (10 a 500), `location_hint` (hasta 120), `reported_at`. Se guardan con `source = IMPORT`, estado `REPORTED` (con su fila en `incident_status_history`) y un código de seguimiento propio del que solo se guarda el hash.
-
-## 18. Auditoría y seguridad
-
-### 18.1 `GET /api/v1/audit-log`
-
-- **Permiso:** `AUDIT_READ` (`BOARD_ADMIN`, `PROJECT_TEAM`).
-- **Parámetros:** `from`, `to`, `action` (por ejemplo `RULESET_ACTIVATED`), `entity_type`, `actor_id`, `limit`, `cursor`.
-- **Respuesta:** lista de `id`, `occurred_at`, `actor_type`, `actor_id`, `action`, `entity_type`, `entity_id`, `before_state`, `after_state` (redactados), `prev_hash`, `row_hash`.
+- **Permiso:** `AUDIT_VIEW` (`INSTITUTION_ADMIN`). La vista del superadmin se hace con `act_as`.
+- **Parámetros:** `from`, `to`, `action` (por ejemplo `INSTITUTION_SETTINGS_CHANGED`), `entity_type`, `actor_id`, `limit`, `cursor`.
+- **Respuesta:** lista de `id`, `occurred_at`, `actor_type` (`USER`, `DEVICE`, `AUTOPILOT`, `PLATFORM_ADMIN` o `SYSTEM`), `actor_id`, `action`, `entity_type`, `entity_id`, `before_state`, `after_state` (redactados), `prev_hash` y `row_hash`.
 - **Nota:** cada consulta escribe en `audit.data_access_log` con `resource = AUDIT_LOG`.
 
-### 18.2 `GET /api/v1/security-events`
+### 17.2 `GET /api/v1/security-events`
 
-- **Permiso:** `AUDIT_READ` (verificar).
-- **Parámetros:** `type` (`ACCOUNT_LOCKED`, `TOKEN_REUSE_DETECTED`, `PERMISSION_DENIED`, `RATE_LIMITED`, `INVALID_SIGNATURE`, `NONCE_REPLAY`, `HONEYPOT_TRIGGERED`, `IMPORT_REJECTED`, `MFA_FAILED`), `severity`, `from`, `to`, `limit`, `cursor`.
-- **Respuesta:** lista de `id`, `type`, `severity`, `actor_user_id`, `device_id`, `request_id`, `created_at`, `details` (sin secretos).
+- **Permiso:** `AUDIT_VIEW`.
+- **Parámetros:** `type` (`ACCOUNT_LOCKED`, `TOKEN_REUSE_DETECTED`, `PERMISSION_DENIED`, `RATE_LIMITED`, `INVALID_SIGNATURE`, `NONCE_REPLAY`, `IMPORT_REJECTED`, `MFA_FAILED`), `severity`, `from`, `to`, `limit`, `cursor`.
+- **Respuesta:** lista de `id`, `type`, `severity`, `actor_user_id`, `device_id`, `request_id`, `created_at` y `details` (sin secretos).
 
-### 18.3 `PUT /api/v1/retention-policies/{data_class}`
+### 17.3 `PUT /api/v1/retention-policies/{data_class}`
 
-- **Permiso:** `PROJECT_TEAM` (`RETENTION_MANAGE`, propuesta).
+- **Permiso:** `PLATFORM_MANAGE` (propuesto; la versión anterior usaba `PROJECT_TEAM`, que se quita). Es una política global de la plataforma.
 - **Parámetro de ruta:** `data_class` = `LOGIN_ATTEMPTS`, `DEVICE_NONCES`, `SECURITY_EVENTS`, `REFRESH_TOKENS`, `DATA_ACCESS_LOG` o `TELEMETRY_POINTS`. Otro valor: `400 VALIDATION_ERROR`.
 - **Cuerpo:** `retention_days` (entero, mayor que 0).
 - **Respuesta 200:** política con `data_class`, `retention_days`, `updated_by` y `updated_at`.
 - **Valores de la semilla:** `LOGIN_ATTEMPTS` 90 días, `DEVICE_NONCES` 1 día, `SECURITY_EVENTS` 365, `REFRESH_TOKENS` 30 días después de expirar, `DATA_ACCESS_LOG` 365, `TELEMETRY_POINTS` 730.
 - **Ejemplo:** `{ "retention_days": 365 }`
 
-## 19. Salud
+## 18. Salud
 
-### 19.1 `GET /actuator/health`
+### 18.1 `GET /actuator/health`
 
-- **Permiso:** público.
+- **Permiso:** `Público`.
 - **Respuesta 200:** `{"status": "UP"}`. No muestra detalles de base de datos, IA ni disco.
 - **Nota:** la sonda de la plataforma usa este endpoint. Los detalles internos quedan solo en logs.
 
-## 20. Piloto automático, asistente y reportes (v2)
-
-![Secuencia del piloto automático](images/secuencia-piloto-automatico.png)
-
-![Secuencia de aceptar una recomendación](images/secuencia-aceptar-recomendacion.png)
-
-El piloto automático es el actor de sistema `AUTOPILOT` (sin cuenta). Cada `AUTOPILOT_INTERVAL_SECONDS` segundos (60 por defecto) toma una foto del estado del acueducto (tanque, pronóstico, llaves, turnos, anomalías), pide recomendaciones a `caudal-ia` (`POST /v1/insights/recommendations`, con el mismo cliente, token y circuit breaker del pronóstico, pero con un circuito propio) y, si el servicio no responde, usa reglas deterministas (`source: "RULES"`, `model: "rules-v1"`). El backend vuelve a validar todo lo que recibe: descarta acciones desconocidas y llaves que no vienen en la foto, exige una llave motorizada para `OPEN` y `CLOSE`, recorta el motivo a 280 caracteres, limita la confianza a 0..1 y deja como máximo 5 recomendaciones. Cada una queda como una **decisión** en `ops.autopilot_decisions`.
-
-**Qué hace el piloto con cada decisión según el modo** (`org.autopilot_settings.mode`):
-
-| Modo | Efecto |
-|---|---|
-| `MANUAL` | La decisión queda `PENDING` y solo se muestra; no se puede aceptar. |
-| `ASSISTED` | Queda `PENDING` hasta que una persona la acepte (crea el comando) o la rechace. |
-| `AUTOMATIC` | Un `OPEN` o `CLOSE` se ejecuta solo si nadie actuó en `operator_absence_minutes` (un comando manual, una aceptación o un rechazo): crea el comando con origen `AUTOPILOT` y la decisión pasa a `EXECUTED`. Si el operario estuvo activo, queda `PENDING` con `status_detail: "OPERATOR_ACTIVE"`. |
-
-**Reglas comunes a todos los modos:**
-
-- Un `OPEN` nunca se ejecuta con el nivel en o por debajo de `reserve_floor_pct` (un nivel desconocido cuenta como bajo la reserva): la decisión queda `SKIPPED` con `status_detail: "RESERVE_FLOOR"`. La misma guarda se aplica al aceptar a mano, con el nivel de ese momento (responde `409 CONFLICT`).
-- Cuando un ciclo crea decisiones nuevas, las `PENDING` anteriores pasan a `EXPIRED`.
-- Un comando de una decisión lleva `autopilot_decision_id` como único origen; si lo acepta una persona, `created_by` es esa persona. La decisión aceptada pasa a `EXECUTED` cuando el actuador confirma el comando (`ACKED`).
-- Todo queda en la auditoría: `AUTOPILOT_SETTINGS_CHANGED`, `AUTOPILOT_DECISION_ACCEPTED`, `AUTOPILOT_DECISION_REJECTED` y `AUTOPILOT_EXECUTED` (esta última con el actor `SYSTEM`).
-
-**Esquema `Decision`:** `id`, `created_at`, `source` (`LLM` o `RULES`), `model`, `action` (`OPEN`, `CLOSE`, `WAIT` o `INSPECT`), `valve_id` (nulo en `WAIT` e `INSPECT`), `reason`, `confidence` (0..1), `status` (`PENDING`, `ACCEPTED`, `REJECTED`, `EXECUTED`, `EXPIRED` o `SKIPPED`), `status_detail` (nulo, `RESERVE_FLOOR`, `COMMAND_REFUSED`, `OPERATOR_ACTIVE` o el motivo del rechazo), `decided_by`, `decided_at` y `valve_command_id`.
-
-### 20.1 `GET /api/v1/autopilot/settings`
-
-- **Permiso:** `ASSISTANT_USE`.
-- **Respuesta 200:** `{ "mode": "ASSISTED", "operator_absence_minutes": 30, "reserve_floor_pct": 25.00, "updated_at": "..." }`. Un acueducto que no configuró nada recibe los valores por defecto de las columnas de la tabla (`ASSISTED`, 30 minutos, 25 %).
-
-### 20.2 `PUT /api/v1/autopilot/settings`
-
-- **Permiso:** `AUTOPILOT_CONFIGURE` (`BOARD_ADMIN`).
-- **Cuerpo (todo obligatorio):** `mode` (`MANUAL`, `ASSISTED` o `AUTOMATIC`), `operator_absence_minutes` (entero de 1 a 1440), `reserve_floor_pct` (0 a 100). Los límites salen de `FieldLimits`.
-- **Respuesta 200:** la configuración guardada; rige desde el siguiente ciclo.
-- **Errores:** `400 VALIDATION_ERROR`.
-- **Ejemplo:** `{ "mode": "AUTOMATIC", "operator_absence_minutes": 45, "reserve_floor_pct": 30 }`
-
-### 20.3 `GET /api/v1/autopilot/decisions?status=&limit=`
-
-- **Permiso:** `ASSISTANT_USE`.
-- **Parámetros:** `status` (opcional) y `limit` (1 a 100, 100 por defecto).
-- **Respuesta 200:** `{ "items": [Decision] }`, de la más nueva a la más vieja. La pantalla consulta `status=PENDING` cada 2 segundos.
-- **Errores:** `400 VALIDATION_ERROR` (estado o límite no válidos).
-
-### 20.4 `GET /api/v1/autopilot/recommendations`
-
-- **Permiso:** `ASSISTANT_USE`.
-- **Respuesta 200:** atajo de `GET /autopilot/decisions?status=PENDING`.
-
-### 20.5 `POST /api/v1/autopilot/decisions/{id}/accept`
-
-- **Permiso:** `VALVE_COMMAND_MANUAL` (`BOARD_ADMIN` y `OPERATOR`).
-- **Cuerpo:** ninguno.
-- **Respuesta 200:** la `Decision` en `ACCEPTED`. Para `OPEN` y `CLOSE` crea el comando de la llave (`PENDING`, válido desde ahora durante `DEVICE_VALVE_COMMAND_WINDOW_MINUTES`). Cuenta como acción humana.
-- **Errores:** `404 NOT_FOUND` (decisión inexistente, o llave no motorizada o sin actuador activo), `409 CONFLICT` (modo `MANUAL`, `OPEN` bajo el piso de reserva —la decisión queda `SKIPPED`— o ya hay un comando activo de la llave en ese momento), `409 INVALID_STATE_TRANSITION` (la decisión ya no está `PENDING`).
-
-### 20.6 `POST /api/v1/autopilot/decisions/{id}/reject`
-
-- **Permiso:** `ASSISTANT_USE`.
-- **Cuerpo (opcional):** `{ "reason": "hasta 200 caracteres" }`.
-- **Respuesta 200:** la `Decision` en `REJECTED`, con el motivo en `status_detail`. No crea comando. Cuenta como acción humana.
-- **Errores:** `404 NOT_FOUND`, `409 INVALID_STATE_TRANSITION`.
-
-### 20.7 `POST /api/v1/autopilot/run`
-
-- **Permiso:** `AUTOPILOT_CONFIGURE`.
-- **Respuesta 200:** `{ "items": [Decision] }` con las decisiones del ciclo forzado (para la demostración). Vacío si el acueducto no tiene tanque ni llaves motorizadas.
-
-### 20.8 `POST /api/v1/assistant/ask`
-
-- **Permiso:** `ASSISTANT_USE`.
-- **Cuerpo:** `{ "question": "..." }` (3 a 500 caracteres).
-- **Respuesta 200:** `{ "source": "LLM" | "RULES", "model": "...", "answer": "...", "generated_at": "..." }`. Si `caudal-ia` no responde, contesta una plantilla de reglas.
-- **Errores:** `400 VALIDATION_ERROR`, `422 NO_LEVEL_DATA` (el acueducto no tiene tanque).
-
-### 20.9 `GET /api/v1/reports?from=&to=`
-
-- **Permiso:** `REPORT_VIEW`.
-- **Parámetros:** `from` (inclusive) y `to` (exclusivo), fechas y horas ISO 8601; el periodo dura como máximo 92 días.
-- **Respuesta 200:** `{ "from", "to", "aggregates": { "levels", "shifts_by_sector", "valve_commands", "autopilot_decisions", "incidents", "anomalies" } }`: nivel mínimo, máximo y promedio; turnos planeados, cumplidos, parciales y no ejecutados por sector con sus horas; comandos por origen (`SCHEDULE`, `MANUAL`, `AUTOPILOT`) y estado; decisiones por origen, acción y estado; incidentes por categoría y estado; anomalías por tipo. No incluye datos personales.
-- **Errores:** `400 VALIDATION_ERROR` (periodo vacío, invertido o de más de 92 días).
-
-### 20.10 `POST /api/v1/reports/narrative`
-
-- **Permiso:** `REPORT_VIEW`.
-- **Cuerpo:** `{ "from": "...", "to": "..." }`.
-- **Respuesta 200:** `{ "source", "model", "generated_at", "title", "summary", "findings": [..], "recommendations": [..], "markdown": "..." }`, escrito en español por el asistente o, si el servicio falla, por una plantilla. Se imprime desde el navegador.
-- **Errores:** `400 VALIDATION_ERROR`.
-
-### 20.11 `GET /api/v1/valves/live`
-
-- **Permiso:** `NETWORK_VIEW`.
-- **Respuesta 200:** `{ "items": [ { "valve_id", "sector_id", "state": "OPEN" | "CLOSED" | "UNKNOWN", "last_command": { "id", "action", "status", "origin": "SCHEDULE" | "MANUAL" | "AUTOPILOT", "created_at", "updated_at" } | null } ] }`. El estado es el que dejó el último comando confirmado por el actuador (`ACKED`); sin ninguno es `UNKNOWN`. La escena 3D lo consulta cada 2 segundos.
-
-### 20.12 Configuración
+## 19. Configuración del piloto y del asistente
 
 | Variable | Valor por defecto | Para qué sirve |
 |---|---|---|
 | `AUTOPILOT_ENABLED` | `true` | Enciende el planificador. El ciclo forzado de `POST /autopilot/run` funciona siempre. |
 | `AUTOPILOT_INTERVAL_SECONDS` | `60` | Segundos entre ciclos; en desarrollo o demostración puede bajarse a 10. |
-| `INSIGHTS_READ_TIMEOUT_MS` | `20000` | Espera máxima de la respuesta del asistente; el URL, el token y los umbrales del circuit breaker son los de `IA_SERVICE_URL`, `IA_SERVICE_TOKEN` y `CIRCUIT_BREAKER_*`. |
+| `INSIGHTS_READ_TIMEOUT_MS` | `20000` | Espera máxima de la respuesta del asistente y de las recomendaciones. La URL, el token y los umbrales del circuit breaker son los de `IA_SERVICE_URL`, `IA_SERVICE_TOKEN` y `CIRCUIT_BREAKER_*`. |
 
-## 21. Lista de endpoints
+Los parámetros de negocio (reserva, prioridad humana, piso) no son variables de entorno: están en `institution_settings` (sección 6).
 
-| Recurso | Método | Ruta | Permiso |
+## 20. Lista de endpoints
+
+| Sección | Método | Ruta | Permiso |
 |---|---|---|---|
-| Auth | POST | `/auth/login` | Público |
-| Auth | POST | `/auth/refresh` | Cookie |
-| Auth | POST | `/auth/logout` | Autenticado |
-| Auth | POST | `/auth/logout-all` | Autenticado |
-| Auth | POST | `/auth/change-password` | Autenticado |
-| Auth | POST | `/auth/reset-password` | Público (código) |
-| Auth | GET | `/auth/current-user` | Autenticado |
-| Auth | POST | `/auth/mfa/*` | Por definir |
-| Auth | POST | `/auth/switch-aqueduct` | Autenticado |
-| Usuarios | GET, POST | `/users` | `USER_MANAGE` |
-| Usuarios | PATCH | `/users/{id}` | `USER_MANAGE` |
-| Usuarios | POST | `/users/{id}/reset-grants` | `USER_MANAGE` |
-| Membresías | GET, POST | `/memberships` | `USER_MANAGE` |
-| Membresías | DELETE | `/memberships/{id}` | `USER_MANAGE` |
-| Meta | GET | `/meta/constraints` | Público |
-| Catálogos | GET | `/catalogs/{catalog}` | Público (solo etiquetas) |
-| Catálogos | POST, PATCH | `/catalogs/{catalog}/items` | `PROJECT_TEAM` |
-| Privacidad | GET | `/privacy-notice/current` | Autenticado |
-| Privacidad | POST | `/privacy-notice/accept` | Autenticado |
-| Red | GET, POST | `/tanks` | Autenticado / `BOARD_ADMIN` |
-| Red | GET, POST | `/sectors` | Autenticado / `BOARD_ADMIN` |
-| Red | PATCH | `/sectors/{id}` | `BOARD_ADMIN` |
-| Red | GET, POST | `/sectors/{id}/valves` | Autenticado / `BOARD_ADMIN` |
-| Red | PATCH | `/valves/{id}` | `BOARD_ADMIN` |
-| Reglas | GET | `/rule-sets/current` | Autenticado |
-| Reglas | GET | `/rule-sets`, `/rule-sets/{id}` | `RULESET_PROPOSE` o `RULESET_EDIT` |
-| Reglas | POST | `/rule-sets` | `RULESET_PROPOSE` |
-| Reglas | PATCH | `/rule-sets/{id}` | `RULESET_EDIT` |
-| Reglas | POST | `/rule-sets/{id}/activate` | `RULESET_ACTIVATE` |
-| Lecturas | POST | `/readings` | `READING_CREATE` |
-| Lecturas | POST | `/readings/batch` | `READING_CREATE` |
-| Lecturas | GET | `/readings`, `/readings/{id}` | Lectura (verificar) |
-| Lecturas | POST | `/readings/{id}/corrections` | `READING_CORRECT` |
-| Estado | GET | `/tanks/{id}/status` | `TANK_STATUS_READ` |
-| Estado | GET | `/tanks/{id}/forecasts/latest` | `TANK_STATUS_READ` |
-| Estado | POST | `/tanks/{id}/forecasts` | `FORECAST_RUN` |
-| Anomalías | GET | `/anomalies` | `TANK_STATUS_READ` |
-| Anomalías | PATCH | `/anomalies/{id}` | Junta (verificar) |
-| Propuestas | POST | `/schedule-proposals` | `PROPOSAL_GENERATE` |
-| Propuestas | GET | `/schedule-proposals`, `/schedule-proposals/{id}` | `PROPOSAL_READ` |
-| Propuestas | POST | `/schedule-proposals/{id}/approve`, `/modify`, `/reject` | `PROPOSAL_DECIDE` |
-| Propuestas | POST | `/schedule-proposals/{id}/publish` | `PROPOSAL_PUBLISH` |
-| Ejecución | POST | `/schedule-items/{id}/execution` | `EXECUTION_RECORD` |
-| Horario del día | GET | `/days/{date}/schedule` | `SCHEDULE_VIEW` |
-| Cierre | GET | `/days/{date}/closure` | `EXECUTION_RECORD` o `DAY_CLOSE` |
-| Cierre | POST | `/days/{date}/closure` | `DAY_CLOSE` |
-| Incidentes | GET | `/incidents` | `INCIDENT_READ` |
-| Incidentes | POST | `/incidents` | `INCIDENT_CREATE` |
-| Incidentes | PATCH | `/incidents/{id}/status` | `INCIDENT_CREATE` (verificar) |
-| Actas | POST | `/minutes` | `MINUTES_GENERATE` |
-| Actas | POST | `/minutes/{id}/finalize` | `MINUTES_GENERATE` |
-| Actas | GET | `/minutes` | `MINUTES_VIEW` |
-| Actas | GET | `/minutes/{id}`, `/minutes/{id}/pdf` | `MINUTES_VIEW` |
-| Entidades | POST | `/summary-shares` | `SUMMARY_SHARE_MANAGE` |
-| Entidades | DELETE | `/summary-shares/{id}` | `SUMMARY_SHARE_MANAGE` |
-| Entidades | GET | `/summaries` | `SUMMARY_READ` |
-| Evaluación | GET | `/forecast-evaluation` | `EVALUATION_READ` |
-| Público | GET | `/public/{slug}/schedule` | Público |
-| Público | GET | `/public/{slug}/schedule/whatsapp-text` | Público |
-| Público | GET | `/public/{slug}/schedule/poster.pdf` | Público |
-| Público | POST | `/public/{slug}/damage-reports` | Público (límite) |
-| Público | GET | `/public/damage-reports/{trackingCode}` | Público |
-| Dispositivos | POST | `/devices/telemetry` | Firma |
-| Dispositivos | GET | `/devices/commands` | Firma |
-| Dispositivos | POST | `/devices/commands/{id}/ack` | Firma |
-| Dispositivos | GET | `/devices` | `DEVICE_MANAGE` |
-| Dispositivos | POST | `/devices` | `DEVICE_MANAGE` |
-| Dispositivos | POST | `/devices/{id}/keys` | `DEVICE_MANAGE` |
-| Dispositivos | PATCH | `/devices/{id}` | `DEVICE_MANAGE` |
-| Dispositivos | DELETE | `/devices/{id}/keys/{keyId}` | `DEVICE_MANAGE` |
-| Válvulas | POST | `/valve-commands/manual` | `VALVE_COMMAND_MANUAL` |
-| Válvulas | GET | `/valves/live` | `NETWORK_VIEW` |
-| Piloto | GET | `/autopilot/settings`, `/autopilot/decisions`, `/autopilot/recommendations` | `ASSISTANT_USE` |
-| Piloto | PUT | `/autopilot/settings` | `AUTOPILOT_CONFIGURE` |
-| Piloto | POST | `/autopilot/run` | `AUTOPILOT_CONFIGURE` |
-| Piloto | POST | `/autopilot/decisions/{id}/accept` | `VALVE_COMMAND_MANUAL` |
-| Piloto | POST | `/autopilot/decisions/{id}/reject` | `ASSISTANT_USE` |
-| Asistente | POST | `/assistant/ask` | `ASSISTANT_USE` |
-| Reportes | GET | `/reports` | `REPORT_VIEW` |
-| Reportes | POST | `/reports/narrative` | `REPORT_VIEW` |
-| Importación | POST | `/imports/readings`, `/imports/shift-executions`, `/imports/incidents` | `IMPORT_RUN` (solo demo) |
-| Auditoría | GET | `/audit-log`, `/security-events` | `AUDIT_READ` |
-| Retención | PUT | `/retention-policies/{data_class}` | `PROJECT_TEAM` |
-| Salud | GET | `/actuator/health` | Público |
+| 2.1 | GET | `/public/institutions` | Público (limitado) |
+| 2.2 | POST | `/auth/login` | Público (limitado) |
+| 2.3 | POST | `/auth/refresh` | Cookie |
+| 2.4 | POST | `/auth/logout` | Autenticado |
+| 2.5 | POST | `/auth/logout-all` | Autenticado |
+| 2.6 | POST | `/auth/change-password` | Autenticado |
+| 2.7 | POST | `/auth/reset-password` | Público (código) |
+| 2.8 | GET | `/auth/current-user` | Autenticado |
+| 2.9 | POST | `/auth/mfa/enroll`, `/auth/mfa/confirm` | Autenticado (roles con MFA) |
+| 2.10 | POST | `/auth/switch-institution` | Por definir |
+| 3.1 | GET | `/platform/institutions` | `PLATFORM_MANAGE` |
+| 3.2 | POST | `/platform/institutions` | `PLATFORM_MANAGE` |
+| 3.3 | PATCH | `/platform/institutions/{id}` | `PLATFORM_MANAGE` |
+| 3.4 | POST | `/platform/institutions/{id}/admin` | `PLATFORM_MANAGE` |
+| 3.5 | POST | `/platform/institutions/{id}/act-as` | `PLATFORM_MANAGE` |
+| 4.1 | GET | `/users` | `USER_MANAGE` |
+| 4.2 | POST | `/users` | `USER_MANAGE` |
+| 4.3 | PATCH | `/users/{id}` | `USER_MANAGE` |
+| 4.4 | POST | `/users/{id}/reset-grants` | `USER_MANAGE` |
+| 5.1 | GET | `/meta/constraints` | Público |
+| 5.2 | GET | `/catalogs/{catalog}` | Público (solo etiquetas) |
+| 5.3 | GET | `/privacy-notice/current` | Autenticado |
+| 5.4 | POST | `/privacy-notice/accept` | Autenticado |
+| 6.1 | GET | `/institution/settings` | `STATUS_VIEW` |
+| 6.2 | PATCH | `/institution/settings` | `INSTITUTION_CONFIGURE` (campos del piloto: también `AUTOPILOT_CONFIGURE`) |
+| 7.1 | GET | `/tanks` | `NETWORK_VIEW` |
+| 7.2 | POST | `/tanks` | `INSTITUTION_CONFIGURE` |
+| 7.3 | PATCH | `/tanks/{id}` | `INSTITUTION_CONFIGURE` |
+| 7.4 | POST | `/tanks/{id}/calibration` | `INSTITUTION_CONFIGURE` |
+| 7.5 | GET | `/service-lines` | `NETWORK_VIEW` |
+| 7.6 | POST | `/service-lines` | `INSTITUTION_CONFIGURE` |
+| 7.7 | PATCH | `/service-lines/{id}` | `INSTITUTION_CONFIGURE` |
+| 7.8 | POST | `/service-lines/{id}/valves` | `INSTITUTION_CONFIGURE` |
+| 7.9 | PATCH | `/valves/{id}` | `INSTITUTION_CONFIGURE` |
+| 7.10 | GET | `/valves` | `NETWORK_VIEW` |
+| 7.11 | GET | `/network` | Por definir |
+| 8.1 | GET | `/tanks/{id}/live` | `STATUS_VIEW` |
+| 8.2 | GET | `/readings` | `STATUS_VIEW` (propuesto) |
+| 9.1 | GET | `/tanks/{id}/outlook` | `STATUS_VIEW` |
+| 9.2 | POST | `/tanks/{id}/forecasts` | `FORECAST_RUN` |
+| 9.3 | GET | `/events` | `STATUS_VIEW` (propuesto) |
+| 9.4 | GET | `/anomalies` | `STATUS_VIEW` |
+| 9.5 | PATCH | `/anomalies/{id}` | `ANOMALY_REVIEW` (por confirmar) |
+| 10.1 | POST | `/valve-commands/manual` | `VALVE_COMMAND_MANUAL` |
+| 10.2 | GET | `/valve-commands/{id}` | `VALVE_COMMAND_MANUAL` |
+| 10.3 | GET | `/valves/live` | `STATUS_VIEW` |
+| 11.1 | GET | `/autopilot/decisions` | `STATUS_VIEW` |
+| 11.2 | GET | `/autopilot/recommendations` | `STATUS_VIEW` |
+| 11.3 | POST | `/autopilot/decisions/{id}/accept` | `VALVE_COMMAND_MANUAL` |
+| 11.4 | POST | `/autopilot/decisions/{id}/reject` | `ASSISTANT_USE` |
+| 11.5 | POST | `/autopilot/run` | `AUTOPILOT_CONFIGURE` |
+| 12.1 | POST | `/assistant/ask` | `ASSISTANT_USE` |
+| 12.2 | GET | `/reports` | `REPORT_VIEW` |
+| 12.3 | POST | `/reports/narrative` | `REPORT_VIEW` |
+| 13.1 | POST | `/observations` | `OBSERVATION_CREATE` |
+| 13.2 | GET | `/observations` | `STATUS_VIEW` |
+| 13.3 | GET | `/days/{date}/closure` | `STATUS_VIEW` |
+| 13.4 | POST | `/days/{date}/closure` | `DAY_CLOSE` |
+| 13.5 | POST | `/minutes`, `/minutes/{id}/finalize` | `MINUTES_GENERATE` |
+| 13.5 | GET | `/minutes`, `/minutes/{id}`, `/minutes/{id}/pdf` | `MINUTES_VIEW` |
+| 14.1 | GET | `/forecast-evaluation` | `EVALUATION_VIEW` |
+| 15.1 | POST | `/imports/readings` | `IMPORT_SIMULATED` (solo instituciones simuladas) |
+| 16.1 | GET | `/devices/config` | Firma |
+| 16.2 | POST | `/devices/telemetry` | Firma |
+| 16.3 | GET | `/devices/commands` | Firma |
+| 16.4 | POST | `/devices/commands/{id}/ack` | Firma |
+| 16.5 | POST | `/devices` | `DEVICE_MANAGE` |
+| 16.6 | POST | `/devices/{id}/keys` | `DEVICE_MANAGE` |
+| 16.7 | PATCH | `/devices/{id}` | `DEVICE_MANAGE` |
+| 16.8 | DELETE | `/devices/{id}/keys/{keyId}` | `DEVICE_MANAGE` |
+| 16.9 | GET | `/devices` | `DEVICE_MANAGE` |
+| 17.1 | GET | `/audit-log` | `AUDIT_VIEW` |
+| 17.2 | GET | `/security-events` | `AUDIT_VIEW` |
+| 17.3 | PUT | `/retention-policies/{data_class}` | `PLATFORM_MANAGE` (propuesto) |
+| 18.1 | GET | `/actuator/health` | Público |
 
-Relacionados: [Reglas-de-negocio.md](Reglas-de-negocio.md), [Protocolo-de-dispositivos.md](Protocolo-de-dispositivos.md), [Contrato-IA.md](Contrato-IA.md), [Diccionario-de-datos.md](Diccionario-de-datos.md)
+## 21. Cambios respecto a la versión 1
+
+### 21.1 Rutas eliminadas o reemplazadas
+
+| Ruta anterior | Reemplazo |
+|---|---|
+| `/rule-sets`, `/rule-sets/{id}`, `/rule-sets/{id}/activate`, `/rule-sets/current` | Eliminadas. Los parámetros están en `/institution/settings` (6). |
+| `POST /readings`, `POST /readings/batch`, `GET /readings/{id}`, `POST /readings/{id}/corrections` | Eliminadas. Solo queda `GET /readings` (8.2), con lecturas del sensor. |
+| `GET /tanks/{id}/status`, `GET /tanks/{id}/forecasts/latest` | `GET /tanks/{id}/live` (8.1) y `GET /tanks/{id}/outlook` (9.1). |
+| `/sectors`, `/sectors/{id}`, `/sectors/{id}/valves` | `/service-lines`, `/service-lines/{id}`, `/service-lines/{id}/valves` (7). |
+| `GET /network` (árbol de regiones) | Por definir (7.11). |
+| `/schedule-proposals*`, `POST /schedule-items/{id}/execution`, `GET /days/{date}/schedule` | Eliminadas. Sin turnos. |
+| `/incidents*` | Eliminadas. Las observaciones van en `/observations` (13.1). |
+| `/summary-shares*`, `GET /summaries` | Eliminadas. |
+| `/public/{slug}/schedule*`, `/public/{slug}/damage-reports`, `/public/damage-reports/{trackingCode}` | Eliminadas. Solo queda `GET /public/institutions` (2.1). |
+| `/memberships*` | Eliminadas (sección 4). Por definir si una persona necesita varias cuentas. |
+| `/autopilot/settings` (GET y PUT) | `GET/PATCH /institution/settings` (6). |
+| `POST /auth/switch-aqueduct` | `POST /auth/switch-institution`, por definir (2.10). |
+| `GET /auth/me` | Alias de `GET /auth/current-user` mientras se publica el frontend nuevo. Se retira después. |
+| `POST /imports/shift-executions`, `POST /imports/incidents` | Eliminadas. Se mantiene `POST /imports/readings` (15.1). |
+| `POST /catalogs/{catalog}/items`, `PATCH /catalogs/{catalog}/items/{id}` | Por definir. La versión anterior los usaba `PROJECT_TEAM`, que se quita. |
+| `GET /anomalies` y `PATCH /anomalies/{id}` | Se mantienen (9.4 y 9.5). La revisión ya no es de la Junta. |
+| `GET /reports` con `shifts_by_sector` | Se quita el bloque de turnos (12.2). |
+| `GET /valves/live` con `sector_id` y origen `SCHEDULE` | `service_line_id` y origen `MANUAL` o `AUTOPILOT` (10.3). |
+| `POST /tanks` con `capacity_liters` | Se quita. El volumen se calcula con la geometría (8). |
+| `POST /tanks/{id}/forecasts` con `horizon_days` | `horizon_steps`, en pasos de `forecast_step_seconds` (9.2). |
+| `GET /forecast-evaluation` con `horizon_days` | `horizon_steps` (14.1). |
+| `POST /devices/telemetry` con `metric = LEVEL` | `metric = DISTANCE`, en mm crudos (16.2). |
+
+### 21.2 Códigos de error eliminados o renombrados
+
+| Código anterior | Estado |
+|---|---|
+| `RULE_SET_IMMUTABLE`, `RULE_SET_INVALID` | Eliminados con las reglas versionadas. |
+| `SCHEDULE_OVERLAP`, `HOURS_EXCEEDED`, `SHIFT_LENGTH_INVALID`, `OUTSIDE_OPERATING_WINDOW` | Eliminados con los turnos. |
+| `DUPLICATE_READING` | Eliminado con las lecturas manuales. Los duplicados de telemetría se rechazan por `X-Nonce`. |
+| `GAUGE_OUT_OF_RANGE` | Reemplazado por `DISTANCE_OUT_OF_RANGE` (propuesto). |
+| `DEMO_ONLY` | Reemplazado por `SIMULATED_ONLY` (propuesto). |
+
+### 21.3 Permisos eliminados
+
+`RULESET_VIEW`, `RULESET_DRAFT`, `RULESET_ACTIVATE`, `PROPOSAL_GENERATE`, `PROPOSAL_VIEW`, `PROPOSAL_DECIDE`, `SCHEDULE_PUBLISH`, `SCHEDULE_VIEW`, `READING_CREATE`, `READING_CORRECT`, `INCIDENT_CREATE`, `INCIDENT_VIEW`, `INCIDENT_MANAGE`, `SUMMARY_SHARE_MANAGE`, `SUMMARY_VIEW`, `NETWORK_MANAGE` (lo absorbe `INSTITUTION_CONFIGURE`) y `IMPORT_RUN` (lo reemplaza `IMPORT_SIMULATED`). Lista completa en [Actores-y-permisos.md](Actores-y-permisos.md), sección 3.2.
+
+Relacionados: [Caudal.md](Caudal.md) · [Actores-y-permisos.md](Actores-y-permisos.md) · [Reglas-de-negocio.md](Reglas-de-negocio.md) · [Protocolo-de-dispositivos.md](Protocolo-de-dispositivos.md) · [Contrato-IA.md](Contrato-IA.md) · [Diccionario-de-datos.md](Diccionario-de-datos.md) · [Configuracion-sin-valores-quemados.md](Configuracion-sin-valores-quemados.md)
