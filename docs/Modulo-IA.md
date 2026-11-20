@@ -4,7 +4,7 @@ Este documento describe el módulo de IA desde el sistema. Separa tres piezas qu
 
 1. **Pronóstico con Chronos** (modelo de series de tiempo): la banda p10, p50 y p90 del nivel del tanque.
 2. **Cálculos deterministas** (no son IA): cuánta agua queda y en cuánto tiempo se llega a la reserva o se vacía el tanque.
-3. **Asistente con un LLM** (modelo de lenguaje): responde preguntas en lenguaje natural y redacta reportes. Como propuesta de recomendación para el piloto automático, también puede sugerir `OPEN`, `CLOSE`, `WAIT` o `INSPECT` (sección 15).
+3. **Asistente con un LLM** (modelo de lenguaje): responde preguntas en lenguaje natural y redacta reportes. No recomienda acciones de válvula: las recomendaciones del piloto las calcula el backend con reglas (sección 15).
 
 El servicio vive en `caudal-ia`. El cliente, el cálculo determinista, el piloto automático y el asistente viven en `caudal-backend`.
 
@@ -74,7 +74,7 @@ El modelo es **Chronos** (`chronos-forecasting`), un modelo de series de tiempo 
 
 ### 2.4 Unidad de la banda
 
-La banda se expresa en el nivel del tanque. La unidad (`level_pct` o `level_mm`) está **por definir**. Los ejemplos de este documento usan porcentaje.
+La banda se expresa en `level_pct`, la unidad que devuelve el servicio, y el backend la expresa también en `level_mm` con la geometría del tanque. Los ejemplos de este documento usan porcentaje.
 
 ## 3. Arquitectura del servicio y del cliente
 
@@ -240,7 +240,7 @@ donde `Q(q; d)` es el cuantil `q` de los cambios de la ventana.
 
 Reglas adicionales:
 
-- Los valores se **acotan al rango útil del tanque**: `p10` y `p90` se recortan a `[0, 100]` si la unidad es porcentaje, o a `[0, útil_mm]` si es milímetros (`org.tanks`, `Reglas-de-negocio.md`, sección 2).
+- Los valores se **acotan al rango útil del tanque**: `p10` y `p90` se recortan a `[0, 100]` en `level_pct`, y a `[0, útil_mm]` en `level_mm` (`org.tanks`, `Reglas-de-negocio.md`, sección 2).
 - Si hay menos de `N` cambios válidos en la ventana (`N` por definir), la estimación simple no se calcula y el sistema muestra "sin pronóstico" en vez de un rango inventado.
 - **Horizontes mayores a un paso:** la fórmula anterior usa los mismos cuantiles para todos los horizontes. Esto subestima la incertidumbre a horizontes largos, porque los cambios de varios pasos no se suman linealmente. Alternativa a evaluar: cuantiles de cambios de `h` pasos (`x_t - x_(t-h)`). **Por definir.**
 
@@ -467,7 +467,7 @@ El asistente es un LLM compatible con OpenAI. El proveedor y el modelo son confi
 |---|---|---|
 | Agua que queda y tiempo a reserva | `caudal-backend` | Calcula las salidas 1 y 2 con la geometría y la pendiente. No usa IA. |
 | Chronos | `caudal-ia` | Pronostica la banda p10, p50 y p90. No decide nada. |
-| Asistente LLM | `caudal-ia` | Responde preguntas en lenguaje natural, redacta reportes y propone una recomendación para el piloto. No ejecuta nada. |
+| Asistente LLM | `caudal-ia` | Responde preguntas en lenguaje natural y redacta reportes. No recomienda ni ejecuta nada. |
 | Respaldo determinista | `caudal-ia` | Reglas y plantillas. Responde cuando el LLM falla, no responde a tiempo, se queda sin cuota o devuelve algo inválido. |
 | Piloto automático | `caudal-backend` (`application/autopilot/`) | Decide qué hacer con cada recomendación según el modo, ejecuta el comando y audita la decisión. |
 
@@ -481,13 +481,10 @@ Los campos exactos están en `Contrato-IA.md`, sección 9.1. El asistente no rec
 
 | Endpoint de `caudal-ia` | Salida | Quién la usa |
 |---|---|---|
-| `POST /v1/insights/recommendations` | Lista de recomendaciones `{action, valve_id?, reason, confidence}`. `action` es `OPEN`, `CLOSE`, `WAIT` o `INSPECT`. | El piloto automático. Es una propuesta, no una orden. |
 | `POST /v1/insights/report` | Resumen, hallazgos y recomendaciones en español, a partir de los agregados de un periodo. | El reporte y las actas. Se ve en la app. |
 | `POST /v1/insights/ask` | Respuesta corta a una pregunta en lenguaje natural, por ejemplo "¿cuánta agua queda?". | El panel "Asistente (modelo de lenguaje)". |
 
-Cada recomendación se valida con Pydantic antes de salir de `caudal-ia`. Lo que no valida se descarta. El backend también la revisa: que `valve_id` exista en la institución de la foto y que no baje del piso de reserva. **La última palabra la tiene el backend**, no el modelo.
-
-Solo las recomendaciones crean filas en `ops.autopilot_decisions`, con `source` (`LLM` o `RULES`) y `status` (`PENDING`, `ACCEPTED`, `REJECTED`, `EXECUTED`, `EXPIRED` o `SKIPPED`). Los reportes y las respuestas no crean decisiones. El asistente no emite comandos.
+Solo las recomendaciones del piloto crean filas en `ops.autopilot_decisions`, con `source = RULES` y `status` (`PENDING`, `ACCEPTED`, `REJECTED`, `EXECUTED`, `EXPIRED` o `SKIPPED`). Los reportes y las respuestas no crean decisiones. El asistente no emite comandos.
 
 ### 15.4 Qué hace el backend con cada recomendación
 
@@ -503,7 +500,7 @@ En todos los modos, **cualquier acción manual pausa el piloto** (prioridad huma
 
 Si el LLM falla, `caudal-ia` responde `200` con `source = RULES` y el motivo en `fallback_reason`. El asistente siempre responde, igual que la estimación simple responde cuando Chronos no lo hace.
 
-- **Recomendaciones:** reglas simples. Ejemplos de la intención: si el nivel está por debajo del piso de reserva (`reserve_floor_pct`) y una línea está abierta, recomendar `CLOSE` (guarda de `Reglas-de-negocio.md`, sección 10.2); si hay una falla de sensor abierta (`SENSOR_FAULT`), recomendar `INSPECT`; si no pasa nada de eso, `WAIT`. Las reglas completas están **por definir** y se alinean con `Reglas-de-negocio.md`, sección 10.
+- **Recomendaciones:** no pasan por `caudal-ia`. Las calcula el backend con reglas deterministas (sección 15.1). Ejemplos de la intención: si el nivel está por debajo del piso de reserva (`reserve_floor_pct`) y una línea está abierta, recomendar `CLOSE` (guarda de `Reglas-de-negocio.md`, sección 10.2); si hay una falla de sensor abierta (`SENSOR_FAULT`), recomendar `INSPECT`; si no pasa nada de eso, `WAIT`. Las reglas completas están **por definir** y se alinean con `Reglas-de-negocio.md`, sección 10.
 - **Reportes:** plantillas con las mismas cifras de la foto o de los agregados.
 - **Preguntas:** respuesta de plantilla basada en las salidas 1 y 2 del outlook (por ejemplo, "Quedan 4,24 L (50,0 %)"), o un "no lo puedo responder con esos datos".
 
@@ -521,7 +518,7 @@ Cifras aproximadas. **Verificar en el panel de cada proveedor antes de implement
 
 Consecuencias de diseño:
 
-- Con ~50 llamadas al día (OpenRouter gratis), el piloto no puede consultar al LLM cada pocos segundos: en local se usa `AUTOPILOT_INTERVAL_SECONDS=600` o más, y la cuota queda para las preguntas y los reportes. Las llamadas de recomendación se disparan por cambio relevante de la foto o por un intervalo mínimo (por definir), no por el ciclo del `@Scheduled`.
+- Con ~50 llamadas al día (OpenRouter gratis), el piloto no puede consultar al LLM cada pocos segundos: en local se usa `AUTOPILOT_INTERVAL_SECONDS=600` o más, y la cuota queda para las preguntas y los reportes.
 - Cada reporte y cada pregunta gasta cuota. El backend limita el uso por institución (propuesta: el mismo estilo de límite que el pronóstico).
 - Cuota agotada no es un error para el usuario: el asistente responde con el respaldo determinista y `fallback_reason = LLM_QUOTA_EXCEEDED` (propuesta).
 - Un LLM gratuito puede ser más lento o menos estable que Chronos. Por eso los timeouts y el circuit breaker del backend aplican también a `/v1/insights/*` (`INSIGHTS_READ_TIMEOUT_MS`, de 20 s según `Reglas-de-negocio.md`, y el resto **por definir**).
