@@ -6,8 +6,8 @@ Este documento define el contrato HTTP entre `caudal-backend` (cliente) y `cauda
 
 Principios:
 
-- `caudal-ia` no tiene estado y no accede a la base de datos. Recibe una serie y devuelve cuantiles (pronóstico). Con los endpoints `/v1/insights/*` recibe una foto de la institución y devuelve recomendaciones, reportes o respuestas en texto. Nunca abre ni cierra válvulas.
-- El backend decide cuándo pedir un pronóstico o una recomendación, guarda el resultado y, si la IA falla, responde con la estimación simple o con las reglas (respaldo). El piloto automático lo ejecuta el backend según su modo.
+- `caudal-ia` no tiene estado y no accede a la base de datos. Recibe una serie y devuelve cuantiles (pronóstico). Con los endpoints `/v1/insights/*` recibe una foto de la institución y devuelve reportes o respuestas en texto. El LLM no genera recomendaciones. Nunca abre ni cierra válvulas.
+- El backend decide cuándo pedir un pronóstico, guarda el resultado y, si la IA falla, responde con la estimación simple o con las reglas (respaldo). El piloto automático lo ejecuta el backend según su modo.
 - Ningún lado confía en el otro: cada uno valida lo que recibe.
 
 ## 1. Endpoints
@@ -18,7 +18,6 @@ Principios:
 | GET | `/v1/health` | Ninguna | Vivo (liveness). No revela nada del modelo. |
 | GET | `/v1/ready` | Ninguna | Listo para atender (modelo cargado) |
 | GET | `/v1/models` | Token de servicio | Modelos disponibles y su estado |
-| POST | `/v1/insights/recommendations` | Token de servicio | Propuestas de válvula para el piloto, a partir de la foto (sección 9) |
 | POST | `/v1/insights/report` | Token de servicio | Reporte narrativo de un periodo (sección 9) |
 | POST | `/v1/insights/ask` | Token de servicio | Respuesta en lenguaje natural sobre la foto (sección 9) |
 
@@ -333,7 +332,7 @@ Los valores de negocio (paso del pronóstico, horizonte, contexto, reserva) no v
 | `FORECAST_MIN_POINTS` | No | `<por definir>` | Tramos con lectura mínimos después del remuestreo |
 | `RESAMPLE_AGGREGATION` | No | `last` | `last` (por defecto) o `mean`, por tramo de `step_seconds` |
 | `LLM_BASE_URL` | No (asistente) | `<URL base compatible con OpenAI>` | Por defecto, OpenRouter con Nemotron de NVIDIA (gratis); alternativas Gemini Flash o Groq. Solo cambia la configuración. |
-| `LLM_MODEL` | No (asistente) | `nvidia/nemotron-3.5-super-vl:free` | Modelo que responde las preguntas, reportes y recomendaciones |
+| `LLM_MODEL` | No (asistente) | `nvidia/nemotron-3.5-super-vl:free` | Modelo que responde las preguntas y redacta los reportes |
 | `LLM_API_KEY` | Sí, si hay asistente | `<secreto, nunca en git>` | Clave del proveedor. Va en Render como secreto. Sin ella siempre se usa RULES. |
 | `LLM_TIMEOUT_S` | No | `<por definir>` | Tiempo máximo de cada llamada al LLM |
 | `LLM_MAX_RETRIES` | No | `<por definir>` | Reintentos del LLM antes del respaldo |
@@ -466,27 +465,15 @@ Estado de la institución que envía el backend en cada petición:
 }
 ```
 
-- `level_pct` es la unidad de referencia de la banda. Si la unidad final es `level_mm`, el campo cambia con la decisión de `Modulo-IA.md`, sección 2.4.
+- La banda llega en `level_pct`, la unidad de referencia. El backend la expresa también en `level_mm` con la geometría del tanque (`Modulo-IA.md`, sección 2.4).
 - `time_to_reserve_min` y `time_to_empty_min` son `null` si el nivel no baja (se muestra "no se vacía al ritmo actual").
 - Límites: 200 válvulas, 100 eventos, 30 puntos en `chronos_band`. Los campos desconocidos se rechazan (`extra="forbid"`).
 - Los nombres de los `kind` de eventos (`LEVEL_LOW`, `LEVEL_CRITICAL`, `COMMAND_FAILED`, `OBSERVATION`) y el campo `priority` de cada vÃ¡lvula son propuestas: `Reglas-de-negocio.md`, secciÃ³n 7, describe las alertas sin cÃ³digo, y la prioridad saliÃ³ con la asignaciÃ³n de turnos (**por definir**).
 - La foto no incluye turnos, reglas, propuestas ni datos personales.
 
-### 9.2 `POST /v1/insights/recommendations`
+### 9.2 `POST /v1/insights/recommendations` (eliminado)
 
-- Request: `{ "snapshot": Snapshot }`
-- Response 200:
-
-```json
-{ "source": "LLM|RULES", "model": "nemotron-3.5-super-vl|rules-v1", "generated_at": "ISO",
-  "summary": "texto corto en español",
-  "recommendations": [ { "action": "OPEN|CLOSE|WAIT|INSPECT", "valve_id": "uuid|null",
-                          "reason": "español, <= 280 caracteres", "confidence": 0.0 } ] }
-```
-
-- Como máximo 5 recomendaciones.
-- Los `valve_id` que no vengan en el snapshot se descartan.
-- Ninguna recomendación `OPEN` puede bajar el tanque del piso de reserva. Regla dura: con `level_pct <= reserve_floor_pct` solo se permiten `CLOSE`, `WAIT` o `INSPECT`, y esa guarda también se aplica a la salida del LLM.
+El LLM no genera recomendaciones. Las del piloto (`OPEN`, `CLOSE`, `WAIT`, `INSPECT`) las calcula el backend con reglas deterministas sobre el outlook, los eventos y el estado de las válvulas (`Modulo-IA.md`, sección 15). Por eso este endpoint no existe en `caudal-ia`.
 
 ### 9.3 `POST /v1/insights/report`
 
