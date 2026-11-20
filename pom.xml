@@ -33,6 +33,9 @@
     <bouncycastle.version>1.86</bouncycastle.version>
     <!-- Overrides the Boot-managed Tomcat to patch critical CVEs (2026 advisories against 11.0.24). -->
     <tomcat.version>11.0.27</tomcat.version>
+    <!-- Overrides the swagger-ui webjar of springdoc: 5.32.14 bundles DOMPurify 3.4.13
+         (CVE-2026-116803 and CVE-2026-116804, CVSS 10); 5.35.0 bundles DOMPurify 3.4.17. -->
+    <swagger-ui.version>5.35.0</swagger-ui.version>
     <archunit.version>1.5.1</archunit.version>
     <jacoco.version>0.8.15</jacoco.version>
     <jacoco.domain.line-minimum>0.90</jacoco.domain.line-minimum>
@@ -43,6 +46,16 @@
     <dependency-check.version>12.1.0</dependency-check.version>
     <dependency-check.fail-cvss>7</dependency-check.fail-cvss>
   </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.webjars</groupId>
+        <artifactId>swagger-ui</artifactId>
+        <version>${swagger-ui.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
 
   <dependencies>
     <dependency>
