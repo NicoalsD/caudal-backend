@@ -72,13 +72,13 @@ Todos se hacen con draw.io (MCP de draw.io y sus iconos). Cada diagrama tiene su
 
 | Diagrama | Archivo |
 |---|---|
-| Flujo de CAUDAL en 7 pasos | [flujo-caudal](images/flujo-caudal.png) (en actualización) |
-| Casos de uso | [casos-de-uso](images/casos-de-uso.png) (en actualización) |
+| Flujo de CAUDAL en 7 pasos | [flujo-caudal](images/flujo-caudal.png) |
+| Casos de uso | [casos-de-uso](images/casos-de-uso.png) |
 | Contexto y contenedores (C4) | [c4-contexto](images/c4-contexto.png) (en actualización) · [c4-contenedores](images/c4-contenedores.png) (en actualización) |
 | Arquitectura hexagonal | [capas-backend](images/capas-backend.png) |
 | Modelo de datos | [general](images/modelo-de-datos.png) · [iam](images/modelo-de-datos-iam.png) · [org](images/modelo-de-datos-org.png) · [ops lecturas](images/modelo-de-datos-ops-lecturas.png) · [ops turnos](images/modelo-de-datos-ops-turnos.png) · [reporting, audit, sim](images/modelo-de-datos-reporting-audit-sim.png) · [devices](images/modelo-de-datos-devices.png) (en actualización) |
-| Secuencias | [login](images/secuencia-login.png) · [lectura](images/secuencia-lectura.png) · [pronóstico](images/secuencia-pronostico.png) · [telemetría](images/secuencia-telemetria.png) · [válvula](images/secuencia-valvula.png) (por crear) |
-| Estados | [circuit breaker](images/estados-circuit-breaker.png) |
+| Secuencias | [login](images/secuencia-login.png) · [comando de válvula](images/secuencia-comando-valvula.png) · [telemetría](images/secuencia-telemetria.png) · [pronóstico](images/secuencia-pronostico.png) |
+| Estados | [comando de válvula](images/estados-comando-valvula.png) · [circuit breaker](images/estados-circuit-breaker.png) |
 | Patrones | [catálogo](images/catalogo-patrones.png) · [backend](images/patrones-backend.png) (en actualización) |
 | IA y simulación | [arquitectura de la IA](images/arquitectura-ia.png) · [datos simulados](images/flujo-datos-simulados.png) · [modelo físico](images/modelo-fisico-acueducto.png) · [hardware propuesto](images/hardware-propuesto.png) (en actualización) |
 | Gestión | [fases](images/dependencias-fases.png) · [Git Flow](images/git-flow.png) · [CI/CD](images/ci-cd.png) · [despliegue](images/despliegue.png) |

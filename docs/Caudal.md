@@ -123,8 +123,8 @@ Las historias de usuario de cada módulo están en [Historias-de-usuario.md](His
 
 | Diagrama | Archivo | Contenido |
 |---|---|---|
-| Flujo de CAUDAL | `images/flujo-caudal.png` | Los siete pasos y los actores que intervienen en cada uno. (En actualización.) |
-| Casos de uso | `images/casos-de-uso.png` | Actores y casos de uso por rol. Ver [Actores-y-permisos.md](Actores-y-permisos.md). (En actualización.) |
+| Flujo de CAUDAL | `images/flujo-caudal.png` | Los siete pasos y los actores que intervienen en cada uno. |
+| Casos de uso | `images/casos-de-uso.png` | Actores y casos de uso por rol. Ver [Actores-y-permisos.md](Actores-y-permisos.md). |
 | Contenedores (C4) | `images/c4-contenedores.png` | PWA, API, PostgreSQL, `caudal-ia`, puente USB y placa Arduino UNO. (En actualización.) |
 | Modelo de datos | `images/modelo-de-datos.png` | Esquemas y tablas por página del archivo fuente. (En actualización.) |
 | Secuencia de válvula | `images/secuencia-valvula.png` | Comando de válvula de punta a punta, con su ack. (Por crear.) |
